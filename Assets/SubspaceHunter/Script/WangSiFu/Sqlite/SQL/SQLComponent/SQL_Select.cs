@@ -1,0 +1,51 @@
+/*
+ * SubspaceHunter-SAO bilingual code note / åŒè¯­ä»£ç è¯´æ˜
+ * æ¨¡å— / Module: SQLite è¯­å¥ç»„ä»¶ / SQLite statement component
+ * åŠŸèƒ½ / Purpose: å°è£… SQLite å¢åˆ æ”¹æŸ¥ã€å»ºè¡¨å’Œç¼–è¾‘è¯­å¥ç‰‡æ®µã€‚
+ * English: Wraps SQLite create, insert, select, update, delete, alter, and editor statement fragments.
+ */
+
+using Mono.Data.Sqlite;
+public static partial class SQLComponent
+{
+    public static SqliteDataReader SelectFullTableData(string tableName)
+    {
+        string queryString = "select * from " + tableName;
+        return ExecuteQuery(queryString);
+    }
+    /// <summary>
+    /// ²éÑ¯Êı¾İ
+    /// </summary>
+    /// <param name="tableName">Êı¾İ±íÃû</param>
+    /// <param name="values">ĞèÒª²éÑ¯µÄÊı¾İ</param>
+    /// <param name="fields">²éÑ¯µÄÌõ¼ş</param>
+    /// <returns></returns>
+    public static SqliteDataReader SelectData(string tableName, string[] values, string[] fields)
+    {
+        string sql = "select " + values[0];
+        for (int i = 1; i < values.Length; i++)
+        {
+            sql += " , " + values[i];
+        }
+        sql += " from " + tableName + " where( ";
+        for (int i = 0; i < fields.Length - 1; i += 2)
+        {
+            sql += fields[i] + " =' " + fields[i + 1] + " 'and ";
+        }
+        sql = sql.Substring(0, sql.Length - 4) + ");";
+        return ExecuteQuery(sql);
+
+
+        //ÓÃÓÚ²é¿´´òÓ¡
+        //List<string> list = new List<string>();
+        //reader = ExecuteQuery(sql);
+
+        //for (int i = 0; i < reader.FieldCount; i++)
+        //{
+        //    object obj = reader.GetValue(i);
+        //    list.Add(obj.ToString());
+        //}
+        //return list;
+    }
+
+}

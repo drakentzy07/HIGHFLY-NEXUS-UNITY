@@ -1,0 +1,170 @@
+/*
+ * SubspaceHunter-SAO bilingual code note / åŒè¯­ä»£ç è¯´æ˜
+ * æ¨¡å— / Module: SQLite è¯­å¥ç»„ä»¶ / SQLite statement component
+ * åŠŸèƒ½ / Purpose: å°è£… SQLite å¢åˆ æ”¹æŸ¥ã€å»ºè¡¨å’Œç¼–è¾‘è¯­å¥ç‰‡æ®µã€‚
+ * English: Wraps SQLite create, insert, select, update, delete, alter, and editor statement fragments.
+ */
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using Mono.Data.Sqlite;
+using System;
+using System.IO;
+
+
+
+[AddComponentMenu("SQL")]
+public static partial class SQLComponent
+{
+    static string dbName= "Test";//ÎÄ¼şÃû
+    public static string dataSandBoxPath = Application.persistentDataPath + "/" + dbName;//Â·¾¶Ãû
+    public static string connectString = "URI=file:" + dataSandBoxPath;//www´«ÊäÏÂµÄÎÄ¼şÃû
+    //½¨Á¢Êı¾İ¿âÁ¬½Ó
+    static SqliteConnection connection;
+    //Êı¾İ¿âÃüÁî
+    static SqliteCommand command;
+    //Êı¾İ¿âÔÄ¶ÁÆ÷
+    static SqliteDataReader reader;
+
+    static public SqliteDataReader ExecuteQuery(string queryString)
+    {
+        command = connection.CreateCommand();
+        command.CommandText = queryString;
+        reader = command.ExecuteReader();
+        return reader;
+    }
+    static public List<String> GetDataBySqlQuery(string tableName, string[] fields)
+    {
+        //string queryString = "select " + fields[0];
+        //for (int i = 1; i < fields.Length; i++)
+        //{
+        //    queryString += " , " + fields[i];
+        //}
+        //queryString += " from " + tableName;
+        //return ExecuteQuery(queryString);
+
+        List<string> list = new List<string>();
+        string queryString = "SELECT * FROM " + tableName;
+        reader = ExecuteQuery(queryString);
+        while (reader.Read())
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                object obj = reader.GetValue(i);
+                list.Add(obj.ToString());
+            }
+        }
+        return list;
+    }
+    static string CS2DB(Type type)
+    {
+        string result = "Text";
+        if (type == typeof(Int32))
+        {
+            result = "Int";
+        }
+        else if (type == typeof(String))
+        {
+            result = "Text";
+        }
+        else if (type == typeof(Single))
+        {
+            result = "FLOAT";
+        }
+        else if (type == typeof(Boolean))
+        {
+            result = "Bool";
+        }
+        return result;
+    }
+    //´ò¿ªÊı¾İ¿â
+    public static void OpenConnect()
+    {
+        try
+        {
+            //Êı¾İ¿â´æ·ÅÔÚ Asset/StreamingAssets
+            string path = dbName;//¾ÍÊÇsubspaceHunter ÉèÖÃÎªPrivatelÁË
+                                 //  Show_OnTextDebug("enter_connect");
+                                 //ĞÂ½¨Êı¾İ¿âÁ¬½Ó
+            connection = new SqliteConnection(GetDataPath(path));
+            // Show_OnTextDebug("ĞÂ½¨Á´½Ó");
+            //´ò¿ªÊı¾İ¿â
+            connection.Open();
+
+            Debug.Log(dataSandBoxPath);
+            // Show_OnTextDebug("´ò¿ªÊı¾İ¿â");
+            Debug.Log("´ò¿ªÊı¾İ¿â");
+        }
+        catch (Exception ex)
+        {
+            // Show_OnTextDebug(ex.ToString());
+            Debug.Log(ex.ToString());
+        }
+
+    }
+    public static string GetDataPath(string databasePath)
+    {
+
+
+#if UNITY_EDITOR
+        //return connectString;//Ä£Äâ°²×¿Ê¹ÓÃ£¬¼´Ïàµ±ÓÚ¶ÔpersistentÖ±½ÓÄ£Äâ
+        return "data source=" + Application.streamingAssetsPath + "/" + databasePath;//Ä£Äâeditor²Ù×÷Ê¹ÓÃ ¼´ÔÚunity editorÏÂÖ±½Ó¶Ôstreaming asset²Ù×÷
+#elif UNITY_ANDROID
+               return  connectString;//"URI=file:" + Application.persistentDataPath + "/" + databasePath;
+#endif
+
+#if UNITY_IOS
+               return "data source=" + Application.persistentDataPath + "/" + databasePath;
+#endif
+    }
+
+    
+    public static IEnumerator copyDbFile()//½«StreamingAsset ¿½±´µ½persistent pathÏÂ
+    {
+        
+        Debug.Log(dataSandBoxPath);
+
+        if (System.IO.File.Exists(SQLComponent.dataSandBoxPath))//´æÔÚÎÄ¼şÖ±½Ó·µ»Ø
+        {
+            yield break;
+
+        }
+        if (!Directory.Exists(Application.persistentDataPath))
+        {
+            Directory.CreateDirectory(Application.persistentDataPath);
+        }
+        WWW loadWWW = new WWW(Path.Combine(Application.streamingAssetsPath, dbName));
+        // Debug.Log(Path.Combine(Application.streamingAssetsPath, dbName));
+        yield return loadWWW;
+        File.WriteAllBytes(dataSandBoxPath, loadWWW.bytes);
+        //Creates a new file, writes the specified byte array to the file, and then closes the file. If the target file already exists, it is overwritten.
+        
+        //SQLTest.instance.p();
+
+    }
+    //¹Ø±ÕÊı¾İ¿â
+    public static void CloseDB()
+    {
+        if (command != null)
+        {
+            command.Cancel();
+        }
+        command = null;
+
+        if (reader != null)
+        {
+            reader.Close();
+        }
+        reader = null;
+
+        if (connection != null)
+        {
+            //connection.Close();
+        }
+        connection = null;
+
+        Debug.Log("¹Ø±ÕÊı¾İ¿â");
+    }
+
+}

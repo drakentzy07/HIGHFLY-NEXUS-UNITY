@@ -1,0 +1,66 @@
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Unity generated files
+*.csproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# IDE/editor files
+.vscode/
+.vs/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Version control leftovers
+.svn/
+
+# Local/generated render or bake scratch files at repository root
+/alphabuffer.bin
+/alphaid*.bin
+/comp_*.bin
+/comp_indirect*.bin
+/heightmaps.bin
+/ib*.bin
+/lastscene.txt
+/lmid.bin
+/lmlod.bin
+/lms.bin
+/lmuvgb.bin
+/matid.bin
+/mesh.bin
+/objects.bin
+/seamfix.bin
+/settings.bin
+/surf.bin
+/vb*.bin
+/bakery_times.log
+
+.cardinal/settings.local.json

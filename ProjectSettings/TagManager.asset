@@ -1,0 +1,95 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 2
+  tags:
+  - Weapon
+  - Weapon_inHand
+  - enemy_body
+  - Weapon_inEnemy
+  - Transition
+  - MessBox_gerPoint
+  - UI_system
+  - item_menu_generatePoint
+  - Menu_right_GeneratePoint
+  - test
+  - Menu_right
+  - item_setUI
+  - AI_system
+  - baidu_input
+  - Item_callPoint
+  - vedieo_point
+  - Item_generate_point
+  - Global_Music_play
+  - Body
+  - Head
+  - ignore_box_shader
+  - Battle_manager
+  - Enemy_spawn
+  - Yui_point
+  - Player_body
+  - baidu_back_Text
+  - RoomLight
+  - CinemachineTarget
+  - Weapon_inWorld
+  - Player_bullet
+  - Gun
+  - Gun_inhand
+  - Ground
+  - anchor
+  - anchor_controller
+  - null_restrit_ger
+  - Gun_handTrigger
+  - AR_light
+  - enemy_AR_secen_manger
+  - tuto_ui
+  - Weapon_inRightHand
+  - Player_leftHand
+  - Player_rightHand
+  - Magic_leftHand
+  - Magic_rightHand
+  - Bullet
+  - SoundsManager
+  - SQL_manager
+  - Hand_and_Controller
+  layers:
+  - Default
+  - TransparentFX
+  - Ignore Raycast
+  - UI_standard
+  - Water
+  - UI
+  - Can_selectGameObject
+  - postprocess
+  - Player
+  - DynamicPose
+  - Enemy_meshBody
+  - Player_body
+  - new_player_body
+  - Weapon_floating
+  - Player_shoot
+  - hit_effect
+  - ground
+  - Enmey_Chara_body
+  - magic
+  - Weapon_body
+  - Grabbable
+  - Hand
+  - enemy_bullet
+  - enemy_weaponRig
+  - ene_weap_NonGroud
+  - Environment
+  - shadow_ground
+  - enemy_weaponDam
+  - StereoRender_Ignore
+  - 
+  - 
+  - 
+  m_SortingLayers:
+  - name: Default
+    uniqueID: 0
+    locked: 0
+  - name: UI_aboveAll
+    uniqueID: 4055346763
+    locked: 0

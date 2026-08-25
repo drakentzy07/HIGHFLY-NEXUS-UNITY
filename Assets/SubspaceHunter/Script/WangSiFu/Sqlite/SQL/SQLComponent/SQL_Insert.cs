@@ -1,0 +1,75 @@
+/*
+ * SubspaceHunter-SAO bilingual code note / åŒè¯­ä»£ç è¯´æ˜
+ * æ¨¡å— / Module: SQLite è¯­å¥ç»„ä»¶ / SQLite statement component
+ * åŠŸèƒ½ / Purpose: å°è£… SQLite å¢åˆ æ”¹æŸ¥ã€å»ºè¡¨å’Œç¼–è¾‘è¯­å¥ç‰‡æ®µã€‚
+ * English: Wraps SQLite create, insert, select, update, delete, alter, and editor statement fragments.
+ */
+
+using Mono.Data.Sqlite;
+using UnityEngine;
+
+public static partial class SQLComponent
+{
+    /// <summary>
+    /// ÏòÖ¸¶¨Êı¾İ±íÖĞ²åÈëÊı¾İ
+    /// </summary>
+    /// <param name="tableName"></param>
+    /// <param name="values"></param>
+    /// <returns></returns>
+    public static SqliteDataReader InsertValues(string tableName, string[] values)
+    {
+        string sql = "INSERT INTO " + tableName + " values (";
+        foreach (var item in values)
+        {
+            sql += "'" + item + "',";
+        }
+        sql = sql.TrimEnd(',') + ")";     
+        return ExecuteQuery(sql);
+    }
+
+    /// <summary>
+    /// where²»¿ÉÓÃÔÚinsert
+    /// </summary>
+    /// <param name="tableName"></param>
+    /// <param name="columnName"></param>
+    /// <param name="values"></param>
+    /// <param name="id"></param>
+    /// <returns></returns>
+    public static SqliteDataReader InsertValues_specifi(string tableName, string columnName,string[] values, string id)
+    {
+        string sql = "INSERT INTO " + tableName + "( "+columnName+" )" + " values (";
+        foreach (var item in values)
+        {
+            sql += "'" + item + "',";
+        }
+        sql = sql.TrimEnd(',') + ")";
+
+      //  sql += " WHERE " + "id" + " = " +id;
+        Debug.Log(sql);
+        return ExecuteQuery(sql);
+    }
+
+    /// <summary>
+    /// ²åÈëÊı¾İ
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="t"></param>
+    /// <returns></returns>
+    public static SqliteDataReader Insert<T>(T t)
+    {
+        var type = typeof(T);
+        var fields = type.GetFields();
+        string sql = "INSERT INTO " + type.Name + " values (";
+
+        foreach (var field in fields)
+        {
+            //Í¨¹ı·´ÉäµÃµ½¶ÔÏóµÄÖµ
+            sql += "'" + type.GetField(field.Name).GetValue(t) + "',";
+        }
+        sql = sql.TrimEnd(',') + ");";
+        
+
+        return ExecuteQuery(sql);
+    }
+
+}
