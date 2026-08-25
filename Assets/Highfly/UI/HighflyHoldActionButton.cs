@@ -11,6 +11,9 @@ namespace Highfly.UI
 
         private bool _held;
 
+        public UnityEvent OnPressed => onPressed;
+        public UnityEvent OnReleased => onReleased;
+
         public void OnPointerDown(PointerEventData eventData)
         {
             if (_held)
