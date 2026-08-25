@@ -27,7 +27,6 @@ namespace Highfly.Editor
             Directory.CreateDirectory("Assets/Highfly/Scenes");
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            scene.name = "HIGHFLY_CombatLab";
 
             CreateLighting();
             CreateGround();
