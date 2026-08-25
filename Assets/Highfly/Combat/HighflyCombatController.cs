@@ -9,6 +9,7 @@ namespace Highfly.Combat
         [Header("References")]
         [SerializeField] private HighflyThirdPersonMotor motor;
         [SerializeField] private HighflyTargetingSystem targeting;
+        [SerializeField] private HighflyPlayerResources resources;
         [SerializeField] private Animator animator;
         [SerializeField] private Transform attackOrigin;
         [SerializeField] private LayerMask enemyMask = ~0;
@@ -24,16 +25,24 @@ namespace Highfly.Combat
         [SerializeField] private float heavyDamage = 25f;
         [SerializeField] private float heavyRadius = 2.5f;
         [SerializeField] private float heavyHitDelay = 0.18f;
+        [SerializeField] private float heavyStaminaCost = 12f;
+
+        [Header("Mobility / defense")]
+        [SerializeField] private float dashStaminaCost = 20f;
+        [SerializeField] private float blockStaminaDrainPerSecond = 12f;
 
         [Header("Skills")]
         [SerializeField] private float lineDamage = 34f;
         [SerializeField] private float lineLength = 6.5f;
         [SerializeField] private float lineRadius = 1.05f;
+        [SerializeField] private float lineManaCost = 16f;
         [SerializeField] private float coneDamage = 30f;
         [SerializeField] private float coneRadius = 4.2f;
         [SerializeField] private float coneHalfAngle = 48f;
+        [SerializeField] private float coneManaCost = 20f;
         [SerializeField] private float areaDamage = 26f;
         [SerializeField] private float areaRadius = 3.2f;
+        [SerializeField] private float areaManaCost = 24f;
 
         private int _comboIndex;
         private float _lastBasicTime = -99f;
@@ -47,8 +56,19 @@ namespace Highfly.Combat
                 motor = GetComponent<HighflyThirdPersonMotor>();
             if (targeting == null)
                 targeting = GetComponent<HighflyTargetingSystem>();
+            if (resources == null)
+                resources = GetComponent<HighflyPlayerResources>();
             if (attackOrigin == null)
                 attackOrigin = transform;
+        }
+
+        private void Update()
+        {
+            if (_isBlocking && resources != null)
+            {
+                if (!resources.TrySpendStamina(blockStaminaDrainPerSecond * Time.deltaTime))
+                    EndBlock();
+            }
         }
 
         public void BasicAttack()
@@ -74,6 +94,9 @@ namespace Highfly.Combat
 
         public void HeavyAttack()
         {
+            if (resources != null && !resources.TrySpendStamina(heavyStaminaCost))
+                return;
+
             FaceSoftTarget();
             if (animator != null)
                 animator.SetTrigger("HeavyAttack");
@@ -84,9 +107,21 @@ namespace Highfly.Combat
         {
             if (motor == null)
                 return;
+            if (resources != null && !resources.TrySpendStamina(dashStaminaCost))
+                return;
 
             Vector3 direction = motor.LastMoveDirection.sqrMagnitude > 0.001f ? motor.LastMoveDirection : transform.forward;
             motor.Dash(direction);
+        }
+
+        public void BeginBlock()
+        {
+            SetBlock(true);
+        }
+
+        public void EndBlock()
+        {
+            SetBlock(false);
         }
 
         public void SetBlock(bool active)
@@ -98,6 +133,9 @@ namespace Highfly.Combat
 
         public void SkillLineCleave()
         {
+            if (resources != null && !resources.TrySpendMana(lineManaCost))
+                return;
+
             FaceSoftTarget();
             if (animator != null)
                 animator.SetTrigger("Skill1");
@@ -109,6 +147,9 @@ namespace Highfly.Combat
 
         public void SkillCone()
         {
+            if (resources != null && !resources.TrySpendMana(coneManaCost))
+                return;
+
             FaceSoftTarget();
             if (animator != null)
                 animator.SetTrigger("Skill2");
@@ -118,15 +159,18 @@ namespace Highfly.Combat
 
         public void SkillArea()
         {
+            if (resources != null && !resources.TrySpendMana(areaManaCost))
+                return;
+
             if (animator != null)
                 animator.SetTrigger("Skill3");
 
-            // Intentional medium AoE around/just ahead of the hunter.
             Vector3 center = transform.position + transform.forward * 1.1f;
             HighflyCombatQueries.DamageArea(center, areaRadius, enemyMask, areaDamage);
         }
 
-        // Animation events can call these later when final animations are installed.
+        // Final animation clips can call these events. Prototype timing currently
+        // uses the delayed fallbacks so Combat Lab works before final animation import.
         public void AnimationEventBasicHit()
         {
             ApplyBasicHit();
@@ -189,7 +233,6 @@ namespace Highfly.Combat
             if (direction.sqrMagnitude < 0.001f)
                 return;
 
-            // Snap is limited to combat start; camera remains fully player controlled.
             transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
         }
     }
