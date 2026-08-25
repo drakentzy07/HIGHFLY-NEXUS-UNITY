@@ -1,0 +1,63 @@
+name: Build HIGHFLY Android Combat Lab
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    name: Unity Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout HIGHFLY
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-2021.3.45f1-Android-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-2021.3.45f1-Android-
+            Library-2021.3.45f1-
+
+      - name: Free disk for Unity Android image
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+
+      - name: Build HIGHFLY APK
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: 2021.3.45f1
+          targetPlatform: Android
+          androidExportType: androidPackage
+          buildName: HIGHFLY-NEXUS-COMBAT-LAB
+          buildsPath: build
+          buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildAndroid
+          allowDirtyBuild: true
+
+      - name: Upload HIGHFLY APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-NEXUS-COMBAT-LAB-APK
+          path: build/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
