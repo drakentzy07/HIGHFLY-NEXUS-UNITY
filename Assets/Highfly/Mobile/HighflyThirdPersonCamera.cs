@@ -73,9 +73,32 @@ namespace Highfly.Mobile
 
         private float ResolveCollisionDistance(Vector3 pivot, Vector3 direction)
         {
-            RaycastHit hit;
-            if (Physics.SphereCast(pivot, collisionRadius, direction, out hit, distance, collisionMask, QueryTriggerInteraction.Ignore))
-                return Mathf.Clamp(hit.distance - collisionRadius, minDistance, distance);
+            RaycastHit[] hits = Physics.SphereCastAll(
+                pivot,
+                collisionRadius,
+                direction,
+                distance,
+                collisionMask,
+                QueryTriggerInteraction.Ignore);
+
+            float nearest = distance;
+            for (int i = 0; i < hits.Length; i++)
+            {
+                RaycastHit hit = hits[i];
+                if (hit.collider == null)
+                    continue;
+
+                Transform hitTransform = hit.collider.transform;
+                if (followTarget != null &&
+                    (hitTransform == followTarget || hitTransform.IsChildOf(followTarget)))
+                    continue;
+
+                if (hit.distance < nearest)
+                    nearest = hit.distance;
+            }
+
+            if (nearest < distance)
+                return Mathf.Clamp(nearest - collisionRadius, minDistance, distance);
 
             return distance;
         }
