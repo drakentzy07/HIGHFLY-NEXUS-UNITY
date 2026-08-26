@@ -9,37 +9,96 @@ namespace Highfly.Editor
 {
     public static class HighflyBuildPipeline
     {
+        private const string DiagnosticsDirectory = "build/diagnostics";
+
         public static void BuildAndroid()
         {
-            HighflyCombatLabBuilder.BuildOrRefreshCombatLab();
+            Directory.CreateDirectory(DiagnosticsDirectory);
+            WriteDiagnostic("00-pipeline-started.txt",
+                "HIGHFLY Android pipeline started\n" +
+                "Unity: " + Application.unityVersion + "\n" +
+                "Initial active target: " + EditorUserBuildSettings.activeBuildTarget + "\n");
 
-            PlayerSettings.companyName = "HIGHFLY";
-            PlayerSettings.productName = "HIGHFLY NEXUS";
-            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.highfly.nexus");
-            PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
-            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
-            EditorUserBuildSettings.buildAppBundle = false;
-
-            string outputPath = ResolveOutputPath();
-            string directory = Path.GetDirectoryName(outputPath);
-            if (!string.IsNullOrEmpty(directory))
-                Directory.CreateDirectory(directory);
-
-            BuildPlayerOptions options = new BuildPlayerOptions
+            try
             {
-                scenes = new[] { HighflyCombatLabBuilder.ScenePath },
-                locationPathName = outputPath,
-                target = BuildTarget.Android,
-                targetGroup = BuildTargetGroup.Android,
-                options = BuildOptions.None
-            };
+                Debug.Log("HIGHFLY: forcing Android as the active build target before scene generation.");
+                bool switched = EditorUserBuildSettings.SwitchActiveBuildTarget(
+                    BuildTargetGroup.Android,
+                    BuildTarget.Android);
 
-            Debug.Log("HIGHFLY Android build output: " + outputPath);
-            BuildReport report = BuildPipeline.BuildPlayer(options);
-            if (report.summary.result != BuildResult.Succeeded)
-                throw new Exception("HIGHFLY Android build failed: " + report.summary.result + " / " + report.summary.totalErrors + " errors");
+                WriteDiagnostic("01-target-switch.txt",
+                    "SwitchActiveBuildTarget returned: " + switched + "\n" +
+                    "Active target after switch: " + EditorUserBuildSettings.activeBuildTarget + "\n");
 
-            Debug.Log("HIGHFLY Android APK built successfully: " + outputPath);
+                if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+                    throw new Exception("HIGHFLY could not activate the Android build target. Active target is " + EditorUserBuildSettings.activeBuildTarget);
+
+                HighflyCombatLabBuilder.BuildOrRefreshCombatLab();
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                WriteDiagnostic("02-scene-generated.txt", "Combat Lab scene generated: " + HighflyCombatLabBuilder.ScenePath + "\n");
+
+                PlayerSettings.companyName = "HIGHFLY";
+                PlayerSettings.productName = "HIGHFLY NEXUS";
+                PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.highfly.nexus");
+                PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
+                PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
+                EditorUserBuildSettings.buildAppBundle = false;
+
+                string outputPath = ResolveOutputPath();
+                string directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+
+                WriteDiagnostic("03-build-started.txt",
+                    "Output: " + outputPath + "\n" +
+                    "Active target: " + EditorUserBuildSettings.activeBuildTarget + "\n");
+
+                BuildPlayerOptions options = new BuildPlayerOptions
+                {
+                    scenes = new[] { HighflyCombatLabBuilder.ScenePath },
+                    locationPathName = outputPath,
+                    target = BuildTarget.Android,
+                    targetGroup = BuildTargetGroup.Android,
+                    options = BuildOptions.None
+                };
+
+                Debug.Log("HIGHFLY Android build output: " + outputPath);
+                BuildReport report = BuildPipeline.BuildPlayer(options);
+                BuildSummary summary = report.summary;
+
+                WriteDiagnostic("04-build-result.txt",
+                    "Result: " + summary.result + "\n" +
+                    "Errors: " + summary.totalErrors + "\n" +
+                    "Warnings: " + summary.totalWarnings + "\n" +
+                    "Output: " + summary.outputPath + "\n" +
+                    "Size: " + summary.totalSize + "\n");
+
+                if (summary.result != BuildResult.Succeeded)
+                    throw new Exception("HIGHFLY Android build failed: " + summary.result + " / " + summary.totalErrors + " errors");
+
+                Debug.Log("HIGHFLY Android APK built successfully: " + outputPath);
+                WriteDiagnostic("99-success.txt", "APK built successfully: " + outputPath + "\n");
+            }
+            catch (Exception exception)
+            {
+                WriteDiagnostic("ERROR.txt", exception.ToString());
+                Debug.LogException(exception);
+                throw;
+            }
+        }
+
+        private static void WriteDiagnostic(string fileName, string contents)
+        {
+            try
+            {
+                Directory.CreateDirectory(DiagnosticsDirectory);
+                File.WriteAllText(Path.Combine(DiagnosticsDirectory, fileName), contents ?? string.Empty);
+            }
+            catch (Exception diagnosticException)
+            {
+                Debug.LogWarning("HIGHFLY could not write diagnostic file " + fileName + ": " + diagnosticException.Message);
+            }
         }
 
         private static string ResolveOutputPath()
