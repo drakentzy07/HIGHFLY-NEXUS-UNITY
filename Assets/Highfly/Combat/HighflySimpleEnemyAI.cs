@@ -8,6 +8,7 @@ namespace Highfly.Combat
         [SerializeField] private Transform target;
         [SerializeField] private HighflyHealth targetHealth;
         [SerializeField] private HighflyHealth selfHealth;
+        [SerializeField] private Animator animator;
         [SerializeField] private float moveSpeed = 2.8f;
         [SerializeField] private float detectionRange = 12f;
         [SerializeField] private float attackRange = 1.7f;
@@ -23,6 +24,8 @@ namespace Highfly.Combat
             _controller = GetComponent<CharacterController>();
             if (selfHealth == null)
                 selfHealth = GetComponent<HighflyHealth>();
+            if (animator == null)
+                animator = GetComponentInChildren<Animator>();
         }
 
         private void Start()
@@ -41,14 +44,20 @@ namespace Highfly.Combat
         private void Update()
         {
             if (target == null || (selfHealth != null && !selfHealth.IsAlive))
+            {
+                SetMoveAnimation(0f);
                 return;
+            }
 
             Vector3 toTarget = target.position - transform.position;
             toTarget.y = 0f;
             float distance = toTarget.magnitude;
 
             if (distance > detectionRange || distance <= 0.001f)
+            {
+                SetMoveAnimation(0f);
                 return;
+            }
 
             Vector3 direction = toTarget / distance;
             Quaternion desiredRotation = Quaternion.LookRotation(direction, Vector3.up);
@@ -56,13 +65,20 @@ namespace Highfly.Combat
 
             if (distance > attackRange)
             {
+                SetMoveAnimation(1f);
                 _controller.SimpleMove(direction * moveSpeed);
                 return;
             }
 
+            SetMoveAnimation(0f);
+
             if (Time.time >= _nextAttackTime)
             {
                 _nextAttackTime = Time.time + attackInterval;
+
+                if (animator != null && HasParameter(animator, "Attack"))
+                    animator.SetTrigger("Attack");
+
                 if (targetHealth != null && targetHealth.IsAlive)
                     targetHealth.ApplyDamage(attackDamage);
             }
@@ -72,6 +88,34 @@ namespace Highfly.Combat
         {
             target = targetTransform;
             targetHealth = health;
+        }
+
+        public void SetAnimator(Animator value)
+        {
+            animator = value;
+        }
+
+        private void SetMoveAnimation(float amount)
+        {
+            if (animator == null)
+                return;
+
+            if (HasParameter(animator, "MoveSpeed"))
+                animator.SetFloat("MoveSpeed", amount, 0.1f, Time.deltaTime);
+            if (HasParameter(animator, "IsMoving"))
+                animator.SetBool("IsMoving", amount > 0.05f);
+        }
+
+        private static bool HasParameter(Animator targetAnimator, string parameterName)
+        {
+            AnimatorControllerParameter[] parameters = targetAnimator.parameters;
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].name == parameterName)
+                    return true;
+            }
+
+            return false;
         }
     }
 }
