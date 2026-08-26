@@ -938,23 +938,23 @@ namespace Highfly.Editor
 
         private static CityMetrics CreateSafeCity(Transform root, RuntimeAnimatorController npcController)
         {
-            if (!AssetExists(CityGrassPath))
+            if (!AssetExists(FloorPath))
                 return CreateFallbackCity(root, npcController);
 
-            GameObject sample = InstantiateModel(CityGrassPath, root, "CityHexSample");
+            GameObject sample = InstantiateModel(FloorPath, root, "CityStoneSample");
             if (sample == null)
                 return CreateFallbackCity(root, npcController);
 
             Bounds bounds = GetRendererBounds(sample);
-            const float cityArtScale = 3.0f;
-            float tileX = Mathf.Max(2.2f, bounds.size.x) * cityArtScale;
-            float tileZ = Mathf.Max(2.2f, bounds.size.z) * cityArtScale;
+            const float cityArtScale = 1.0f;
+            float tileX = Mathf.Max(2.2f, bounds.size.x);
+            float tileZ = Mathf.Max(2.2f, bounds.size.z);
             UnityEngine.Object.DestroyImmediate(sample);
 
-            const int columns = 9;
-            const int rows = 9;
-            float xSpacing = tileX * 0.76f;
-            float zSpacing = tileZ * 0.88f;
+            const int columns = 14;
+            const int rows = 14;
+            float xSpacing = tileX;
+            float zSpacing = tileZ;
             float width = xSpacing * (columns - 1) + tileX;
             float depth = zSpacing * (rows - 1) + tileZ;
             float halfWidth = width * 0.5f;
@@ -969,12 +969,7 @@ namespace Highfly.Editor
                 {
                     float px = (x - (columns - 1) * 0.5f) * xSpacing;
                     float pz = (z - (rows - 1) * 0.5f) * zSpacing;
-                    if ((z & 1) == 1)
-                        px += xSpacing * 0.5f;
-
-                    bool road = (x == columns / 2 || z == rows / 2) && AssetExists(CityRoadPath);
-                    string tilePath = road ? CityRoadPath : CityGrassPath;
-                    GameObject tile = InstantiateModel(tilePath, floorRoot.transform, "CityTile_" + x + "_" + z);
+                    GameObject tile = InstantiateModel(FloorPath, floorRoot.transform, "CityTile_" + x + "_" + z);
                     if (tile == null)
                         continue;
 
