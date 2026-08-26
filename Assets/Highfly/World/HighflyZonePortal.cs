@@ -1,5 +1,6 @@
 using UnityEngine;
 using Highfly.Core;
+using Highfly.Combat;
 
 namespace Highfly.World
 {
