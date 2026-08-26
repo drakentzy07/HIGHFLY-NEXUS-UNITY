@@ -17,6 +17,7 @@ using Highfly.Combat;
 using Highfly.Core;
 using Highfly.Mobile;
 using Highfly.UI;
+using Highfly.World;
 
 namespace Highfly.Editor
 {
@@ -37,6 +38,8 @@ namespace Highfly.Editor
             "Assets/External/KayKit/Skeletons/addons/kaykit_character_pack_skeletons";
         private const string DungeonRoot =
             "Assets/External/KayKit/Dungeon/addons/kaykit_dungeon_remastered";
+        private const string MedievalRoot =
+            "Assets/External/KayKit/Medieval/addons/kaykit_medieval_hexagon_pack";
 
         private const string PlayerModelPath = AdventurerRoot + "/Characters/fbx/RogueHooded.fbx";
         private const string PlayerWeaponPath = AdventurerRoot + "/Assets/fbx/sword_1handed.fbx";
@@ -58,6 +61,23 @@ namespace Highfly.Editor
         private const string ChestPath = DungeonAssetRoot + "/chest_gold.fbx";
         private const string CratesPath = DungeonAssetRoot + "/crates_stacked.fbx";
         private const string BarrelPath = DungeonAssetRoot + "/barrel_large_decorated.fbx";
+
+        private const string MedievalAssetRoot = MedievalRoot + "/Assets/fbx";
+        private const string CityGrassPath = MedievalAssetRoot + "/tiles/base/hex_grass.fbx";
+        private const string CityRoadPath = MedievalAssetRoot + "/tiles/roads/hex_road_A.fbx";
+        private const string CityGuildPath = MedievalAssetRoot + "/buildings/blue/building_barracks_blue.fbx";
+        private const string CityTavernPath = MedievalAssetRoot + "/buildings/blue/building_tavern_blue.fbx";
+        private const string CityBlacksmithPath = MedievalAssetRoot + "/buildings/blue/building_blacksmith_blue.fbx";
+        private const string CityChurchPath = MedievalAssetRoot + "/buildings/blue/building_church_blue.fbx";
+        private const string CityMarketPath = MedievalAssetRoot + "/buildings/blue/building_market_blue.fbx";
+        private const string CityWellPath = MedievalAssetRoot + "/buildings/blue/building_well_blue.fbx";
+        private const string CityHomeAPath = MedievalAssetRoot + "/buildings/blue/building_home_A_blue.fbx";
+        private const string CityHomeBPath = MedievalAssetRoot + "/buildings/blue/building_home_B_blue.fbx";
+        private const string CityWallPath = MedievalAssetRoot + "/buildings/neutral/wall_straight.fbx";
+        private const string CityGatePath = MedievalAssetRoot + "/buildings/neutral/wall_straight_gate.fbx";
+
+        private static readonly Vector3 CityCenter = new Vector3(0f, 0f, -62f);
+        private static readonly Vector3 DungeonCenter = new Vector3(0f, 0f, 62f);
 
         private static readonly Color Midnight = new Color(0.018f, 0.028f, 0.065f, 1f);
         private static readonly Color Panel = new Color(0.025f, 0.035f, 0.085f, 0.88f);
@@ -85,7 +105,7 @@ namespace Highfly.Editor
             scene.name = "HIGHFLY_COMBAT_LAB";
 
             ConfigureEnvironment();
-            GameObject arenaRoot = new GameObject("ENVIRONMENT_KAYKIT_DUNGEON");
+            GameObject arenaRoot = new GameObject("ZONE_DUNGEON_KAYKIT");
             ArenaMetrics arena = CreateDungeonArena(arenaRoot.transform);
             EnsureEventSystem();
 
@@ -125,31 +145,72 @@ namespace Highfly.Editor
             float frontZ = Mathf.Max(5.8f, arena.halfDepth * 0.15f);
             float bossZ = Mathf.Max(11.5f, arena.halfDepth * 0.62f);
 
+            // Finish the dungeon at origin, then move the entire environment as one
+            // coherent zone. Enemies are spawned directly in dungeon world-space.
+            CreateBossStageDressing(arenaRoot.transform, bossZ);
+            arenaRoot.transform.position = DungeonCenter;
+
+            GameObject cityRoot = new GameObject("ZONE_SAFE_CITY_KAYKIT");
+            CityMetrics city = CreateSafeCity(cityRoot.transform, playerAnimator != null ? playerAnimator.runtimeAnimatorController : null);
+            cityRoot.transform.position = CityCenter;
+
+            Vector3 citySpawn = CityCenter + new Vector3(0f, 0.12f, -Mathf.Min(8f, city.halfDepth * 0.35f));
+            Vector3 cityPortalPosition = CityCenter + new Vector3(0f, 0f, Mathf.Min(12f, city.halfDepth * 0.60f));
+            Vector3 dungeonSpawn = DungeonCenter + new Vector3(0f, 0.12f, -arena.halfDepth + 4.2f);
+            Vector3 dungeonReturnPortal = DungeonCenter + new Vector3(0f, 0f, -arena.halfDepth + 1.8f);
+
+            CharacterController playerController = player.GetComponent<CharacterController>();
+            if (playerController != null)
+                playerController.enabled = false;
+            player.transform.position = citySpawn;
+            player.transform.rotation = Quaternion.identity;
+            if (playerController != null)
+                playerController.enabled = true;
+
+            HighflyWorldSafety playerSafety = player.AddComponent<HighflyWorldSafety>();
+            playerSafety.Configure(citySpawn, -14f, true, true);
+
+            CreateZonePortal(
+                "PORTAL_F_CRIPTA",
+                cityPortalPosition,
+                dungeonSpawn,
+                Vector3.forward,
+                Violet,
+                "PORTAL F  •  CRIPTA",
+                true);
+
+            CreateZonePortal(
+                "RETORNO_CIUDAD",
+                dungeonReturnPortal,
+                citySpawn,
+                Vector3.back,
+                Cyan,
+                "RETORNO  •  CIUDAD",
+                true);
+
             CreateEnemy(
                 "Esqueleto_Guerrero",
                 SkeletonWarriorPath,
-                new Vector3(-2.4f, 0f, frontZ),
+                DungeonCenter + new Vector3(-2.4f, 0.18f, frontZ),
                 80f, 2.7f, player.transform, playerHealth, false, 1f);
 
             CreateEnemy(
                 "Esqueleto_Picaro",
                 SkeletonRoguePath,
-                new Vector3(0f, 0f, frontZ + 1.4f),
+                DungeonCenter + new Vector3(0f, 0.18f, frontZ + 1.4f),
                 68f, 3.2f, player.transform, playerHealth, false, 0.95f);
 
             CreateEnemy(
                 "Esqueleto_Minion",
                 SkeletonMinionPath,
-                new Vector3(2.4f, 0f, frontZ),
+                DungeonCenter + new Vector3(2.4f, 0.18f, frontZ),
                 62f, 3.0f, player.transform, playerHealth, false, 0.93f);
 
             CreateEnemy(
                 "GUARDIAN_DEL_PORTAL",
                 SkeletonMagePath,
-                new Vector3(0f, 0f, bossZ),
+                DungeonCenter + new Vector3(0f, 0.18f, bossZ),
                 280f, 2.25f, player.transform, playerHealth, true, 1.38f);
-
-            CreateBossStageDressing(arenaRoot.transform, bossZ);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -157,7 +218,7 @@ namespace Highfly.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log("HIGHFLY Combat Lab V2 generated at " + ScenePath +
+            Debug.Log("HIGHFLY City + Dungeon vertical slice generated at " + ScenePath +
                       " | Player visual: " + (AssetExists(PlayerModelPath) ? "KayKit Rogue Hooded" : "fallback") +
                       " | Arena visual: " + (AssetExists(FloorPath) ? "KayKit Dungeon" : "fallback"));
         }
@@ -179,7 +240,8 @@ namespace Highfly.Editor
             cc.radius = 0.42f;
             cc.center = new Vector3(0f, 1f, 0f);
             cc.skinWidth = 0.06f;
-            cc.stepOffset = 0.35f;
+            cc.stepOffset = 0.55f;
+            cc.slopeLimit = 60f;
 
             HighflyHealth health = player.AddComponent<HighflyHealth>();
             SetFloat(health, "maxHealth", 160f);
@@ -496,6 +558,9 @@ namespace Highfly.Editor
             HighflyHealthFeedback feedback = enemy.AddComponent<HighflyHealthFeedback>();
             SetObjectReference(feedback, "animator", animator);
 
+            HighflyWorldSafety safety = enemy.AddComponent<HighflyWorldSafety>();
+            safety.Configure(position, -14f, false, false);
+
             CreateWorldHealthBar(enemy.transform, health, boss);
         }
 
@@ -537,15 +602,22 @@ namespace Highfly.Editor
 
                     tile.transform.position = new Vector3(px, 0f, pz);
                     MoveBottomToY(tile, 0f);
+                    AddStaticMeshColliders(tile);
                 }
             }
 
-            // Reliable physics floor, independent of FBX collider setup.
+            // Continuous safety floor under every visible dungeon tile. Use the
+            // rendered bounds rather than guessed tile dimensions so nobody can
+            // fall through an art/physics mismatch.
+            Bounds renderedFloor = GetRendererBounds(floorRoot);
+            float physicalWidth = Mathf.Max(width, renderedFloor.size.x + 1.2f);
+            float physicalDepth = Mathf.Max(depth, renderedFloor.size.z + 1.2f);
+
             GameObject floorCollider = new GameObject("ArenaFloorCollider");
             floorCollider.transform.SetParent(root, false);
-            floorCollider.transform.position = new Vector3(0f, -0.12f, 0f);
+            floorCollider.transform.position = new Vector3(renderedFloor.center.x, -0.16f, renderedFloor.center.z);
             BoxCollider floorBox = floorCollider.AddComponent<BoxCollider>();
-            floorBox.size = new Vector3(width, 0.25f, depth);
+            floorBox.size = new Vector3(physicalWidth, 0.32f, physicalDepth);
 
             CreatePerimeterWalls(root, tileX, tileZ, tileCountX, tileCountZ);
 
@@ -693,6 +765,242 @@ namespace Highfly.Editor
             light.shadows = LightShadows.None;
         }
 
+        private static CityMetrics CreateSafeCity(Transform root, RuntimeAnimatorController npcController)
+        {
+            if (!AssetExists(CityGrassPath))
+                return CreateFallbackCity(root, npcController);
+
+            GameObject sample = InstantiateModel(CityGrassPath, root, "CityHexSample");
+            if (sample == null)
+                return CreateFallbackCity(root, npcController);
+
+            Bounds bounds = GetRendererBounds(sample);
+            float tileX = Mathf.Max(2.2f, bounds.size.x);
+            float tileZ = Mathf.Max(2.2f, bounds.size.z);
+            UnityEngine.Object.DestroyImmediate(sample);
+
+            const int columns = 7;
+            const int rows = 7;
+            float xSpacing = tileX * 0.76f;
+            float zSpacing = tileZ * 0.88f;
+            float width = xSpacing * (columns - 1) + tileX;
+            float depth = zSpacing * (rows - 1) + tileZ;
+            float halfWidth = width * 0.5f;
+            float halfDepth = depth * 0.5f;
+
+            GameObject floorRoot = new GameObject("City_Ground");
+            floorRoot.transform.SetParent(root, false);
+
+            for (int z = 0; z < rows; z++)
+            {
+                for (int x = 0; x < columns; x++)
+                {
+                    float px = (x - (columns - 1) * 0.5f) * xSpacing;
+                    float pz = (z - (rows - 1) * 0.5f) * zSpacing;
+                    if ((z & 1) == 1)
+                        px += xSpacing * 0.5f;
+
+                    bool road = x == columns / 2 && AssetExists(CityRoadPath);
+                    string tilePath = road ? CityRoadPath : CityGrassPath;
+                    GameObject tile = InstantiateModel(tilePath, floorRoot.transform, "CityTile_" + x + "_" + z);
+                    if (tile == null)
+                        continue;
+
+                    tile.transform.position = new Vector3(px, 0f, pz);
+                    MoveBottomToY(tile, 0f);
+                    AddStaticMeshColliders(tile);
+                }
+            }
+
+            Bounds cityFloorBounds = GetRendererBounds(floorRoot);
+            GameObject safetyFloor = new GameObject("CitySafetyFloor");
+            safetyFloor.transform.SetParent(root, false);
+            safetyFloor.transform.position = new Vector3(cityFloorBounds.center.x, -0.16f, cityFloorBounds.center.z);
+            BoxCollider safetyBox = safetyFloor.AddComponent<BoxCollider>();
+            safetyBox.size = new Vector3(cityFloorBounds.size.x + 1.5f, 0.32f, cityFloorBounds.size.z + 1.5f);
+
+            CreateBoundary(root, "CityNorthBoundary", new Vector3(0f, 1.5f, halfDepth + 0.7f), new Vector3(width + 2f, 3f, 0.6f));
+            CreateBoundary(root, "CitySouthBoundary", new Vector3(0f, 1.5f, -halfDepth - 0.7f), new Vector3(width + 2f, 3f, 0.6f));
+            CreateBoundary(root, "CityEastBoundary", new Vector3(halfWidth + 0.7f, 1.5f, 0f), new Vector3(0.6f, 3f, depth + 2f));
+            CreateBoundary(root, "CityWestBoundary", new Vector3(-halfWidth - 0.7f, 1.5f, 0f), new Vector3(0.6f, 3f, depth + 2f));
+
+            GameObject buildings = new GameObject("City_Buildings");
+            buildings.transform.SetParent(root, false);
+
+            float laneX = Mathf.Min(halfWidth * 0.52f, 9.5f);
+            float northZ = Mathf.Min(halfDepth * 0.38f, 7.8f);
+            float southZ = -Mathf.Min(halfDepth * 0.34f, 6.8f);
+
+            PlaceCityBuilding(buildings.transform, CityGuildPath, new Vector3(-laneX, 0f, northZ), Quaternion.Euler(0f, 28f, 0f), "GREMIO");
+            PlaceCityBuilding(buildings.transform, CityTavernPath, new Vector3(laneX, 0f, northZ), Quaternion.Euler(0f, -28f, 0f), "TABERNA");
+            PlaceCityBuilding(buildings.transform, CityChurchPath, new Vector3(-laneX, 0f, southZ), Quaternion.Euler(0f, 18f, 0f), "SANTUARIO");
+            PlaceCityBuilding(buildings.transform, CityMarketPath, new Vector3(laneX, 0f, southZ), Quaternion.Euler(0f, -18f, 0f), "MERCADO");
+            PlaceCityBuilding(buildings.transform, CityBlacksmithPath, new Vector3(-laneX, 0f, 0.5f), Quaternion.Euler(0f, 20f, 0f), "FORJA");
+            PlaceCityBuilding(buildings.transform, CityHomeAPath, new Vector3(laneX, 0f, -halfDepth * 0.68f), Quaternion.Euler(0f, 180f, 0f), "CASA");
+            PlaceCityBuilding(buildings.transform, CityHomeBPath, new Vector3(-laneX, 0f, -halfDepth * 0.68f), Quaternion.Euler(0f, 180f, 0f), "CASA");
+
+            PlaceEnvironmentModel(CityWellPath, buildings.transform, new Vector3(0f, 0f, 0.6f), Quaternion.identity, Vector3.one, "PLAZA_WELL");
+
+            CreateCityNpc("Serin_Gremio", AdventurerRoot + "/Characters/fbx/Knight.fbx", new Vector3(-2.1f, 0f, 2.0f), root, npcController);
+            CreateCityNpc("Herrero", AdventurerRoot + "/Characters/fbx/Barbarian.fbx", new Vector3(-laneX + 2.6f, 0f, -0.5f), root, npcController);
+            CreateCityNpc("Erudita", AdventurerRoot + "/Characters/fbx/Mage.fbx", new Vector3(-laneX + 2.4f, 0f, southZ + 1.8f), root, npcController);
+
+            // City lighting is intentionally warmer/brighter than the dungeon.
+            CreateAccentLight("City_Warm_Center", new Vector3(0f, 5f, 0f), new Color(1f, 0.72f, 0.42f, 1f), 2.8f, 22f);
+            CreateAccentLight("City_Cyan_Gate", new Vector3(0f, 2.2f, halfDepth * 0.62f), Cyan, 1.6f, 9f);
+
+            return new CityMetrics
+            {
+                width = width,
+                depth = depth,
+                halfWidth = halfWidth,
+                halfDepth = halfDepth
+            };
+        }
+
+        private static CityMetrics CreateFallbackCity(Transform root, RuntimeAnimatorController npcController)
+        {
+            GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            floor.name = "FallbackCityFloor";
+            floor.transform.SetParent(root, false);
+            floor.transform.position = new Vector3(0f, -0.15f, 0f);
+            floor.transform.localScale = new Vector3(28f, 0.3f, 30f);
+            Renderer renderer = floor.GetComponent<Renderer>();
+            if (renderer != null)
+                renderer.sharedMaterial = CreateStandardMaterial("FallbackCityGround", new Color(0.10f, 0.18f, 0.12f, 1f));
+
+            return new CityMetrics
+            {
+                width = 28f,
+                depth = 30f,
+                halfWidth = 14f,
+                halfDepth = 15f
+            };
+        }
+
+        private static void PlaceCityBuilding(Transform parent, string path, Vector3 position, Quaternion rotation, string label)
+        {
+            GameObject building = PlaceEnvironmentModel(path, parent, position, rotation, Vector3.one, label);
+            if (building == null)
+                return;
+
+            Bounds bounds = GetRendererBounds(building);
+            CreateWorldLabel(label, new Vector3(bounds.center.x, bounds.max.y + 0.55f, bounds.center.z), new Color(0.86f, 0.93f, 1f, 1f));
+        }
+
+        private static void CreateCityNpc(string name, string modelPath, Vector3 position, Transform parent, RuntimeAnimatorController controller)
+        {
+            GameObject npcRoot = new GameObject(name);
+            npcRoot.transform.SetParent(parent, false);
+            npcRoot.transform.position = position;
+
+            CapsuleCollider collider = npcRoot.AddComponent<CapsuleCollider>();
+            collider.height = 1.8f;
+            collider.radius = 0.36f;
+            collider.center = new Vector3(0f, 0.9f, 0f);
+
+            GameObject visual = InstantiateModel(modelPath, npcRoot.transform, name + "_Visual");
+            if (visual == null)
+                return;
+
+            NormalizeCharacterVisual(visual, 1.75f);
+            visual.transform.localPosition = Vector3.zero;
+
+            Animator animator = visual.GetComponentInChildren<Animator>();
+            if (animator == null)
+                animator = visual.AddComponent<Animator>();
+            animator.applyRootMotion = false;
+            if (controller != null)
+                animator.runtimeAnimatorController = controller;
+
+            CreateWorldLabel(name.Replace("_", " ").ToUpperInvariant(), position + Vector3.up * 2.15f, new Color(0.75f, 0.90f, 1f, 1f));
+        }
+
+        private static void CreateZonePortal(
+            string name,
+            Vector3 position,
+            Vector3 destination,
+            Vector3 facing,
+            Color color,
+            string label,
+            bool restore)
+        {
+            GameObject root = new GameObject(name);
+            root.transform.position = position;
+
+            BoxCollider trigger = root.AddComponent<BoxCollider>();
+            trigger.isTrigger = true;
+            trigger.size = new Vector3(2.6f, 3.2f, 1.6f);
+            trigger.center = new Vector3(0f, 1.6f, 0f);
+
+            HighflyZonePortal portal = root.AddComponent<HighflyZonePortal>();
+            portal.Configure(destination, facing, restore);
+
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            visual.name = "Portal_Energy";
+            visual.transform.SetParent(root.transform, false);
+            visual.transform.localPosition = new Vector3(0f, 1.55f, 0f);
+            visual.transform.localScale = new Vector3(1.35f, 1.75f, 0.16f);
+
+            Collider visualCollider = visual.GetComponent<Collider>();
+            if (visualCollider != null)
+                UnityEngine.Object.DestroyImmediate(visualCollider);
+
+            Renderer renderer = visual.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                Material material = CreateStandardMaterial(name + "_PortalMat", new Color(color.r, color.g, color.b, 0.72f));
+                if (material != null)
+                {
+                    if (material.HasProperty("_EmissionColor"))
+                    {
+                        material.EnableKeyword("_EMISSION");
+                        material.SetColor("_EmissionColor", color * 2.4f);
+                    }
+                    renderer.sharedMaterial = material;
+                }
+            }
+
+            CreateAccentLight(name + "_Light", position + Vector3.up * 1.6f, color, 3.0f, 8f);
+            CreateWorldLabel(label, position + Vector3.up * 3.55f, color);
+        }
+
+        private static void CreateWorldLabel(string value, Vector3 worldPosition, Color color)
+        {
+            GameObject go = new GameObject("Label_" + value.Replace(" ", "_"));
+            go.transform.position = worldPosition;
+            go.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+
+            TextMesh text = go.AddComponent<TextMesh>();
+            text.text = value;
+            text.anchor = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignment.Center;
+            text.fontSize = 64;
+            text.characterSize = 0.045f;
+            text.color = color;
+        }
+
+        private static void AddStaticMeshColliders(GameObject root)
+        {
+            if (root == null)
+                return;
+
+            MeshFilter[] filters = root.GetComponentsInChildren<MeshFilter>(true);
+            for (int i = 0; i < filters.Length; i++)
+            {
+                MeshFilter filter = filters[i];
+                if (filter.sharedMesh == null)
+                    continue;
+
+                if (filter.GetComponent<Collider>() != null)
+                    continue;
+
+                MeshCollider collider = filter.gameObject.AddComponent<MeshCollider>();
+                collider.sharedMesh = filter.sharedMesh;
+                collider.convex = false;
+            }
+        }
+
         private static ArenaMetrics CreateFallbackArena(Transform root)
         {
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -744,6 +1052,7 @@ namespace Highfly.Editor
             go.transform.rotation = rotation;
             go.transform.localScale = Vector3.Scale(go.transform.localScale, scale);
             MoveBottomToY(go, position.y);
+            AddStaticMeshColliders(go);
             return go;
         }
 
@@ -1410,6 +1719,14 @@ namespace Highfly.Editor
 
             property.boolValue = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private struct CityMetrics
+        {
+            public float width;
+            public float depth;
+            public float halfWidth;
+            public float halfDepth;
         }
 
         private struct ArenaMetrics
