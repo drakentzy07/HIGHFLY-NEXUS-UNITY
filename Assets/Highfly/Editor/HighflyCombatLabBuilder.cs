@@ -812,7 +812,7 @@ namespace Highfly.Editor
                     walls.transform,
                     new Vector3(x, 0f, halfDepth + 0.35f),
                     Quaternion.identity,
-                    Vector3.one,
+                    Vector3.one * 3.0f,
                     "CityNorth_" + i);
 
                 PlaceEnvironmentModel(
@@ -820,7 +820,7 @@ namespace Highfly.Editor
                     walls.transform,
                     new Vector3(x, 0f, -halfDepth - 0.35f),
                     Quaternion.Euler(0f, 180f, 0f),
-                    Vector3.one,
+                    Vector3.one * 3.0f,
                     "CitySouth_" + i);
             }
 
@@ -833,7 +833,7 @@ namespace Highfly.Editor
                     walls.transform,
                     new Vector3(halfWidth + 0.35f, 0f, z),
                     Quaternion.Euler(0f, 90f, 0f),
-                    Vector3.one,
+                    Vector3.one * 3.0f,
                     "CityEast_" + i);
 
                 PlaceEnvironmentModel(
@@ -841,7 +841,7 @@ namespace Highfly.Editor
                     walls.transform,
                     new Vector3(-halfWidth - 0.35f, 0f, z),
                     Quaternion.Euler(0f, -90f, 0f),
-                    Vector3.one,
+                    Vector3.one * 3.0f,
                     "CityWest_" + i);
             }
         }
@@ -1016,7 +1016,7 @@ namespace Highfly.Editor
             PlaceCityBuilding(buildings.transform, CityMinePath, new Vector3(laneX * 0.82f, 0f, -halfDepth * 0.74f), Quaternion.Euler(0f, -150f, 0f), "MINA");
             PlaceCityBuilding(buildings.transform, CityCastlePath, new Vector3(0f, 0f, -halfDepth * 0.79f), Quaternion.identity, "NEXUS CENTRAL");
 
-            PlaceEnvironmentModel(CityWellPath, buildings.transform, new Vector3(0f, 0f, 0.6f), Quaternion.identity, Vector3.one, "PLAZA_WELL");
+            PlaceEnvironmentModel(CityWellPath, buildings.transform, new Vector3(0f, 0f, 0.6f), Quaternion.identity, Vector3.one * 2.7f, "PLAZA_WELL");
             CreateCityWalls(root, halfWidth, halfDepth);
 
             CreateCityNpc("Serin_Gremio", AdventurerRoot + "/Characters/fbx/Knight.fbx", new Vector3(-2.1f, 0f, 2.0f), root, npcController);
@@ -1347,6 +1347,11 @@ namespace Highfly.Editor
                 weapon.transform.SetParent(hand, false);
                 weapon.transform.localPosition = Vector3.zero;
                 weapon.transform.localRotation = Quaternion.identity;
+
+                Bounds weaponBounds = GetRendererBounds(weapon);
+                float longest = Mathf.Max(weaponBounds.size.x, Mathf.Max(weaponBounds.size.y, weaponBounds.size.z));
+                if (longest > 0.01f)
+                    weapon.transform.localScale *= 1.15f / longest;
             }
             else
             {
