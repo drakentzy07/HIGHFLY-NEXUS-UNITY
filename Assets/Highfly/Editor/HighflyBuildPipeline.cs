@@ -45,6 +45,15 @@ namespace Highfly.Editor
                 PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
                 EditorUserBuildSettings.buildAppBundle = false;
 
+                // The source project points at a Windows-only custom keystore and does
+                // not persist its passwords. GitHub Actions therefore cannot sign with
+                // it. CI builds are test APKs, so force Unity's debug keystore here.
+                // Release/store signing remains a separate concern and is not changed
+                // in the committed ProjectSettings.
+                PlayerSettings.Android.useCustomKeystore = false;
+                WriteDiagnostic("02b-signing.txt",
+                    "Custom Android keystore disabled for CI. Unity debug keystore signing enabled.\n");
+
                 string outputPath = ResolveOutputPath();
                 string directory = Path.GetDirectoryName(outputPath);
                 if (!string.IsNullOrEmpty(directory))
@@ -52,7 +61,8 @@ namespace Highfly.Editor
 
                 WriteDiagnostic("03-build-started.txt",
                     "Output: " + outputPath + "\n" +
-                    "Active target: " + EditorUserBuildSettings.activeBuildTarget + "\n");
+                    "Active target: " + EditorUserBuildSettings.activeBuildTarget + "\n" +
+                    "Custom keystore: " + PlayerSettings.Android.useCustomKeystore + "\n");
 
                 BuildPlayerOptions options = new BuildPlayerOptions
                 {
