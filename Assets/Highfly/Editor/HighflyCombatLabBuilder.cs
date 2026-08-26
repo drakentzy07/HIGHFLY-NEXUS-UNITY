@@ -885,7 +885,8 @@ namespace Highfly.Editor
                 return;
 
             Bounds bounds = GetRendererBounds(building);
-            CreateWorldLabel(label, new Vector3(bounds.center.x, bounds.max.y + 0.55f, bounds.center.z), new Color(0.86f, 0.93f, 1f, 1f));
+            GameObject labelGo = CreateWorldLabel(label, new Vector3(bounds.center.x, bounds.max.y + 0.55f, bounds.center.z), new Color(0.86f, 0.93f, 1f, 1f));
+            labelGo.transform.SetParent(parent, true);
         }
 
         private static void CreateCityNpc(string name, string modelPath, Vector3 position, Transform parent, RuntimeAnimatorController controller)
@@ -913,7 +914,8 @@ namespace Highfly.Editor
             if (controller != null)
                 animator.runtimeAnimatorController = controller;
 
-            CreateWorldLabel(name.Replace("_", " ").ToUpperInvariant(), position + Vector3.up * 2.15f, new Color(0.75f, 0.90f, 1f, 1f));
+            GameObject labelGo = CreateWorldLabel(name.Replace("_", " ").ToUpperInvariant(), position + Vector3.up * 2.15f, new Color(0.75f, 0.90f, 1f, 1f));
+            labelGo.transform.SetParent(parent, true);
         }
 
         private static void CreateZonePortal(
@@ -965,7 +967,7 @@ namespace Highfly.Editor
             CreateWorldLabel(label, position + Vector3.up * 3.55f, color);
         }
 
-        private static void CreateWorldLabel(string value, Vector3 worldPosition, Color color)
+        private static GameObject CreateWorldLabel(string value, Vector3 worldPosition, Color color)
         {
             GameObject go = new GameObject("Label_" + value.Replace(" ", "_"));
             go.transform.position = worldPosition;
@@ -978,6 +980,7 @@ namespace Highfly.Editor
             text.fontSize = 64;
             text.characterSize = 0.045f;
             text.color = color;
+            return go;
         }
 
         private static void AddStaticMeshColliders(GameObject root)
