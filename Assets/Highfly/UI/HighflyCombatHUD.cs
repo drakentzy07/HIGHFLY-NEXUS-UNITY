@@ -13,6 +13,9 @@ namespace Highfly.UI
         [SerializeField] private Text mpText;
         [SerializeField] private Text staminaText;
         [SerializeField] private Text targetText;
+        [SerializeField] private Image hpFill;
+        [SerializeField] private Image mpFill;
+        [SerializeField] private Image staminaFill;
 
         private void Update()
         {
@@ -20,19 +23,26 @@ namespace Highfly.UI
             {
                 HighflyHealth health = resources.Health;
                 if (hpText != null && health != null)
-                    hpText.text = string.Format("HP {0:0}/{1:0}", health.CurrentHealth, health.MaxHealth);
+                    hpText.text = string.Format("HP  {0:0} / {1:0}", health.CurrentHealth, health.MaxHealth);
                 if (mpText != null)
-                    mpText.text = string.Format("MP {0:0}/{1:0}", resources.Mana, resources.MaxMana);
+                    mpText.text = string.Format("MP  {0:0} / {1:0}", resources.Mana, resources.MaxMana);
                 if (staminaText != null)
-                    staminaText.text = string.Format("STA {0:0}/{1:0}", resources.Stamina, resources.MaxStamina);
+                    staminaText.text = string.Format("STA {0:0} / {1:0}", resources.Stamina, resources.MaxStamina);
+
+                if (hpFill != null && health != null)
+                    hpFill.fillAmount = health.Normalized;
+                if (mpFill != null)
+                    mpFill.fillAmount = resources.MaxMana <= 0f ? 0f : resources.Mana / resources.MaxMana;
+                if (staminaFill != null)
+                    staminaFill.fillAmount = resources.MaxStamina <= 0f ? 0f : resources.Stamina / resources.MaxStamina;
             }
 
             if (targetText != null)
             {
                 if (targeting != null && targeting.HasTarget)
-                    targetText.text = "TARGET: " + targeting.CurrentTarget.name;
+                    targetText.text = "AUTO TARGET  •  " + targeting.CurrentTarget.name;
                 else
-                    targetText.text = "TARGET: AUTO";
+                    targetText.text = "AUTO TARGET  •  BUSCANDO";
             }
         }
     }
