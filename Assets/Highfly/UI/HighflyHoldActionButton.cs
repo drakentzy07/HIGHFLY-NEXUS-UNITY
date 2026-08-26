@@ -6,8 +6,12 @@ namespace Highfly.UI
 {
     public sealed class HighflyHoldActionButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
     {
-        [SerializeField] private UnityEvent onPressed;
-        [SerializeField] private UnityEvent onReleased;
+        // Unity does not automatically instantiate serialized UnityEvent fields when a
+        // component is created programmatically via AddComponent in a headless build.
+        // Keep them initialized so editor-time scene generation can safely register
+        // persistent listeners for press/release actions.
+        [SerializeField] private UnityEvent onPressed = new UnityEvent();
+        [SerializeField] private UnityEvent onReleased = new UnityEvent();
 
         private bool _held;
 
@@ -18,6 +22,7 @@ namespace Highfly.UI
         {
             if (_held)
                 return;
+
             _held = true;
             onPressed?.Invoke();
         }
@@ -43,6 +48,7 @@ namespace Highfly.UI
         {
             if (!_held)
                 return;
+
             _held = false;
             onReleased?.Invoke();
         }
