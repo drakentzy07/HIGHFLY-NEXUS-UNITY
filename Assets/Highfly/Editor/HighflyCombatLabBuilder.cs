@@ -621,7 +621,7 @@ namespace Highfly.Editor
                 return CreateFallbackArena(root);
 
             const int tileCountX = 7;
-            const int tileCountZ = 8;
+            const int tileCountZ = 10;
 
             GameObject sample = InstantiateModel(FloorPath, root, "FloorSample");
             if (sample == null)
@@ -932,8 +932,8 @@ namespace Highfly.Editor
             float tileZ = Mathf.Max(2.2f, bounds.size.z);
             UnityEngine.Object.DestroyImmediate(sample);
 
-            const int columns = 7;
-            const int rows = 7;
+            const int columns = 9;
+            const int rows = 9;
             float xSpacing = tileX * 0.76f;
             float zSpacing = tileZ * 0.88f;
             float width = xSpacing * (columns - 1) + tileX;
@@ -995,6 +995,7 @@ namespace Highfly.Editor
             PlaceCityBuilding(buildings.transform, CityAcademyPath, new Vector3(-laneX * 0.35f, 0f, halfDepth * 0.72f), Quaternion.Euler(0f, 155f, 0f), "ACADEMIA");
             PlaceCityBuilding(buildings.transform, CityTowerPath, new Vector3(laneX * 0.36f, 0f, halfDepth * 0.74f), Quaternion.Euler(0f, -155f, 0f), "TORRE");
             PlaceCityBuilding(buildings.transform, CityMinePath, new Vector3(laneX * 0.82f, 0f, -halfDepth * 0.74f), Quaternion.Euler(0f, -150f, 0f), "MINA");
+            PlaceCityBuilding(buildings.transform, CityCastlePath, new Vector3(0f, 0f, -halfDepth * 0.79f), Quaternion.identity, "NEXUS CENTRAL");
 
             PlaceEnvironmentModel(CityWellPath, buildings.transform, new Vector3(0f, 0f, 0.6f), Quaternion.identity, Vector3.one, "PLAZA_WELL");
             CreateCityWalls(root, halfWidth, halfDepth);
