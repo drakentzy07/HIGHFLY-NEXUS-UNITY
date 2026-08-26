@@ -670,8 +670,8 @@ namespace Highfly.Editor
                         continue;
 
                     tile.transform.position = new Vector3(px, 0f, pz);
-                    tile.transform.localScale *= cityArtScale;
                     MoveBottomToY(tile, 0f);
+                    AddStaticMeshColliders(tile);
                 }
             }
 
