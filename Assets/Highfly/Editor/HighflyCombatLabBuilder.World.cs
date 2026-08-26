@@ -299,6 +299,8 @@ namespace Highfly.Editor
                 "MERCADO",
                 "ARCHIVO",
                 "ACADEMIA",
+                "TORRE",
+                "MINA",
                 "NEXUS CENTRAL"
             };
 
