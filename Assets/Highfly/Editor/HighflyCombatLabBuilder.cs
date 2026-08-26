@@ -1059,15 +1059,24 @@ namespace Highfly.Editor
             };
         }
 
-        private static void PlaceCityBuilding(Transform parent, string path, Vector3 position, Quaternion rotation, string label)
+        private static GameObject PlaceCityBuilding(Transform parent, string path, Vector3 position, Quaternion rotation, string label)
         {
-            GameObject building = PlaceEnvironmentModel(path, parent, position, rotation, Vector3.one, label);
+            GameObject building = InstantiateModel(path, parent, label);
             if (building == null)
-                return;
+                return null;
 
-            Bounds bounds = GetRendererBounds(building);
-            GameObject labelGo = CreateWorldLabel(label, new Vector3(bounds.center.x, bounds.max.y + 0.55f, bounds.center.z), new Color(0.86f, 0.93f, 1f, 1f));
-            labelGo.transform.SetParent(parent, true);
+            building.transform.position = position;
+            building.transform.rotation = rotation;
+
+            Bounds initialBounds = GetRendererBounds(building);
+            float targetHeight = GetCityBuildingTargetHeight(label);
+            if (initialBounds.size.y > 0.05f)
+                building.transform.localScale *= targetHeight / initialBounds.size.y;
+
+            MoveBottomToY(building, position.y);
+            AddStaticMeshColliders(building);
+            CityBuildings[label] = building;
+            return building;
         }
 
         private static void CreateCityNpc(string name, string modelPath, Vector3 position, Transform parent, RuntimeAnimatorController controller)
@@ -1095,8 +1104,8 @@ namespace Highfly.Editor
             if (controller != null)
                 animator.runtimeAnimatorController = controller;
 
-            GameObject labelGo = CreateWorldLabel(name.Replace("_", " ").ToUpperInvariant(), position + Vector3.up * 2.15f, new Color(0.75f, 0.90f, 1f, 1f));
-            labelGo.transform.SetParent(parent, true);
+            HighflyNpcInteractable interactable = npcRoot.AddComponent<HighflyNpcInteractable>();
+            ConfigureNpcInteraction(interactable, name);
         }
 
         private static void CreateZonePortal(
@@ -1152,14 +1161,15 @@ namespace Highfly.Editor
         {
             GameObject go = new GameObject("Label_" + value.Replace(" ", "_"));
             go.transform.position = worldPosition;
-            go.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            go.transform.rotation = Quaternion.identity;
+            go.AddComponent<HighflyWorldBillboard>();
 
             TextMesh text = go.AddComponent<TextMesh>();
             text.text = value;
             text.anchor = TextAnchor.MiddleCenter;
             text.alignment = TextAlignment.Center;
-            text.fontSize = 64;
-            text.characterSize = 0.045f;
+            text.fontSize = 48;
+            text.characterSize = 0.022f;
             text.color = color;
             return go;
         }
@@ -1236,7 +1246,12 @@ namespace Highfly.Editor
             go.transform.rotation = rotation;
             go.transform.localScale = Vector3.Scale(go.transform.localScale, scale);
             MoveBottomToY(go, position.y);
-            AddStaticMeshColliders(go);
+
+            if (assetPath.IndexOf("stairs", StringComparison.OrdinalIgnoreCase) >= 0)
+                AddStairStepColliders(go);
+            else
+                AddStaticMeshColliders(go);
+
             return go;
         }
 
