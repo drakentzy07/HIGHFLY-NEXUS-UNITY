@@ -61,6 +61,14 @@ namespace Highfly.Editor
         private const string ChestPath = DungeonAssetRoot + "/chest_gold.fbx";
         private const string CratesPath = DungeonAssetRoot + "/crates_stacked.fbx";
         private const string BarrelPath = DungeonAssetRoot + "/barrel_large_decorated.fbx";
+        private const string ChairPath = DungeonAssetRoot + "/chair.fbx";
+        private const string StoolPath = DungeonAssetRoot + "/stool.fbx";
+        private const string TableLongPath = DungeonAssetRoot + "/table_long_decorated_A.fbx";
+        private const string TableMediumPath = DungeonAssetRoot + "/table_medium_decorated_A.fbx";
+        private const string ShelfLargePath = DungeonAssetRoot + "/shelf_large.fbx";
+        private const string BedPath = DungeonAssetRoot + "/bed_decorated.fbx";
+        private const string FoodPath = DungeonAssetRoot + "/plate_food_A.fbx";
+        private const string SwordShieldPath = DungeonAssetRoot + "/sword_shield.fbx";
 
         private const string MedievalAssetRoot = MedievalRoot + "/Assets/fbx";
         private const string CityGrassPath = MedievalAssetRoot + "/tiles/base/hex_grass.fbx";
@@ -88,6 +96,8 @@ namespace Highfly.Editor
         private static readonly Color Cyan = new Color(0.12f, 0.82f, 1f, 1f);
         private static readonly Color Violet = new Color(0.55f, 0.28f, 1f, 1f);
         private static readonly Color Red = new Color(0.95f, 0.16f, 0.27f, 1f);
+        private static readonly Dictionary<string, GameObject> CityBuildings =
+            new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
 
         [MenuItem("HIGHFLY/Build Combat Lab Scene")]
         public static void BuildOrRefreshCombatLab()
@@ -96,6 +106,7 @@ namespace Highfly.Editor
             Directory.CreateDirectory(GeneratedRoot);
             Directory.CreateDirectory(GeneratedUiRoot);
             Directory.CreateDirectory(GeneratedControllersRoot);
+            CityBuildings.Clear();
 
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
 
