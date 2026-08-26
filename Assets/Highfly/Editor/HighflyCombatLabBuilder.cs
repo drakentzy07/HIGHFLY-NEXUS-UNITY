@@ -73,6 +73,10 @@ namespace Highfly.Editor
         private const string CityWellPath = MedievalAssetRoot + "/buildings/blue/building_well_blue.fbx";
         private const string CityHomeAPath = MedievalAssetRoot + "/buildings/blue/building_home_A_blue.fbx";
         private const string CityHomeBPath = MedievalAssetRoot + "/buildings/blue/building_home_B_blue.fbx";
+        private const string CityAcademyPath = MedievalAssetRoot + "/buildings/blue/building_archeryrange_blue.fbx";
+        private const string CityTowerPath = MedievalAssetRoot + "/buildings/blue/building_tower_A_blue.fbx";
+        private const string CityCastlePath = MedievalAssetRoot + "/buildings/blue/building_castle_blue.fbx";
+        private const string CityMinePath = MedievalAssetRoot + "/buildings/blue/building_mine_blue.fbx";
         private const string CityWallPath = MedievalAssetRoot + "/buildings/neutral/wall_straight.fbx";
         private const string CityGatePath = MedievalAssetRoot + "/buildings/neutral/wall_straight_gate.fbx";
 
@@ -205,6 +209,38 @@ namespace Highfly.Editor
                 SkeletonMinionPath,
                 DungeonCenter + new Vector3(2.4f, 0.18f, frontZ),
                 62f, 3.0f, player.transform, playerHealth, false, 0.93f);
+
+            // Second chamber: mixed pack forces target switching and AoE testing.
+            CreateEnemy(
+                "Esqueleto_Guerrero_02",
+                SkeletonWarriorPath,
+                DungeonCenter + new Vector3(-3.1f, 0.18f, frontZ + 7.0f),
+                92f, 2.8f, player.transform, playerHealth, false, 1.02f);
+
+            CreateEnemy(
+                "Esqueleto_Picaro_02",
+                SkeletonRoguePath,
+                DungeonCenter + new Vector3(0.2f, 0.18f, frontZ + 7.8f),
+                78f, 3.35f, player.transform, playerHealth, false, 0.98f);
+
+            CreateEnemy(
+                "Esqueleto_Mago_01",
+                SkeletonMagePath,
+                DungeonCenter + new Vector3(3.0f, 0.18f, frontZ + 7.1f),
+                88f, 2.55f, player.transform, playerHealth, false, 1.02f);
+
+            // Guardian approach: tougher pair before the boss.
+            CreateEnemy(
+                "Guardia_Elite_I",
+                SkeletonWarriorPath,
+                DungeonCenter + new Vector3(-2.7f, 0.18f, bossZ - 5.0f),
+                135f, 2.7f, player.transform, playerHealth, false, 1.12f);
+
+            CreateEnemy(
+                "Guardia_Elite_II",
+                SkeletonRoguePath,
+                DungeonCenter + new Vector3(2.7f, 0.18f, bossZ - 5.0f),
+                120f, 3.15f, player.transform, playerHealth, false, 1.08f);
 
             CreateEnemy(
                 "GUARDIAN_DEL_PORTAL",
@@ -363,7 +399,7 @@ namespace Highfly.Editor
             SetAnchored(statusRect, new Vector2(0f, 1f), new Vector2(720f, 278f), new Vector2(380f, -165f), new Vector2(0.5f, 0.5f));
 
             Text title = CreateText(
-                "HIGHFLY  //  COMBAT LAB",
+                "HIGHFLY  //  NEXUS",
                 statusRect,
                 new Vector2(0f, 1f),
                 new Vector2(620f, 54f),
@@ -405,6 +441,16 @@ namespace Highfly.Editor
                 27,
                 TextAnchor.MiddleCenter);
             target.color = new Color(0.9f, 0.94f, 1f, 1f);
+
+            Text objectiveText = CreateText(
+                "CRIPTA F  •  ENEMIGOS -- / --",
+                canvasRect,
+                new Vector2(0.5f, 1f),
+                new Vector2(900f, 54f),
+                new Vector2(0f, -145f),
+                21,
+                TextAnchor.MiddleCenter);
+            objectiveText.color = new Color(0.72f, 0.79f, 0.95f, 0.92f);
 
             // Joystick.
             GameObject joystickOuter = CreateImage(
@@ -494,6 +540,9 @@ namespace Highfly.Editor
             SetObjectReference(hud, "mpFill", mpFill);
             SetObjectReference(hud, "staminaFill", staminaFill);
 
+            HighflyDungeonObjective objective = canvasGo.AddComponent<HighflyDungeonObjective>();
+            SetObjectReference(objective, "objectiveText", objectiveText);
+
             return canvasGo;
         }
 
@@ -517,6 +566,8 @@ namespace Highfly.Editor
             cc.radius = boss ? 0.58f : 0.42f;
             cc.center = new Vector3(0f, boss ? 1.32f : 1f, 0f);
             cc.skinWidth = 0.05f;
+            cc.stepOffset = 0.45f;
+            cc.slopeLimit = 58f;
 
             HighflyHealth health = enemy.AddComponent<HighflyHealth>();
             SetFloat(health, "maxHealth", hp);
@@ -620,6 +671,7 @@ namespace Highfly.Editor
             floorBox.size = new Vector3(physicalWidth, 0.32f, physicalDepth);
 
             CreatePerimeterWalls(root, tileX, tileZ, tileCountX, tileCountZ);
+            CreateDungeonChambers(root, tileX, tileZ, tileCountX, halfDepth);
 
             // Invisible hard boundaries keep AI and player inside the presentation arena.
             CreateBoundary(root, "NorthBoundary", new Vector3(0f, 1.5f, halfDepth + 0.25f), new Vector3(width + 1f, 3f, 0.5f));
@@ -673,6 +725,107 @@ namespace Highfly.Editor
             PlaceEnvironmentModel(WallCornerPath, wallsRoot.transform, new Vector3(-halfWidth, 0f, halfDepth), Quaternion.identity, Vector3.one, "Corner_NW");
             PlaceEnvironmentModel(WallCornerPath, wallsRoot.transform, new Vector3(halfWidth, 0f, -halfDepth), Quaternion.Euler(0f, 180f, 0f), Vector3.one, "Corner_SE");
             PlaceEnvironmentModel(WallCornerPath, wallsRoot.transform, new Vector3(-halfWidth, 0f, -halfDepth), Quaternion.Euler(0f, -90f, 0f), Vector3.one, "Corner_SW");
+        }
+
+        private static void CreateDungeonChambers(
+            Transform root,
+            float tileX,
+            float tileZ,
+            int tileCountX,
+            float halfDepth)
+        {
+            GameObject chambers = new GameObject("Dungeon_Chambers");
+            chambers.transform.SetParent(root, false);
+
+            float[] dividerZ =
+            {
+                -halfDepth * 0.28f,
+                halfDepth * 0.27f
+            };
+
+            for (int d = 0; d < dividerZ.Length; d++)
+            {
+                for (int x = 0; x < tileCountX; x++)
+                {
+                    float px = (x - (tileCountX - 1) * 0.5f) * tileX;
+                    bool center = x == tileCountX / 2;
+                    string path = center ? DoorwayPath : WallPath;
+
+                    PlaceEnvironmentModel(
+                        path,
+                        chambers.transform,
+                        new Vector3(px, 0f, dividerZ[d]),
+                        Quaternion.identity,
+                        Vector3.one,
+                        "Divider_" + d + "_" + x);
+                }
+
+                CreateWorldLabel(
+                    d == 0 ? "CÁMARA I  •  OSSUARIO" : "CÁMARA II  •  GUARDIA",
+                    new Vector3(0f, 3.4f, dividerZ[d] - 0.7f),
+                    d == 0 ? Cyan : Violet).transform.SetParent(chambers.transform, true);
+            }
+
+            CreateWorldLabel(
+                "CÁMARA DEL GUARDIÁN",
+                new Vector3(0f, 3.6f, halfDepth * 0.60f),
+                Violet).transform.SetParent(chambers.transform, true);
+        }
+
+        private static void CreateCityWalls(Transform root, float halfWidth, float halfDepth)
+        {
+            if (!AssetExists(CityWallPath))
+                return;
+
+            GameObject walls = new GameObject("City_Walls");
+            walls.transform.SetParent(root, false);
+
+            const int segments = 5;
+            float xStep = halfWidth * 2f / (segments - 1);
+            float zStep = halfDepth * 2f / (segments - 1);
+
+            for (int i = 0; i < segments; i++)
+            {
+                float x = -halfWidth + i * xStep;
+                bool center = i == segments / 2;
+
+                PlaceEnvironmentModel(
+                    center && AssetExists(CityGatePath) ? CityGatePath : CityWallPath,
+                    walls.transform,
+                    new Vector3(x, 0f, halfDepth + 0.35f),
+                    Quaternion.identity,
+                    Vector3.one,
+                    "CityNorth_" + i);
+
+                PlaceEnvironmentModel(
+                    center && AssetExists(CityGatePath) ? CityGatePath : CityWallPath,
+                    walls.transform,
+                    new Vector3(x, 0f, -halfDepth - 0.35f),
+                    Quaternion.Euler(0f, 180f, 0f),
+                    Vector3.one,
+                    "CitySouth_" + i);
+            }
+
+            for (int i = 1; i < segments - 1; i++)
+            {
+                float z = -halfDepth + i * zStep;
+
+                PlaceEnvironmentModel(
+                    CityWallPath,
+                    walls.transform,
+                    new Vector3(halfWidth + 0.35f, 0f, z),
+                    Quaternion.Euler(0f, 90f, 0f),
+                    Vector3.one,
+                    "CityEast_" + i);
+
+                PlaceEnvironmentModel(
+                    CityWallPath,
+                    walls.transform,
+                    new Vector3(-halfWidth - 0.35f, 0f, z),
+                    Quaternion.Euler(0f, -90f, 0f),
+                    Vector3.one,
+                    "CityWest_" + i);
+            }
         }
 
         private static void DressDungeon(
@@ -800,7 +953,7 @@ namespace Highfly.Editor
                     if ((z & 1) == 1)
                         px += xSpacing * 0.5f;
 
-                    bool road = x == columns / 2 && AssetExists(CityRoadPath);
+                    bool road = (x == columns / 2 || z == rows / 2) && AssetExists(CityRoadPath);
                     string tilePath = road ? CityRoadPath : CityGrassPath;
                     GameObject tile = InstantiateModel(tilePath, floorRoot.transform, "CityTile_" + x + "_" + z);
                     if (tile == null)
@@ -837,13 +990,21 @@ namespace Highfly.Editor
             PlaceCityBuilding(buildings.transform, CityMarketPath, new Vector3(laneX, 0f, southZ), Quaternion.Euler(0f, -18f, 0f), "MERCADO");
             PlaceCityBuilding(buildings.transform, CityBlacksmithPath, new Vector3(-laneX, 0f, 0.5f), Quaternion.Euler(0f, 20f, 0f), "FORJA");
             PlaceCityBuilding(buildings.transform, CityHomeAPath, new Vector3(laneX, 0f, -halfDepth * 0.68f), Quaternion.Euler(0f, 180f, 0f), "CASA");
-            PlaceCityBuilding(buildings.transform, CityHomeBPath, new Vector3(-laneX, 0f, -halfDepth * 0.68f), Quaternion.Euler(0f, 180f, 0f), "CASA");
+            PlaceCityBuilding(buildings.transform, CityHomeBPath, new Vector3(-laneX, 0f, -halfDepth * 0.68f), Quaternion.Euler(0f, 180f, 0f), "ARCHIVO");
+
+            PlaceCityBuilding(buildings.transform, CityAcademyPath, new Vector3(-laneX * 0.35f, 0f, halfDepth * 0.72f), Quaternion.Euler(0f, 155f, 0f), "ACADEMIA");
+            PlaceCityBuilding(buildings.transform, CityTowerPath, new Vector3(laneX * 0.36f, 0f, halfDepth * 0.74f), Quaternion.Euler(0f, -155f, 0f), "TORRE");
+            PlaceCityBuilding(buildings.transform, CityMinePath, new Vector3(laneX * 0.82f, 0f, -halfDepth * 0.74f), Quaternion.Euler(0f, -150f, 0f), "MINA");
 
             PlaceEnvironmentModel(CityWellPath, buildings.transform, new Vector3(0f, 0f, 0.6f), Quaternion.identity, Vector3.one, "PLAZA_WELL");
+            CreateCityWalls(root, halfWidth, halfDepth);
 
             CreateCityNpc("Serin_Gremio", AdventurerRoot + "/Characters/fbx/Knight.fbx", new Vector3(-2.1f, 0f, 2.0f), root, npcController);
             CreateCityNpc("Herrero", AdventurerRoot + "/Characters/fbx/Barbarian.fbx", new Vector3(-laneX + 2.6f, 0f, -0.5f), root, npcController);
             CreateCityNpc("Erudita", AdventurerRoot + "/Characters/fbx/Mage.fbx", new Vector3(-laneX + 2.4f, 0f, southZ + 1.8f), root, npcController);
+            CreateCityNpc("Tabernera", AdventurerRoot + "/Characters/fbx/Rogue.fbx", new Vector3(laneX - 2.4f, 0f, northZ - 1.8f), root, npcController);
+            CreateCityNpc("Maestro_Academia", AdventurerRoot + "/Characters/fbx/Knight.fbx", new Vector3(-2.5f, 0f, halfDepth * 0.53f), root, npcController);
+            CreateCityNpc("Mercader", AdventurerRoot + "/Characters/fbx/RogueHooded.fbx", new Vector3(laneX - 2.2f, 0f, southZ + 1.7f), root, npcController);
 
             // City lighting is intentionally warmer/brighter than the dungeon.
             CreateAccentLight("City_Warm_Center", new Vector3(0f, 5f, 0f), new Color(1f, 0.72f, 0.42f, 1f), 2.8f, 22f);
