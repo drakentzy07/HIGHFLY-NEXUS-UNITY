@@ -21,7 +21,7 @@ using Highfly.World;
 
 namespace Highfly.Editor
 {
-    public static class HighflyCombatLabBuilder
+    public static partial class HighflyCombatLabBuilder
     {
         public const string ScenePath = "Assets/Highfly/Scenes/CombatLab.unity";
 
