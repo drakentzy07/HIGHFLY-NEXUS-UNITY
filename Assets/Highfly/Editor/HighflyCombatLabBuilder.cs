@@ -171,6 +171,7 @@ namespace Highfly.Editor
             GameObject cityRoot = new GameObject("ZONE_SAFE_CITY_KAYKIT");
             CityMetrics city = CreateSafeCity(cityRoot.transform, playerAnimator != null ? playerAnimator.runtimeAnimatorController : null);
             cityRoot.transform.position = CityCenter;
+            CreateBuildingInteriorsAndDoors(playerAnimator != null ? playerAnimator.runtimeAnimatorController : null);
 
             Vector3 citySpawn = CityCenter + new Vector3(0f, 0.12f, -Mathf.Min(8f, city.halfDepth * 0.35f));
             Vector3 cityPortalPosition = CityCenter + new Vector3(0f, 0f, Mathf.Min(12f, city.halfDepth * 0.60f));
@@ -669,8 +670,8 @@ namespace Highfly.Editor
                         continue;
 
                     tile.transform.position = new Vector3(px, 0f, pz);
+                    tile.transform.localScale *= cityArtScale;
                     MoveBottomToY(tile, 0f);
-                    AddStaticMeshColliders(tile);
                 }
             }
 
@@ -945,8 +946,9 @@ namespace Highfly.Editor
                 return CreateFallbackCity(root, npcController);
 
             Bounds bounds = GetRendererBounds(sample);
-            float tileX = Mathf.Max(2.2f, bounds.size.x);
-            float tileZ = Mathf.Max(2.2f, bounds.size.z);
+            const float cityArtScale = 3.0f;
+            float tileX = Mathf.Max(2.2f, bounds.size.x) * cityArtScale;
+            float tileZ = Mathf.Max(2.2f, bounds.size.z) * cityArtScale;
             UnityEngine.Object.DestroyImmediate(sample);
 
             const int columns = 9;
@@ -997,9 +999,9 @@ namespace Highfly.Editor
             GameObject buildings = new GameObject("City_Buildings");
             buildings.transform.SetParent(root, false);
 
-            float laneX = Mathf.Min(halfWidth * 0.52f, 9.5f);
-            float northZ = Mathf.Min(halfDepth * 0.38f, 7.8f);
-            float southZ = -Mathf.Min(halfDepth * 0.34f, 6.8f);
+            float laneX = halfWidth * 0.48f;
+            float northZ = halfDepth * 0.30f;
+            float southZ = -halfDepth * 0.27f;
 
             PlaceCityBuilding(buildings.transform, CityGuildPath, new Vector3(-laneX, 0f, northZ), Quaternion.Euler(0f, 28f, 0f), "GREMIO");
             PlaceCityBuilding(buildings.transform, CityTavernPath, new Vector3(laneX, 0f, northZ), Quaternion.Euler(0f, -28f, 0f), "TABERNA");
