@@ -12,6 +12,7 @@ namespace Highfly.Combat
         [SerializeField] private HighflyPlayerResources resources;
         [SerializeField] private Animator animator;
         [SerializeField] private Transform attackOrigin;
+        [SerializeField] private HighflyCombatVfx vfx;
         [SerializeField] private LayerMask enemyMask = ~0;
 
         [Header("Basic combo")]
@@ -60,6 +61,8 @@ namespace Highfly.Combat
                 resources = GetComponent<HighflyPlayerResources>();
             if (attackOrigin == null)
                 attackOrigin = transform;
+            if (vfx == null)
+                vfx = GetComponent<HighflyCombatVfx>();
         }
 
         private void Update()
@@ -73,8 +76,6 @@ namespace Highfly.Combat
 
         public void BasicAttack()
         {
-            // Critical design rule: an attack always fires even with NO selected target.
-            // Targeting is soft assistance, never a requirement.
             if (Time.time - _lastBasicTime > comboResetTime)
                 _comboIndex = 0;
 
@@ -89,6 +90,9 @@ namespace Highfly.Combat
                 animator.SetTrigger("BasicAttack");
             }
 
+            if (vfx != null)
+                vfx.PlayBasic();
+
             StartCoroutine(DelayedBasicHit(basicHitDelay));
         }
 
@@ -100,6 +104,9 @@ namespace Highfly.Combat
             FaceSoftTarget();
             if (animator != null)
                 animator.SetTrigger("HeavyAttack");
+            if (vfx != null)
+                vfx.PlayHeavy();
+
             StartCoroutine(DelayedHeavyHit(heavyHitDelay));
         }
 
@@ -111,6 +118,8 @@ namespace Highfly.Combat
                 return;
 
             Vector3 direction = motor.LastMoveDirection.sqrMagnitude > 0.001f ? motor.LastMoveDirection : transform.forward;
+            if (vfx != null)
+                vfx.PlayDash();
             motor.Dash(direction);
         }
 
@@ -139,6 +148,8 @@ namespace Highfly.Combat
             FaceSoftTarget();
             if (animator != null)
                 animator.SetTrigger("Skill1");
+            if (vfx != null)
+                vfx.PlaySkillOne();
 
             Vector3 origin = attackOrigin.position + Vector3.up * 0.7f;
             Vector3 direction = GetAttackDirection();
@@ -153,6 +164,8 @@ namespace Highfly.Combat
             FaceSoftTarget();
             if (animator != null)
                 animator.SetTrigger("Skill2");
+            if (vfx != null)
+                vfx.PlaySkillTwo();
 
             HighflyCombatQueries.DamageArc(attackOrigin.position, GetAttackDirection(), coneRadius, coneHalfAngle, enemyMask, coneDamage);
         }
@@ -164,13 +177,13 @@ namespace Highfly.Combat
 
             if (animator != null)
                 animator.SetTrigger("Skill3");
+            if (vfx != null)
+                vfx.PlaySkillThree();
 
             Vector3 center = transform.position + transform.forward * 1.1f;
             HighflyCombatQueries.DamageArea(center, areaRadius, enemyMask, areaDamage);
         }
 
-        // Final animation clips can call these events. Prototype timing currently
-        // uses the delayed fallbacks so Combat Lab works before final animation import.
         public void AnimationEventBasicHit()
         {
             ApplyBasicHit();
@@ -195,7 +208,6 @@ namespace Highfly.Combat
 
         private void ApplyBasicHit()
         {
-            // Sweep/cleave by design: two enemies standing together can both be hit.
             HighflyCombatQueries.DamageArc(attackOrigin.position, GetAttackDirection(), basicRadius, basicHalfAngle, enemyMask, basicDamage);
         }
 
