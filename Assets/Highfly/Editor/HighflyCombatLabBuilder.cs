@@ -137,6 +137,9 @@ namespace Highfly.Editor
                 motor, targeting, combat, resources, cameraRig, circleSprite,
                 out HighflyVirtualJoystick joystick, out HighflyCameraLookArea lookArea);
 
+            HighflyInteractionController interaction = player.GetComponent<HighflyInteractionController>();
+            CreateInteractionUI(interaction, canvas.GetComponent<RectTransform>(), circleSprite);
+
             SetObjectReference(motor, "cameraTransform", camera.transform);
             SetObjectReference(motor, "movementJoystick", joystick);
             SetObjectReference(motor, "animator", playerAnimator);
@@ -297,6 +300,7 @@ namespace Highfly.Editor
             motor = player.AddComponent<HighflyThirdPersonMotor>();
             targeting = player.AddComponent<HighflyTargetingSystem>();
             combat = player.AddComponent<HighflyCombatController>();
+            player.AddComponent<HighflyInteractionController>();
             HighflyCombatVfx vfx = player.AddComponent<HighflyCombatVfx>();
 
             GameObject visual = InstantiateModel(PlayerModelPath, player.transform, "Hunter_RogueHooded");
@@ -316,6 +320,7 @@ namespace Highfly.Editor
                 animator.runtimeAnimatorController = playerController;
             animator.applyRootMotion = false;
 
+            DisableEmbeddedWeaponRenderers(visual);
             TryAttachWeapon(visual.transform, PlayerWeaponPath);
 
             GameObject attack = new GameObject("AttackOrigin");
@@ -354,9 +359,10 @@ namespace Highfly.Editor
             rig = go.AddComponent<HighflyThirdPersonCamera>();
             SetObjectReference(rig, "followTarget", player);
             SetObjectReference(rig, "targeting", targeting);
-            SetFloat(rig, "distance", 6.2f);
-            SetFloat(rig, "height", 1.72f);
-            SetFloat(rig, "pitch", 12f);
+            SetFloat(rig, "distance", 7.2f);
+            SetFloat(rig, "height", 1.82f);
+            SetFloat(rig, "pitch", 13f);
+            SetFloat(rig, "minDistance", 2.35f);
 
             return camera;
         }
