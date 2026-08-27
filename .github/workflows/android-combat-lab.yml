@@ -1,7 +1,14 @@
-name: Build HIGHFLY Android Combat Lab
+name: Build HIGHFLY SUPREME Android
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - highfly-supreme
+
+concurrency:
+  group: highfly-supreme-android
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -13,7 +20,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout HIGHFLY
+      - name: Checkout HIGHFLY SUPREME
         uses: actions/checkout@v4
         with:
           lfs: true
@@ -39,7 +46,7 @@ jobs:
           docker-images: false
           swap-storage: false
 
-      - name: Build HIGHFLY APK
+      - name: Build HIGHFLY SUPREME APK
         uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -49,15 +56,25 @@ jobs:
           unityVersion: 2021.3.45f1
           targetPlatform: Android
           androidExportType: androidPackage
-          buildName: HIGHFLY-NEXUS-COMBAT-LAB
+          buildName: HIGHFLY-NEXUS-SUPREME
           buildsPath: build
           buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildAndroid
           allowDirtyBuild: true
 
-      - name: Upload HIGHFLY APK
+      - name: Upload HIGHFLY SUPREME APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HIGHFLY-NEXUS-COMBAT-LAB-APK
+          name: HIGHFLY-NEXUS-SUPREME-APK
           path: build/**/*.apk
-          if-no-files-found: error
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-SUPREME-DIAGNOSTICS
+          path: build/diagnostics/**
+          if-no-files-found: warn
           retention-days: 14
