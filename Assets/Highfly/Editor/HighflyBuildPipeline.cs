@@ -33,13 +33,13 @@ namespace Highfly.Editor
                 if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
                     throw new Exception("HIGHFLY could not activate the Android build target. Active target is " + EditorUserBuildSettings.activeBuildTarget);
 
-                HighflyCombatLabBuilder.BuildOrRefreshCombatLab();
+                HighflySupremeAssetInventory.Report();\n                HighflyCombatLabBuilder.BuildOrRefreshCombatLab();
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
                 WriteDiagnostic("02-scene-generated.txt", "Combat Lab scene generated: " + HighflyCombatLabBuilder.ScenePath + "\n");
 
                 PlayerSettings.companyName = "HIGHFLY";
-                PlayerSettings.productName = "HIGHFLY NEXUS";
+                PlayerSettings.productName = "HIGHFLY NEXUS SUPREME";
                 PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.highfly.nexus");
                 PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
                 PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
@@ -117,7 +117,7 @@ namespace Highfly.Editor
             string buildName = GetArgument("customBuildName");
 
             if (string.IsNullOrEmpty(buildName))
-                buildName = "HIGHFLY-NEXUS-COMBAT-LAB";
+                buildName = "HIGHFLY-NEXUS-SUPREME";
 
             if (string.IsNullOrEmpty(customPath))
                 return Path.Combine("build", "Android", buildName + ".apk");
