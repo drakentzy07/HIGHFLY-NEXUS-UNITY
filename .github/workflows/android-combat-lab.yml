@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   android-apk:
@@ -61,20 +61,28 @@ jobs:
           buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildAndroid
           allowDirtyBuild: true
 
-      - name: Upload HIGHFLY SUPREME APK
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: HIGHFLY-NEXUS-SUPREME-APK
-          path: build/**/*.apk
-          if-no-files-found: warn
-          retention-days: 14
+      - name: Verify Supreme APK
+        run: |
+          test -f build/Android/HIGHFLY-NEXUS-SUPREME.apk
+          ls -lh build/Android/HIGHFLY-NEXUS-SUPREME.apk
 
-      - name: Upload diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: HIGHFLY-SUPREME-DIAGNOSTICS
-          path: build/diagnostics/**
-          if-no-files-found: warn
-          retention-days: 14
+      - name: Publish HIGHFLY SUPREME Latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK="build/Android/HIGHFLY-NEXUS-SUPREME.apk"
+          TAG="highfly-supreme-latest"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" \
+              --target "${GITHUB_SHA}" \
+              --title "HIGHFLY SUPREME Latest" \
+              --notes "Latest automatic Android build from the highfly-supreme branch."
+          fi
+
+      - name: Print diagnostics on failure
+        if: failure()
+        run: |
+          echo "=== HIGHFLY diagnostics ==="
+          find build/diagnostics -maxdepth 1 -type f -print -exec sh -c 'echo "--- $1"; cat "$1"' _ {} \; 2>/dev/null || true
