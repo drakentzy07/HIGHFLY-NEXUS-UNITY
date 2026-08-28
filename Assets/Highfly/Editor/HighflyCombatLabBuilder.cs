@@ -649,6 +649,7 @@ namespace Highfly.Editor
             SetObjectReference(ai, "animator", animator);
             SetFloat(ai, "moveSpeed", speed);
             SetFloat(ai, "attackDamage", boss ? 18f : 8f);
+            SetFloat(ai, "attackWindup", boss ? 0.46f : 0.28f);
             SetFloat(ai, "attackRange", boss ? 2.15f : 1.65f);
             SetFloat(ai, "detectionRange", boss ? 18f : 14f);
             SetBool(ai, "enrageEnabled", boss);
