@@ -98,6 +98,20 @@ namespace Highfly.Core
             return forward * input.y + right * input.x;
         }
 
+        public void ResetMotion()
+        {
+            _planarVelocity = Vector3.zero;
+            _verticalVelocity = -2f;
+            _isDashing = false;
+            IsMoving = false;
+
+            if (animator != null)
+            {
+                animator.SetFloat("MoveSpeed", 0f);
+                animator.SetBool("IsMoving", false);
+            }
+        }
+
         public void Dash()
         {
             Dash(LastMoveDirection, defaultDashDistance, defaultDashDuration);
