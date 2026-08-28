@@ -523,17 +523,17 @@ namespace Highfly.Editor
                 new Vector2(1f, 0f), new Vector2(166f, 166f), new Vector2(-660f, 185f),
                 new Color(0.06f, 0.21f, 0.30f, 0.94f), Cyan, 24, combat.DashOrDodge);
 
-            CreateRoundButton(
+            Button skill1Button = CreateRoundButton(
                 "S1\nCORTE", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(182f, 182f), new Vector2(-600f, 400f),
                 new Color(0.05f, 0.22f, 0.31f, 0.94f), Cyan, 22, combat.SkillLineCleave);
 
-            CreateRoundButton(
+            Button skill2Button = CreateRoundButton(
                 "S2\nABANICO", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(182f, 182f), new Vector2(-407f, 500f),
                 new Color(0.16f, 0.10f, 0.33f, 0.94f), Violet, 21, combat.SkillCone);
 
-            CreateRoundButton(
+            Button skill3Button = CreateRoundButton(
                 "S3\nÁREA", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(182f, 182f), new Vector2(-190f, 530f),
                 new Color(0.23f, 0.08f, 0.34f, 0.96f), Violet, 22, combat.SkillArea);
@@ -573,8 +573,13 @@ namespace Highfly.Editor
                 TextAnchor.MiddleCenter);
             hint.color = new Color(0.62f, 0.68f, 0.82f, 0.75f);
 
+            Text skill1Label = skill1Button != null ? skill1Button.GetComponentInChildren<Text>() : null;
+            Text skill2Label = skill2Button != null ? skill2Button.GetComponentInChildren<Text>() : null;
+            Text skill3Label = skill3Button != null ? skill3Button.GetComponentInChildren<Text>() : null;
+
             HighflyCombatHUD hud = canvasGo.AddComponent<HighflyCombatHUD>();
             SetObjectReference(hud, "resources", resources);
+            SetObjectReference(hud, "combat", combat);
             SetObjectReference(hud, "progression", resources.GetComponent<HighflyHunterProgression>());
             SetObjectReference(hud, "targeting", targeting);
             SetObjectReference(hud, "rankText", rank);
@@ -583,6 +588,12 @@ namespace Highfly.Editor
             SetObjectReference(hud, "staminaText", stamina);
             SetObjectReference(hud, "targetText", target);
             SetObjectReference(hud, "staminaMiniText", staminaMini);
+            SetObjectReference(hud, "skill1Button", skill1Button);
+            SetObjectReference(hud, "skill2Button", skill2Button);
+            SetObjectReference(hud, "skill3Button", skill3Button);
+            SetObjectReference(hud, "skill1Label", skill1Label);
+            SetObjectReference(hud, "skill2Label", skill2Label);
+            SetObjectReference(hud, "skill3Label", skill3Label);
             SetObjectReference(hud, "hpFill", hpFill);
             SetObjectReference(hud, "mpFill", mpFill);
             SetObjectReference(hud, "staminaFill", staminaFill);
