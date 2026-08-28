@@ -424,7 +424,7 @@ namespace Highfly.Editor
             SetAnchored(statusRect, new Vector2(0f, 1f), new Vector2(720f, 278f), new Vector2(380f, -165f), new Vector2(0.5f, 0.5f));
 
             Text title = CreateText(
-                "HIGHFLY  //  NEXUS",
+                "HIGHFLY  //  NEXUS SUPREME",
                 statusRect,
                 new Vector2(0f, 1f),
                 new Vector2(620f, 54f),
