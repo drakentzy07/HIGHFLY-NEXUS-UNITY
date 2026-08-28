@@ -43,7 +43,7 @@ namespace Highfly.Core
 
         public void MarkCriptaFCleared()
         {
-            if (ContractFState == 2)
+            if (ContractFState != 1)
                 return;
 
             ContractFState = 2;
