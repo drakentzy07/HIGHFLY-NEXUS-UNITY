@@ -96,6 +96,17 @@ namespace Highfly.Core
             Save();
         }
 
+        public int LoseGold(int amount)
+        {
+            if (amount <= 0 || Gold <= 0)
+                return 0;
+
+            int lost = Mathf.Min(Gold, amount);
+            Gold -= lost;
+            Save();
+            return lost;
+        }
+
         private static int GetExperienceRequired(int level)
         {
             level = Mathf.Clamp(level, 1, 99);
