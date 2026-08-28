@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Highfly.Core;
 
 namespace Highfly.Combat
 {
@@ -10,12 +11,20 @@ namespace Highfly.Combat
         [SerializeField] private int enemyLayer = 8;
         [SerializeField] private string activeLabel = "CRIPTA F";
         [SerializeField] private string clearLabel = "CRIPTA LIMPIA";
+        [SerializeField] private int clearExperienceReward = 120;
+        [SerializeField] private int clearGoldReward = 75;
 
         private readonly List<HighflyHealth> _tracked = new List<HighflyHealth>();
         private int _defeated;
+        private bool _clearRewardGranted;
+        private HighflyHunterProgression _progression;
 
         private void Start()
         {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+                _progression = player.GetComponent<HighflyHunterProgression>();
+
             HighflyHealth[] all = FindObjectsOfType<HighflyHealth>(true);
             for (int i = 0; i < all.Length; i++)
             {
@@ -54,9 +63,26 @@ namespace Highfly.Combat
             int remaining = Mathf.Max(0, total - _defeated);
 
             if (total > 0 && remaining == 0)
-                objectiveText.text = clearLabel + "  •  GUARDIÁN DERROTADO";
+            {
+                if (!_clearRewardGranted)
+                {
+                    _clearRewardGranted = true;
+                    if (_progression != null)
+                    {
+                        _progression.AddExperience(clearExperienceReward);
+                        _progression.AddGold(clearGoldReward);
+                    }
+                }
+
+                objectiveText.text =
+                    clearLabel + "  •  GUARDIÁN DERROTADO" +
+                    "  •  +" + clearExperienceReward + " XP" +
+                    "  •  +" + clearGoldReward + " ORO";
+            }
             else
+            {
                 objectiveText.text = activeLabel + "  •  ENEMIGOS " + remaining + " / " + total;
+            }
         }
     }
 }
