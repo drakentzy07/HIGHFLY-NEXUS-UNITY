@@ -68,7 +68,7 @@ jobs:
           cp -R /tmp/highfly-kaykit/skeletons/addons Assets/External/KayKit/Skeletons/
 
           git clone --depth 1 --filter=blob:none --sparse https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0.git /tmp/highfly-kaykit/dungeon
-          git -C /tmp/highfly-kaykit/dungeon sparse-checkout set addons/kaykit_dungeon_remastered/Assets/fbx
+          git -C /tmp/highfly-kaykit/dungeon sparse-checkout set addons/kaykit_dungeon_remastered/Assets/fbx addons/kaykit_dungeon_remastered/Assets/texture
           cp -R /tmp/highfly-kaykit/dungeon/addons Assets/External/KayKit/Dungeon/
 
           git clone --depth 1 --filter=blob:none --sparse https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0.git /tmp/highfly-kaykit/medieval
@@ -78,6 +78,7 @@ jobs:
           test -f Assets/External/KayKit/Adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/RogueHooded.fbx
           test -f Assets/External/KayKit/Skeletons/addons/kaykit_character_pack_skeletons/Characters/fbx/Skeleton_Warrior.fbx
           test -f Assets/External/KayKit/Dungeon/addons/kaykit_dungeon_remastered/Assets/fbx/floor_tile_large.fbx
+          test -f Assets/External/KayKit/Dungeon/addons/kaykit_dungeon_remastered/Assets/texture/dungeon_texture.png
           test -f Assets/External/KayKit/Medieval/addons/kaykit_medieval_hexagon_pack/Assets/fbx/buildings/blue/building_tavern_blue.fbx
 
           echo "HIGHFLY KayKit foundation ready:"
