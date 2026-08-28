@@ -34,11 +34,16 @@ namespace Highfly.World
             if (controller == null || !controller.CompareTag("Player"))
                 return;
 
-            _globalNextUse = Time.time + cooldown;
+            _globalNextUse = Time.time + Mathf.Max(1.5f, cooldown);
+
+            HighflyThirdPersonMotor motor = controller.GetComponent<HighflyThirdPersonMotor>();
+            if (motor != null)
+                motor.ResetMotion();
 
             controller.enabled = false;
-            controller.transform.position = destination;
+            controller.transform.position = destination + Vector3.up * 0.06f;
             controller.transform.rotation = Quaternion.LookRotation(facing, Vector3.up);
+            Physics.SyncTransforms();
             controller.enabled = true;
 
             HighflyWorldSafety safety = controller.GetComponent<HighflyWorldSafety>();
