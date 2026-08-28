@@ -13,11 +13,16 @@ namespace Highfly.Core
         private const string ExperienceKey = "HIGHFLY_XP";
         private const string GoldKey = "HIGHFLY_GOLD";
         private const string GateKeysKey = "HIGHFLY_GATE_KEYS";
+        private const string ForgeLevelKey = "HIGHFLY_FORGE_LEVEL";
 
         public int Level { get; private set; } = 1;
         public int Experience { get; private set; }
         public int Gold { get; private set; }
         public int GateKeys { get; private set; }
+        public int ForgeLevel { get; private set; }
+
+        public float EquipmentPowerMultiplier => 1f + ForgeLevel * 0.05f;
+        public int ForgeUpgradeCost => ForgeLevel >= 5 ? 0 : 100 + ForgeLevel * 75;
 
         public int ExperienceToNextLevel => GetExperienceRequired(Level);
         public float ExperienceNormalized => Level >= 100 ? 1f :
@@ -49,6 +54,7 @@ namespace Highfly.Core
             Experience = Mathf.Max(0, PlayerPrefs.GetInt(ExperienceKey, 0));
             Gold = Mathf.Max(0, PlayerPrefs.GetInt(GoldKey, 0));
             GateKeys = Mathf.Max(0, PlayerPrefs.GetInt(GateKeysKey, 0));
+            ForgeLevel = Mathf.Clamp(PlayerPrefs.GetInt(ForgeLevelKey, 0), 0, 5);
 
             if (Level >= 100)
                 Experience = 0;
@@ -107,6 +113,47 @@ namespace Highfly.Core
             return lost;
         }
 
+        public bool TryUpgradeWeapon(out string result)
+        {
+            if (ForgeLevel >= 5)
+            {
+                result = "Tu arma ya está al máximo de forja (+5).";
+                return false;
+            }
+
+            int cost = ForgeUpgradeCost;
+            if (Gold < cost)
+            {
+                result = "Necesitás " + cost + " de oro. Tenés " + Gold + ".";
+                return false;
+            }
+
+            Gold -= cost;
+            ForgeLevel++;
+            Save();
+
+            int percent = Mathf.RoundToInt((EquipmentPowerMultiplier - 1f) * 100f);
+            result = "Forja completada: arma +" + ForgeLevel +
+                     ". Poder de equipo +" + percent + "%.";
+            return true;
+        }
+
+        public bool TryBuyGateKey(int cost, out string result)
+        {
+            cost = Mathf.Max(1, cost);
+            if (Gold < cost)
+            {
+                result = "La llave cuesta " + cost + " de oro. Tenés " + Gold + ".";
+                return false;
+            }
+
+            Gold -= cost;
+            GateKeys++;
+            Save();
+            result = "Llave de Portal adquirida. Llaves disponibles: " + GateKeys + ".";
+            return true;
+        }
+
         private static int GetExperienceRequired(int level)
         {
             level = Mathf.Clamp(level, 1, 99);
@@ -119,6 +166,7 @@ namespace Highfly.Core
             PlayerPrefs.SetInt(ExperienceKey, Experience);
             PlayerPrefs.SetInt(GoldKey, Gold);
             PlayerPrefs.SetInt(GateKeysKey, GateKeys);
+            PlayerPrefs.SetInt(ForgeLevelKey, ForgeLevel);
             PlayerPrefs.Save();
             Changed?.Invoke();
         }
