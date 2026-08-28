@@ -515,9 +515,11 @@ namespace Highfly.Editor
             CreatePrimitiveBlock(label+"_EastWall", parent, center + new Vector3(halfW,h*0.5f,0f), new Vector3(thickness,h,depth), material, true);
             CreatePrimitiveBlock(label+"_WestWall", parent, center + new Vector3(-halfW,h*0.5f,0f), new Vector3(thickness,h,depth), material, true);
 
-            float side = Mathf.Max(1f, (width - 3.2f) * 0.5f);
-            CreatePrimitiveBlock(label+"_SouthWall_L", parent, center + new Vector3(-(side+3.2f)*0.25f,h*0.5f,-halfD), new Vector3(side,h,thickness), material, true);
-            CreatePrimitiveBlock(label+"_SouthWall_R", parent, center + new Vector3((side+3.2f)*0.25f,h*0.5f,-halfD), new Vector3(side,h,thickness), material, true);
+            const float doorWidth = 3.2f;
+            float side = Mathf.Max(1f, (width - doorWidth) * 0.5f);
+            float sideCenter = doorWidth * 0.5f + side * 0.5f;
+            CreatePrimitiveBlock(label+"_SouthWall_L", parent, center + new Vector3(-sideCenter,h*0.5f,-halfD), new Vector3(side,h,thickness), material, true);
+            CreatePrimitiveBlock(label+"_SouthWall_R", parent, center + new Vector3(sideCenter,h*0.5f,-halfD), new Vector3(side,h,thickness), material, true);
         }
 
         private static void CreateInteriorPartition(Transform parent, Vector3 position, Vector3 size, Material material, string name)
