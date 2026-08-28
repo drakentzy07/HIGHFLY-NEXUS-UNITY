@@ -1195,17 +1195,19 @@ namespace Highfly.Editor
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ground.name = "FallbackArenaFloor";
             ground.transform.SetParent(root, false);
-            ground.transform.position = new Vector3(0f, -0.15f, 5f);
+            // Keep fallback geometry centered on the same origin used by ArenaMetrics.
+            // The previous +5 Z offset made portal spawns land outside the floor.
+            ground.transform.localPosition = new Vector3(0f, -0.15f, 0f);
             ground.transform.localScale = new Vector3(24f, 0.3f, 32f);
 
             Renderer renderer = ground.GetComponent<Renderer>();
             if (renderer != null)
                 renderer.sharedMaterial = CreateStandardMaterial("FallbackGround", new Color(0.06f, 0.075f, 0.12f, 1f));
 
-            CreateBoundary(root, "NorthBoundary", new Vector3(0f, 1.5f, 21f), new Vector3(24f, 3f, 0.5f));
-            CreateBoundary(root, "SouthBoundary", new Vector3(0f, 1.5f, -11f), new Vector3(24f, 3f, 0.5f));
-            CreateBoundary(root, "EastBoundary", new Vector3(12f, 1.5f, 5f), new Vector3(0.5f, 3f, 32f));
-            CreateBoundary(root, "WestBoundary", new Vector3(-12f, 1.5f, 5f), new Vector3(0.5f, 3f, 32f));
+            CreateBoundary(root, "NorthBoundary", new Vector3(0f, 1.5f, 16f), new Vector3(24f, 3f, 0.5f));
+            CreateBoundary(root, "SouthBoundary", new Vector3(0f, 1.5f, -16f), new Vector3(24f, 3f, 0.5f));
+            CreateBoundary(root, "EastBoundary", new Vector3(12f, 1.5f, 0f), new Vector3(0.5f, 3f, 32f));
+            CreateBoundary(root, "WestBoundary", new Vector3(-12f, 1.5f, 0f), new Vector3(0.5f, 3f, 32f));
 
             return new ArenaMetrics
             {
