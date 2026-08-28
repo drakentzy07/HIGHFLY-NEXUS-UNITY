@@ -8,6 +8,7 @@ namespace Highfly.Combat
     public sealed class HighflyDungeonObjective : MonoBehaviour
     {
         [SerializeField] private Text objectiveText;
+        [SerializeField] private Transform trackingRoot;
         [SerializeField] private int enemyLayer = 8;
         [SerializeField] private string activeLabel = "CRIPTA F";
         [SerializeField] private string clearLabel = "CRIPTA LIMPIA";
@@ -19,6 +20,11 @@ namespace Highfly.Combat
         private bool _clearRewardGranted;
         private HighflyHunterProgression _progression;
         private HighflyContractJournal _journal;
+
+        public void ConfigureTrackingRoot(Transform root)
+        {
+            trackingRoot = root;
+        }
 
         private void Start()
         {
@@ -35,6 +41,8 @@ namespace Highfly.Combat
                 HighflyHealth health = all[i];
                 if (health == null || health.gameObject.layer != enemyLayer)
                     continue;
+                if (trackingRoot != null && !health.transform.IsChildOf(trackingRoot))
+                    continue;
 
                 _tracked.Add(health);
                 health.Died += OnEnemyDied;
@@ -46,10 +54,8 @@ namespace Highfly.Combat
         private void OnDestroy()
         {
             for (int i = 0; i < _tracked.Count; i++)
-            {
                 if (_tracked[i] != null)
                     _tracked[i].Died -= OnEnemyDied;
-            }
         }
 
         private void OnEnemyDied(HighflyHealth health)
@@ -76,7 +82,6 @@ namespace Highfly.Combat
                         _progression.AddExperience(clearExperienceReward);
                         _progression.AddGold(clearGoldReward);
                     }
-
                     if (_journal != null)
                         _journal.MarkCriptaFCleared();
                 }
