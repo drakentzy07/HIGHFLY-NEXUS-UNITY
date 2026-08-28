@@ -96,15 +96,21 @@ namespace Highfly.World
         public void Teleport(Vector3 destination, Vector3 facing, bool restoreResources)
         {
             CharacterController characterController = GetComponent<CharacterController>();
+            HighflyThirdPersonMotor motor = GetComponent<HighflyThirdPersonMotor>();
             bool wasEnabled = characterController != null && characterController.enabled;
+
+            if (motor != null)
+                motor.ResetMotion();
 
             if (wasEnabled)
                 characterController.enabled = false;
 
-            transform.position = destination;
+            transform.position = destination + Vector3.up * 0.06f;
 
             if (facing.sqrMagnitude > 0.001f)
                 transform.rotation = Quaternion.LookRotation(facing.normalized, Vector3.up);
+
+            Physics.SyncTransforms();
 
             if (wasEnabled)
                 characterController.enabled = true;
