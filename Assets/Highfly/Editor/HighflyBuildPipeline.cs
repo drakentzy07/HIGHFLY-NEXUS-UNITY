@@ -44,6 +44,13 @@ namespace Highfly.Editor
                 PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.highfly.nexus");
                 PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
                 PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
+                PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
+                PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
+                PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+
+                int versionCode = ResolveVersionCode();
+                PlayerSettings.Android.bundleVersionCode = versionCode;
+                PlayerSettings.bundleVersion = "0.2." + versionCode;
                 EditorUserBuildSettings.buildAppBundle = false;
 
                 // The source project points at a Windows-only custom keystore and does
@@ -63,7 +70,10 @@ namespace Highfly.Editor
                 WriteDiagnostic("03-build-started.txt",
                     "Output: " + outputPath + "\n" +
                     "Active target: " + EditorUserBuildSettings.activeBuildTarget + "\n" +
-                    "Custom keystore: " + PlayerSettings.Android.useCustomKeystore + "\n");
+                    "Custom keystore: " + PlayerSettings.Android.useCustomKeystore + "\n" +
+                    "Version: " + PlayerSettings.bundleVersion + "\n" +
+                    "Version code: " + PlayerSettings.Android.bundleVersionCode + "\n" +
+                    "Architectures: " + PlayerSettings.Android.targetArchitectures + "\n");
 
                 BuildPlayerOptions options = new BuildPlayerOptions
                 {
@@ -110,6 +120,15 @@ namespace Highfly.Editor
             {
                 Debug.LogWarning("HIGHFLY could not write diagnostic file " + fileName + ": " + diagnosticException.Message);
             }
+        }
+
+        private static int ResolveVersionCode()
+        {
+            string runNumber = Environment.GetEnvironmentVariable("GITHUB_RUN_NUMBER");
+            if (int.TryParse(runNumber, out int parsed) && parsed > 0)
+                return parsed;
+
+            return Math.Max(1, PlayerSettings.Android.bundleVersionCode);
         }
 
         private static string ResolveOutputPath()
