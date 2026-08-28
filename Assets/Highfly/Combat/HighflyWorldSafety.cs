@@ -75,7 +75,12 @@ namespace Highfly.Combat
             if (controllerWasEnabled)
                 _controller.enabled = false;
 
-            transform.position = respawnPosition + Vector3.up * 0.08f;
+            HighflyThirdPersonMotor motor = GetComponent<HighflyThirdPersonMotor>();
+            if (motor != null)
+                motor.ResetMotion();
+
+            transform.position = respawnPosition + Vector3.up * 0.12f;
+            Physics.SyncTransforms();
 
             if (controllerWasEnabled)
                 _controller.enabled = true;
