@@ -553,6 +553,16 @@ namespace Highfly.Editor
                     new Color(0.14f, 0.05f, 0.12f, 0.94f), Red, 19, retreat.Retreat);
             }
 
+            Text staminaMini = CreateText(
+                "STA  100 / 100",
+                canvasRect,
+                new Vector2(1f, 0f),
+                new Vector2(300f, 48f),
+                new Vector2(-650f, 300f),
+                18,
+                TextAnchor.MiddleCenter);
+            staminaMini.color = new Color(0.62f, 0.92f, 0.86f, 0.9f);
+
             Text hint = CreateText(
                 "ARRASTRÁ DERECHA PARA CÁMARA  •  AUTO-TARGET ACTIVO",
                 canvasRect,
@@ -572,6 +582,7 @@ namespace Highfly.Editor
             SetObjectReference(hud, "mpText", mp);
             SetObjectReference(hud, "staminaText", stamina);
             SetObjectReference(hud, "targetText", target);
+            SetObjectReference(hud, "staminaMiniText", staminaMini);
             SetObjectReference(hud, "hpFill", hpFill);
             SetObjectReference(hud, "mpFill", mpFill);
             SetObjectReference(hud, "staminaFill", staminaFill);
