@@ -98,10 +98,16 @@ namespace Highfly.Editor
                 "REQUIRED FOUNDATION MISSING: " +
                 (missingRequired.Count == 0 ? "none" : string.Join(", ", missingRequired)));
 
+            const string dungeonTexture =
+                "Assets/External/KayKit/Dungeon/addons/kaykit_dungeon_remastered/Assets/texture/dungeon_texture.png";
+
+            if (AssetDatabase.LoadMainAssetAtPath(dungeonTexture) == null)
+                missingRequired.Add("KayKit Dungeon Texture");
+
             if (missingRequired.Count > 0)
             {
                 throw new BuildFailedException(
-                    "HIGHFLY SUPREME refused to build with fallback capsules. Missing required foundation: " +
+                    "HIGHFLY SUPREME refused to build with missing visual foundation: " +
                     string.Join(", ", missingRequired));
             }
         }
