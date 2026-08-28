@@ -19,6 +19,13 @@ namespace Highfly.Combat
         [SerializeField] private float attackWindup = 0.28f;
         [SerializeField] private float turnSpeed = 10f;
 
+        [Header("World behaviour")]
+        [SerializeField] private float leashRange = 22f;
+        [SerializeField] private float patrolRadius = 4.5f;
+        [SerializeField] private float patrolSpeedMultiplier = 0.48f;
+        [SerializeField] private float patrolPauseMin = 1.2f;
+        [SerializeField] private float patrolPauseMax = 3.8f;
+
         [Header("Elite / boss phase")]
         [SerializeField] private bool enrageEnabled;
         [SerializeField] private float enrageThreshold = 0.45f;
@@ -31,6 +38,10 @@ namespace Highfly.Combat
         private bool _attackPending;
         private HighflyCombatController _targetCombat;
         private HighflyThirdPersonMotor _targetMotor;
+        private Vector3 _home;
+        private Vector3 _patrolPoint;
+        private bool _hasPatrolPoint;
+        private float _patrolWaitUntil;
 
         private void Awake()
         {
@@ -39,51 +50,59 @@ namespace Highfly.Combat
                 selfHealth = GetComponent<HighflyHealth>();
             if (animator == null)
                 animator = GetComponentInChildren<Animator>();
+            _home = transform.position;
         }
 
         private void Start()
         {
-            if (target == null)
-            {
-                GameObject player = GameObject.FindGameObjectWithTag("Player");
-                if (player != null)
-                {
-                    target = player.transform;
-                    targetHealth = player.GetComponent<HighflyHealth>();
-                    _targetCombat = player.GetComponent<HighflyCombatController>();
-                    _targetMotor = player.GetComponent<HighflyThirdPersonMotor>();
-                }
-            }
+            ResolvePlayerTarget();
         }
 
         private void Update()
         {
-            if (target == null || (selfHealth != null && !selfHealth.IsAlive))
+            if (selfHealth != null && !selfHealth.IsAlive)
             {
                 SetMoveAnimation(0f);
+                return;
+            }
+
+            if (target == null || targetHealth == null || !targetHealth.IsAlive)
+                ResolvePlayerTarget();
+
+            if (target == null)
+            {
+                Patrol();
                 return;
             }
 
             Vector3 toTarget = target.position - transform.position;
             toTarget.y = 0f;
             float distance = toTarget.magnitude;
+            float homeDistance = Vector3.Distance(
+                new Vector3(transform.position.x, 0f, transform.position.z),
+                new Vector3(_home.x, 0f, _home.z));
+
+            if (homeDistance > leashRange)
+            {
+                ReturnHome();
+                return;
+            }
 
             if (distance > detectionRange || distance <= 0.001f)
             {
-                SetMoveAnimation(0f);
+                Patrol();
                 return;
             }
 
             Vector3 direction = toTarget / distance;
-            Quaternion desiredRotation = Quaternion.LookRotation(direction, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, 1f - Mathf.Exp(-turnSpeed * Time.deltaTime));
+            Face(direction);
 
             bool enraged = IsEnraged();
             float currentMoveSpeed = moveSpeed * (enraged ? enrageMoveMultiplier : 1f);
 
             if (distance > attackRange)
             {
-                SetMoveAnimation(enraged ? 1.2f : 1f);
+                SetMoveAnimation(enraged ? 1f : 0.82f);
                 _controller.SimpleMove(direction * currentMoveSpeed);
                 return;
             }
@@ -102,6 +121,67 @@ namespace Highfly.Combat
             }
         }
 
+        private void Patrol()
+        {
+            if (Time.time < _patrolWaitUntil)
+            {
+                SetMoveAnimation(0f);
+                return;
+            }
+
+            if (!_hasPatrolPoint)
+            {
+                Vector2 offset = Random.insideUnitCircle * Mathf.Max(0.5f, patrolRadius);
+                _patrolPoint = _home + new Vector3(offset.x, 0f, offset.y);
+                _hasPatrolPoint = true;
+            }
+
+            Vector3 delta = _patrolPoint - transform.position;
+            delta.y = 0f;
+            if (delta.sqrMagnitude < 0.35f)
+            {
+                _hasPatrolPoint = false;
+                _patrolWaitUntil = Time.time + Random.Range(patrolPauseMin, patrolPauseMax);
+                SetMoveAnimation(0f);
+                return;
+            }
+
+            Vector3 direction = delta.normalized;
+            Face(direction);
+            SetMoveAnimation(0.34f);
+            _controller.SimpleMove(direction * moveSpeed * patrolSpeedMultiplier);
+        }
+
+        private void ReturnHome()
+        {
+            Vector3 delta = _home - transform.position;
+            delta.y = 0f;
+
+            if (delta.sqrMagnitude < 0.5f)
+            {
+                _hasPatrolPoint = false;
+                SetMoveAnimation(0f);
+                return;
+            }
+
+            Vector3 direction = delta.normalized;
+            Face(direction);
+            SetMoveAnimation(0.62f);
+            _controller.SimpleMove(direction * moveSpeed * 0.78f);
+        }
+
+        private void Face(Vector3 direction)
+        {
+            if (direction.sqrMagnitude < 0.001f)
+                return;
+
+            Quaternion desiredRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                desiredRotation,
+                1f - Mathf.Exp(-turnSpeed * Time.deltaTime));
+        }
+
         private IEnumerator AttackAfterWindup(bool enraged)
         {
             _attackPending = true;
@@ -118,14 +198,11 @@ namespace Highfly.Combat
 
                 if (delta.magnitude <= attackRange + 0.45f)
                 {
-                    // A dash during the telegraph is a successful evade.
                     if (_targetMotor == null || !_targetMotor.IsDashing)
                     {
                         float finalDamage = attackDamage * (enraged ? enrageDamageMultiplier : 1f);
-
                         if (_targetCombat != null && _targetCombat.IsBlocking)
                             finalDamage *= 0.30f;
-
                         targetHealth.ApplyDamage(finalDamage);
                     }
                 }
@@ -140,6 +217,18 @@ namespace Highfly.Combat
                    selfHealth != null &&
                    selfHealth.IsAlive &&
                    selfHealth.Normalized <= Mathf.Clamp01(enrageThreshold);
+        }
+
+        private void ResolvePlayerTarget()
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player == null)
+                return;
+
+            target = player.transform;
+            targetHealth = player.GetComponent<HighflyHealth>();
+            _targetCombat = player.GetComponent<HighflyCombatController>();
+            _targetMotor = player.GetComponent<HighflyThirdPersonMotor>();
         }
 
         public void SetTarget(Transform targetTransform, HighflyHealth health)
@@ -165,19 +254,20 @@ namespace Highfly.Combat
                 return;
 
             if (HasParameter(animator, "MoveSpeed"))
-                animator.SetFloat("MoveSpeed", amount, 0.1f, Time.deltaTime);
+                animator.SetFloat("MoveSpeed", amount, 0.12f, Time.deltaTime);
             if (HasParameter(animator, "IsMoving"))
                 animator.SetBool("IsMoving", amount > 0.05f);
         }
 
         private static bool HasParameter(Animator targetAnimator, string parameterName)
         {
+            if (targetAnimator == null)
+                return false;
+
             AnimatorControllerParameter[] parameters = targetAnimator.parameters;
             for (int i = 0; i < parameters.Length; i++)
-            {
                 if (parameters[i].name == parameterName)
                     return true;
-            }
 
             return false;
         }
