@@ -73,7 +73,7 @@ namespace Highfly.UI
             if (targetText != null)
             {
                 if (targeting != null && targeting.HasTarget)
-                    targetText.text = "AUTO TARGET  •  " + targeting.CurrentTarget.name;
+                    targetText.text = "AUTO TARGET  •  " + targeting.CurrentTarget.name.Replace("_", " ").ToUpperInvariant();
                 else
                     targetText.text = "AUTO TARGET  •  BUSCANDO";
             }
