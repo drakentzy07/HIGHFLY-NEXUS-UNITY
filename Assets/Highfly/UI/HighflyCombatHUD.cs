@@ -101,7 +101,21 @@ namespace Highfly.UI
                 button.interactable = ready;
 
             if (label != null)
-                label.text = ready ? readyLabel : remaining.ToString("0.0");
+            {
+                if (ready)
+                {
+                    label.text = readyLabel;
+                }
+                else
+                {
+                    string skillId = readyLabel;
+                    int newline = skillId.IndexOf('\n');
+                    if (newline >= 0)
+                        skillId = skillId.Substring(0, newline);
+
+                    label.text = skillId + "\n" + remaining.ToString("0.0");
+                }
+            }
         }
     }
 }
