@@ -34,13 +34,13 @@ namespace Highfly.Editor
                     throw new Exception("HIGHFLY could not activate the Android build target. Active target is " + EditorUserBuildSettings.activeBuildTarget);
 
                 HighflySupremeAssetInventory.Report();
-                HighflyCombatLabBuilder.BuildOrRefreshCombatLab();
+                HighflyCombatLabBuilder.BuildOrRefreshWorldReforge();
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
-                WriteDiagnostic("02-scene-generated.txt", "Combat Lab scene generated: " + HighflyCombatLabBuilder.ScenePath + "\n");
+                WriteDiagnostic("02-scene-generated.txt", "World Reforge scene generated: " + HighflyCombatLabBuilder.ReforgeScenePath + "\n");
 
                 PlayerSettings.companyName = "HIGHFLY";
-                PlayerSettings.productName = "HIGHFLY NEXUS SUPREME";
+                PlayerSettings.productName = "HIGHFLY WORLD REFORGE SUPREME";
                 PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.highfly.nexus");
                 PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
                 PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
@@ -50,7 +50,7 @@ namespace Highfly.Editor
 
                 int versionCode = ResolveVersionCode();
                 PlayerSettings.Android.bundleVersionCode = versionCode;
-                PlayerSettings.bundleVersion = "0.2." + versionCode;
+                PlayerSettings.bundleVersion = "0.3." + versionCode;
                 EditorUserBuildSettings.buildAppBundle = false;
 
                 // The source project points at a Windows-only custom keystore and does
@@ -77,7 +77,7 @@ namespace Highfly.Editor
 
                 BuildPlayerOptions options = new BuildPlayerOptions
                 {
-                    scenes = new[] { HighflyCombatLabBuilder.ScenePath },
+                    scenes = new[] { HighflyCombatLabBuilder.ReforgeScenePath },
                     locationPathName = outputPath,
                     target = BuildTarget.Android,
                     targetGroup = BuildTargetGroup.Android,
