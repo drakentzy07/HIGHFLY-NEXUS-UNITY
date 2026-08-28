@@ -651,6 +651,8 @@ namespace Highfly.Editor
             SetFloat(ai, "attackDamage", boss ? 18f : 8f);
             SetFloat(ai, "attackRange", boss ? 2.15f : 1.65f);
             SetFloat(ai, "detectionRange", boss ? 18f : 14f);
+            SetBool(ai, "enrageEnabled", boss);
+            SetFloat(ai, "enrageThreshold", 0.45f);
             ai.SetTarget(player, playerHealth);
 
             HighflyHealthFeedback feedback = enemy.AddComponent<HighflyHealthFeedback>();
