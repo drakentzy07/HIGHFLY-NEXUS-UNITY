@@ -10,6 +10,7 @@ namespace Highfly.Combat
         [SerializeField] private HighflyThirdPersonMotor motor;
         [SerializeField] private HighflyTargetingSystem targeting;
         [SerializeField] private HighflyPlayerResources resources;
+        [SerializeField] private HighflyHunterProgression progression;
         [SerializeField] private Animator animator;
         [SerializeField] private Transform attackOrigin;
         [SerializeField] private HighflyCombatVfx vfx;
@@ -59,6 +60,8 @@ namespace Highfly.Combat
                 targeting = GetComponent<HighflyTargetingSystem>();
             if (resources == null)
                 resources = GetComponent<HighflyPlayerResources>();
+            if (progression == null)
+                progression = GetComponent<HighflyHunterProgression>();
             if (attackOrigin == null)
                 attackOrigin = transform;
             if (vfx == null)
@@ -153,7 +156,7 @@ namespace Highfly.Combat
 
             Vector3 origin = attackOrigin.position + Vector3.up * 0.7f;
             Vector3 direction = GetAttackDirection();
-            HighflyCombatQueries.DamageLine(origin, direction, lineLength, lineRadius, enemyMask, lineDamage);
+            HighflyCombatQueries.DamageLine(origin, direction, lineLength, lineRadius, enemyMask, ScaleEquipmentDamage(lineDamage));
         }
 
         public void SkillCone()
@@ -167,7 +170,7 @@ namespace Highfly.Combat
             if (vfx != null)
                 vfx.PlaySkillTwo();
 
-            HighflyCombatQueries.DamageArc(attackOrigin.position, GetAttackDirection(), coneRadius, coneHalfAngle, enemyMask, coneDamage);
+            HighflyCombatQueries.DamageArc(attackOrigin.position, GetAttackDirection(), coneRadius, coneHalfAngle, enemyMask, ScaleEquipmentDamage(coneDamage));
         }
 
         public void SkillArea()
@@ -175,13 +178,15 @@ namespace Highfly.Combat
             if (resources != null && !resources.TrySpendMana(areaManaCost))
                 return;
 
+            FaceSoftTarget();
             if (animator != null)
                 animator.SetTrigger("Skill3");
             if (vfx != null)
                 vfx.PlaySkillThree();
 
-            Vector3 center = transform.position + transform.forward * 1.1f;
-            HighflyCombatQueries.DamageArea(center, areaRadius, enemyMask, areaDamage);
+            Vector3 direction = GetAttackDirection();
+            Vector3 center = transform.position + direction * 1.1f;
+            HighflyCombatQueries.DamageArea(center, areaRadius, enemyMask, ScaleEquipmentDamage(areaDamage));
         }
 
         public void AnimationEventBasicHit()
@@ -208,12 +213,26 @@ namespace Highfly.Combat
 
         private void ApplyBasicHit()
         {
-            HighflyCombatQueries.DamageArc(attackOrigin.position, GetAttackDirection(), basicRadius, basicHalfAngle, enemyMask, basicDamage);
+            float comboMultiplier = _comboIndex == 3 ? 1.18f : (_comboIndex == 2 ? 1.08f : 1f);
+            float damage = ScaleEquipmentDamage(basicDamage * comboMultiplier);
+            HighflyCombatQueries.DamageArc(attackOrigin.position, GetAttackDirection(), basicRadius, basicHalfAngle, enemyMask, damage);
         }
 
         private void ApplyHeavyHit()
         {
-            HighflyCombatQueries.DamageArc(attackOrigin.position, GetAttackDirection(), heavyRadius, 78f, enemyMask, heavyDamage);
+            HighflyCombatQueries.DamageArc(
+                attackOrigin.position,
+                GetAttackDirection(),
+                heavyRadius,
+                78f,
+                enemyMask,
+                ScaleEquipmentDamage(heavyDamage));
+        }
+
+        private float ScaleEquipmentDamage(float baseDamage)
+        {
+            float multiplier = progression != null ? progression.EquipmentPowerMultiplier : 1f;
+            return Mathf.Max(0f, baseDamage * multiplier);
         }
 
         private Vector3 GetAttackDirection()
