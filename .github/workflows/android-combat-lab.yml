@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - highfly-supreme
+    paths:
+      - '.github/build-trigger/supreme.txt'
 
 concurrency:
   group: highfly-supreme-android
@@ -26,8 +28,8 @@ jobs:
           lfs: true
           fetch-depth: 0
 
-      - name: Cache Unity Library
-        uses: actions/cache@v4
+      - name: Restore Unity Library cache
+        uses: actions/cache/restore@v4
         with:
           path: Library
           key: Library-2021.3.45f1-Android-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
