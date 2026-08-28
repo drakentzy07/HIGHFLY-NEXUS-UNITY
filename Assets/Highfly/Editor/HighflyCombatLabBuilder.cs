@@ -189,6 +189,10 @@ namespace Highfly.Editor
             HighflyWorldSafety playerSafety = player.AddComponent<HighflyWorldSafety>();
             playerSafety.Configure(citySpawn, -14f, true, true);
 
+            HighflyRetreatController retreat = player.GetComponent<HighflyRetreatController>();
+            if (retreat != null)
+                retreat.Configure(citySpawn, Vector3.forward);
+
             CreateZonePortal(
                 "PORTAL_F_CRIPTA",
                 cityPortalPosition,
@@ -303,6 +307,7 @@ namespace Highfly.Editor
             targeting = player.AddComponent<HighflyTargetingSystem>();
             combat = player.AddComponent<HighflyCombatController>();
             player.AddComponent<HighflyInteractionController>();
+            player.AddComponent<HighflyRetreatController>();
             HighflyCombatVfx vfx = player.AddComponent<HighflyCombatVfx>();
 
             GameObject visual = InstantiateModel(PlayerModelPath, player.transform, "Hunter_RogueHooded");
@@ -537,6 +542,15 @@ namespace Highfly.Editor
                 new Vector2(1f, 0f), new Vector2(150f, 150f), new Vector2(-835f, 220f),
                 new Color(0.08f, 0.12f, 0.22f, 0.94f), new Color(0.72f, 0.8f, 1f, 1f), 21,
                 combat.BeginBlock, combat.EndBlock);
+
+            HighflyRetreatController retreat = combat.GetComponent<HighflyRetreatController>();
+            if (retreat != null)
+            {
+                CreateRoundButton(
+                    "RETIRADA", canvasRect, circleSprite,
+                    new Vector2(1f, 1f), new Vector2(160f, 160f), new Vector2(-115f, -120f),
+                    new Color(0.14f, 0.05f, 0.12f, 0.94f), Red, 19, retreat.Retreat);
+            }
 
             Text hint = CreateText(
                 "ARRASTRÁ DERECHA PARA CÁMARA  •  AUTO-TARGET ACTIVO",
