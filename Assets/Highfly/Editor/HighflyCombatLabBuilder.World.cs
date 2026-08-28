@@ -171,9 +171,10 @@ namespace Highfly.Editor
             else if (key.Contains("herrero"))
             {
                 name = "Herrero Kael";
+                prompt = "FORJAR";
                 message =
-                    "La Forja está abierta. Todavía estamos preparando mejora y reparación, " +
-                    "pero ya podés entrar al taller y revisar la zona.";
+                    "Mejoro tu arma usando oro. Cada nivel de forja aumenta el Poder de equipo " +
+                    "sin modificar tus stats físicos de entrenamiento.";
             }
             else if (key.Contains("erudita"))
             {
@@ -201,9 +202,10 @@ namespace Highfly.Editor
             else if (key.Contains("mercader"))
             {
                 name = "Mercader Nia";
+                prompt = "COMPRAR LLAVE";
                 message =
-                    "El mercado todavía no consume oro, pero esta zona ya queda reservada " +
-                    "para equipo, llaves, consumibles y contratos.";
+                    "Tengo llaves de Portal por 125 de oro. Las llaves obtenidas de bosses " +
+                    "también quedan guardadas en tu perfil.";
             }
             else if (key.Contains("sacerd") || key.Contains("santuario"))
             {
