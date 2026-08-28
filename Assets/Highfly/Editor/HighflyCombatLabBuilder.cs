@@ -298,6 +298,7 @@ namespace Highfly.Editor
             SetFloat(health, "maxHealth", 160f);
 
             resources = player.AddComponent<HighflyPlayerResources>();
+            player.AddComponent<HighflyHunterProgression>();
             motor = player.AddComponent<HighflyThirdPersonMotor>();
             targeting = player.AddComponent<HighflyTargetingSystem>();
             combat = player.AddComponent<HighflyCombatController>();
@@ -439,11 +440,11 @@ namespace Highfly.Editor
 
             Image hpFill = CreateResourceBar(statusRect, "HP_BAR", new Vector2(350f, -126f), new Color(0.96f, 0.12f, 0.28f, 1f));
             Image mpFill = CreateResourceBar(statusRect, "MP_BAR", new Vector2(350f, -178f), new Color(0.14f, 0.55f, 1f, 1f));
-            Image staminaFill = CreateResourceBar(statusRect, "STA_BAR", new Vector2(350f, -230f), new Color(0.12f, 0.92f, 0.72f, 1f));
+            Image staminaFill = CreateResourceBar(statusRect, "XP_BAR", new Vector2(350f, -230f), new Color(0.55f, 0.28f, 1f, 1f));
 
             Text hp = CreateText("HP", statusRect, new Vector2(0f, 1f), new Vector2(570f, 38f), new Vector2(350f, -126f), 22, TextAnchor.MiddleLeft);
             Text mp = CreateText("MP", statusRect, new Vector2(0f, 1f), new Vector2(570f, 38f), new Vector2(350f, -178f), 22, TextAnchor.MiddleLeft);
-            Text stamina = CreateText("STA", statusRect, new Vector2(0f, 1f), new Vector2(570f, 38f), new Vector2(350f, -230f), 21, TextAnchor.MiddleLeft);
+            Text stamina = CreateText("XP", statusRect, new Vector2(0f, 1f), new Vector2(570f, 38f), new Vector2(350f, -230f), 21, TextAnchor.MiddleLeft);
 
             // Target pill.
             GameObject targetPill = CreateImage("TargetPill", canvasRect, new Color(0.025f, 0.035f, 0.09f, 0.86f), circleSprite);
@@ -549,7 +550,9 @@ namespace Highfly.Editor
 
             HighflyCombatHUD hud = canvasGo.AddComponent<HighflyCombatHUD>();
             SetObjectReference(hud, "resources", resources);
+            SetObjectReference(hud, "progression", resources.GetComponent<HighflyHunterProgression>());
             SetObjectReference(hud, "targeting", targeting);
+            SetObjectReference(hud, "rankText", rank);
             SetObjectReference(hud, "hpText", hp);
             SetObjectReference(hud, "mpText", mp);
             SetObjectReference(hud, "staminaText", stamina);
@@ -629,6 +632,14 @@ namespace Highfly.Editor
 
             HighflyWorldSafety safety = enemy.AddComponent<HighflyWorldSafety>();
             safety.Configure(position, -14f, false, false);
+
+            HighflyEnemyReward reward = enemy.AddComponent<HighflyEnemyReward>();
+            SetObjectReference(reward, "health", health);
+            int xpReward = boss ? 240 : Mathf.RoundToInt(20f + hp * 0.35f);
+            int goldReward = boss ? 150 : Mathf.RoundToInt(8f + hp * 0.15f);
+            SetInt(reward, "experienceReward", xpReward);
+            SetInt(reward, "goldReward", goldReward);
+            SetInt(reward, "gateKeyReward", boss ? 1 : 0);
 
             CreateWorldHealthBar(enemy.transform, health, boss);
         }
