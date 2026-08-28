@@ -15,6 +15,7 @@ namespace Highfly.UI
         [SerializeField] private Text mpText;
         [SerializeField] private Text staminaText;
         [SerializeField] private Text targetText;
+        [SerializeField] private Text staminaMiniText;
         [SerializeField] private Image hpFill;
         [SerializeField] private Image mpFill;
         [SerializeField] private Image staminaFill;
@@ -42,6 +43,9 @@ namespace Highfly.UI
 
                 if (mpFill != null)
                     mpFill.fillAmount = resources.MaxMana <= 0f ? 0f : resources.Mana / resources.MaxMana;
+
+                if (staminaMiniText != null)
+                    staminaMiniText.text = string.Format("STA  {0:0} / {1:0}", resources.Stamina, resources.MaxStamina);
             }
 
             if (progression != null)
