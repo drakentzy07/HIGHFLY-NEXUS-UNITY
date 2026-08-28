@@ -30,6 +30,13 @@ namespace Highfly.World
             HighflyHunterProgression progression = controller.GetComponent<HighflyHunterProgression>();
             string body = dialogue;
 
+            HighflyContractJournal journal = controller.GetComponent<HighflyContractJournal>();
+
+            if (displayName == "Serin" && journal != null)
+            {
+                body += "\n\n" + journal.InteractWithSerin();
+            }
+
             if (progression != null)
             {
                 if (displayName == "Herrero Kael")
