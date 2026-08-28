@@ -18,12 +18,16 @@ namespace Highfly.Combat
         private int _defeated;
         private bool _clearRewardGranted;
         private HighflyHunterProgression _progression;
+        private HighflyContractJournal _journal;
 
         private void Start()
         {
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player != null)
+            {
                 _progression = player.GetComponent<HighflyHunterProgression>();
+                _journal = player.GetComponent<HighflyContractJournal>();
+            }
 
             HighflyHealth[] all = FindObjectsOfType<HighflyHealth>(true);
             for (int i = 0; i < all.Length; i++)
@@ -72,6 +76,9 @@ namespace Highfly.Combat
                         _progression.AddExperience(clearExperienceReward);
                         _progression.AddGold(clearGoldReward);
                     }
+
+                    if (_journal != null)
+                        _journal.MarkCriptaFCleared();
                 }
 
                 objectiveText.text =
