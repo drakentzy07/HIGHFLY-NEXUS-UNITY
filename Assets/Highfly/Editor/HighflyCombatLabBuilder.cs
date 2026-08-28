@@ -303,6 +303,7 @@ namespace Highfly.Editor
 
             resources = player.AddComponent<HighflyPlayerResources>();
             player.AddComponent<HighflyHunterProgression>();
+            player.AddComponent<HighflyContractJournal>();
             motor = player.AddComponent<HighflyThirdPersonMotor>();
             targeting = player.AddComponent<HighflyTargetingSystem>();
             combat = player.AddComponent<HighflyCombatController>();
