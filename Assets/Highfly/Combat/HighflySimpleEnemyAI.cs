@@ -1,4 +1,5 @@
 using UnityEngine;
+using Highfly.Core;
 
 namespace Highfly.Combat
 {
@@ -18,6 +19,8 @@ namespace Highfly.Combat
 
         private CharacterController _controller;
         private float _nextAttackTime;
+        private HighflyCombatController _targetCombat;
+        private HighflyThirdPersonMotor _targetMotor;
 
         private void Awake()
         {
@@ -37,6 +40,8 @@ namespace Highfly.Combat
                 {
                     target = player.transform;
                     targetHealth = player.GetComponent<HighflyHealth>();
+                    _targetCombat = player.GetComponent<HighflyCombatController>();
+                    _targetMotor = player.GetComponent<HighflyThirdPersonMotor>();
                 }
             }
         }
@@ -80,7 +85,20 @@ namespace Highfly.Combat
                     animator.SetTrigger("Attack");
 
                 if (targetHealth != null && targetHealth.IsAlive)
-                    targetHealth.ApplyDamage(attackDamage);
+                {
+                    // Dash provides a short real dodge window.
+                    if (_targetMotor != null && _targetMotor.IsDashing)
+                        return;
+
+                    float finalDamage = attackDamage;
+
+                    // Blocking is an active mitigation tool; stamina is already
+                    // drained continuously by HighflyCombatController.
+                    if (_targetCombat != null && _targetCombat.IsBlocking)
+                        finalDamage *= 0.30f;
+
+                    targetHealth.ApplyDamage(finalDamage);
+                }
             }
         }
 
@@ -88,6 +106,12 @@ namespace Highfly.Combat
         {
             target = targetTransform;
             targetHealth = health;
+
+            if (targetTransform != null)
+            {
+                _targetCombat = targetTransform.GetComponent<HighflyCombatController>();
+                _targetMotor = targetTransform.GetComponent<HighflyThirdPersonMotor>();
+            }
         }
 
         public void SetAnimator(Animator value)
