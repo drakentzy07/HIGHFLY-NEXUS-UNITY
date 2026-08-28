@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using Highfly.Core;
 
@@ -15,6 +16,7 @@ namespace Highfly.Combat
         [SerializeField] private float attackRange = 1.7f;
         [SerializeField] private float attackDamage = 8f;
         [SerializeField] private float attackInterval = 1.25f;
+        [SerializeField] private float attackWindup = 0.28f;
         [SerializeField] private float turnSpeed = 10f;
 
         [Header("Elite / boss phase")]
@@ -26,6 +28,7 @@ namespace Highfly.Combat
 
         private CharacterController _controller;
         private float _nextAttackTime;
+        private bool _attackPending;
         private HighflyCombatController _targetCombat;
         private HighflyThirdPersonMotor _targetMotor;
 
@@ -87,7 +90,7 @@ namespace Highfly.Combat
 
             SetMoveAnimation(0f);
 
-            if (Time.time >= _nextAttackTime)
+            if (!_attackPending && Time.time >= _nextAttackTime)
             {
                 float currentInterval = attackInterval * (enraged ? enrageIntervalMultiplier : 1f);
                 _nextAttackTime = Time.time + Mathf.Max(0.35f, currentInterval);
@@ -95,22 +98,40 @@ namespace Highfly.Combat
                 if (animator != null && HasParameter(animator, "Attack"))
                     animator.SetTrigger("Attack");
 
-                if (targetHealth != null && targetHealth.IsAlive)
+                StartCoroutine(AttackAfterWindup(enraged));
+            }
+        }
+
+        private IEnumerator AttackAfterWindup(bool enraged)
+        {
+            _attackPending = true;
+            yield return new WaitForSeconds(Mathf.Max(0.05f, attackWindup));
+
+            if (targetHealth != null &&
+                targetHealth.IsAlive &&
+                selfHealth != null &&
+                selfHealth.IsAlive &&
+                target != null)
+            {
+                Vector3 delta = target.position - transform.position;
+                delta.y = 0f;
+
+                if (delta.magnitude <= attackRange + 0.45f)
                 {
-                    // Dash provides a short real dodge window.
-                    if (_targetMotor != null && _targetMotor.IsDashing)
-                        return;
+                    // A dash during the telegraph is a successful evade.
+                    if (_targetMotor == null || !_targetMotor.IsDashing)
+                    {
+                        float finalDamage = attackDamage * (enraged ? enrageDamageMultiplier : 1f);
 
-                    float finalDamage = attackDamage * (enraged ? enrageDamageMultiplier : 1f);
+                        if (_targetCombat != null && _targetCombat.IsBlocking)
+                            finalDamage *= 0.30f;
 
-                    // Blocking is an active mitigation tool; stamina is already
-                    // drained continuously by HighflyCombatController.
-                    if (_targetCombat != null && _targetCombat.IsBlocking)
-                        finalDamage *= 0.30f;
-
-                    targetHealth.ApplyDamage(finalDamage);
+                        targetHealth.ApplyDamage(finalDamage);
+                    }
                 }
             }
+
+            _attackPending = false;
         }
 
         private bool IsEnraged()
