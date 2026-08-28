@@ -17,6 +17,13 @@ namespace Highfly.Combat
         [SerializeField] private float attackInterval = 1.25f;
         [SerializeField] private float turnSpeed = 10f;
 
+        [Header("Elite / boss phase")]
+        [SerializeField] private bool enrageEnabled;
+        [SerializeField] private float enrageThreshold = 0.45f;
+        [SerializeField] private float enrageMoveMultiplier = 1.25f;
+        [SerializeField] private float enrageDamageMultiplier = 1.35f;
+        [SerializeField] private float enrageIntervalMultiplier = 0.72f;
+
         private CharacterController _controller;
         private float _nextAttackTime;
         private HighflyCombatController _targetCombat;
@@ -68,10 +75,13 @@ namespace Highfly.Combat
             Quaternion desiredRotation = Quaternion.LookRotation(direction, Vector3.up);
             transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, 1f - Mathf.Exp(-turnSpeed * Time.deltaTime));
 
+            bool enraged = IsEnraged();
+            float currentMoveSpeed = moveSpeed * (enraged ? enrageMoveMultiplier : 1f);
+
             if (distance > attackRange)
             {
-                SetMoveAnimation(1f);
-                _controller.SimpleMove(direction * moveSpeed);
+                SetMoveAnimation(enraged ? 1.2f : 1f);
+                _controller.SimpleMove(direction * currentMoveSpeed);
                 return;
             }
 
@@ -79,7 +89,8 @@ namespace Highfly.Combat
 
             if (Time.time >= _nextAttackTime)
             {
-                _nextAttackTime = Time.time + attackInterval;
+                float currentInterval = attackInterval * (enraged ? enrageIntervalMultiplier : 1f);
+                _nextAttackTime = Time.time + Mathf.Max(0.35f, currentInterval);
 
                 if (animator != null && HasParameter(animator, "Attack"))
                     animator.SetTrigger("Attack");
@@ -90,7 +101,7 @@ namespace Highfly.Combat
                     if (_targetMotor != null && _targetMotor.IsDashing)
                         return;
 
-                    float finalDamage = attackDamage;
+                    float finalDamage = attackDamage * (enraged ? enrageDamageMultiplier : 1f);
 
                     // Blocking is an active mitigation tool; stamina is already
                     // drained continuously by HighflyCombatController.
@@ -100,6 +111,14 @@ namespace Highfly.Combat
                     targetHealth.ApplyDamage(finalDamage);
                 }
             }
+        }
+
+        private bool IsEnraged()
+        {
+            return enrageEnabled &&
+                   selfHealth != null &&
+                   selfHealth.IsAlive &&
+                   selfHealth.Normalized <= Mathf.Clamp01(enrageThreshold);
         }
 
         public void SetTarget(Transform targetTransform, HighflyHealth health)
