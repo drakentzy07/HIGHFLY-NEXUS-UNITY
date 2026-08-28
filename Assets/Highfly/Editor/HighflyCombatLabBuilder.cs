@@ -1478,7 +1478,8 @@ namespace Highfly.Editor
             AnimatorStateMachine sm = controller.layers[0].stateMachine;
 
             AnimationClip idleClip = PickClip(clips, "idle");
-            AnimationClip runClip = PickClip(clips, "run", "running", "sprint", "walk");
+            AnimationClip walkClip = PickClip(clips, "walk", "walking");
+            AnimationClip runClip = PickClip(clips, "run", "running", "sprint") ?? walkClip;
             AnimationClip attackClip = PickClip(clips, "attack", "slash", "melee");
             AnimationClip heavyClip = PickClip(clips, "heavy", "smash", "attack");
             AnimationClip dashClip = PickClip(clips, "roll", "dodge", "dash", "run");
@@ -1490,16 +1491,28 @@ namespace Highfly.Editor
             AnimatorState idle = AddState(sm, "Idle", idleClip ?? clips[0]);
             sm.defaultState = idle;
 
-            AnimatorState run = AddState(sm, "Run", runClip ?? idle.motion as AnimationClip);
-            AnimatorStateTransition toRun = idle.AddTransition(run);
-            toRun.hasExitTime = false;
-            toRun.duration = 0.12f;
-            toRun.AddCondition(AnimatorConditionMode.Greater, 0.12f, "MoveSpeed");
+            AnimatorState walk = AddState(sm, "Walk", walkClip ?? runClip ?? idle.motion as AnimationClip);
+            AnimatorState run = AddState(sm, "Run", runClip ?? walkClip ?? idle.motion as AnimationClip);
 
-            AnimatorStateTransition toIdle = run.AddTransition(idle);
-            toIdle.hasExitTime = false;
-            toIdle.duration = 0.12f;
-            toIdle.AddCondition(AnimatorConditionMode.Less, 0.12f, "MoveSpeed");
+            AnimatorStateTransition idleToWalk = idle.AddTransition(walk);
+            idleToWalk.hasExitTime = false;
+            idleToWalk.duration = 0.10f;
+            idleToWalk.AddCondition(AnimatorConditionMode.Greater, 0.08f, "MoveSpeed");
+
+            AnimatorStateTransition walkToIdle = walk.AddTransition(idle);
+            walkToIdle.hasExitTime = false;
+            walkToIdle.duration = 0.10f;
+            walkToIdle.AddCondition(AnimatorConditionMode.Less, 0.08f, "MoveSpeed");
+
+            AnimatorStateTransition walkToRun = walk.AddTransition(run);
+            walkToRun.hasExitTime = false;
+            walkToRun.duration = 0.12f;
+            walkToRun.AddCondition(AnimatorConditionMode.Greater, 0.54f, "MoveSpeed");
+
+            AnimatorStateTransition runToWalk = run.AddTransition(walk);
+            runToWalk.hasExitTime = false;
+            runToWalk.duration = 0.12f;
+            runToWalk.AddCondition(AnimatorConditionMode.Less, 0.50f, "MoveSpeed");
 
             AddTriggeredState(sm, idle, "Basic_Attack", attackClip ?? idleClip ?? clips[0], "BasicAttack", 0.78f);
             AddTriggeredState(sm, idle, "Heavy_Attack", heavyClip ?? attackClip ?? clips[0], "HeavyAttack", 0.82f);
