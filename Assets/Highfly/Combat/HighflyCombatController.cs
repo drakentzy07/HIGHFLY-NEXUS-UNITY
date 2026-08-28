@@ -38,19 +38,28 @@ namespace Highfly.Combat
         [SerializeField] private float lineLength = 6.5f;
         [SerializeField] private float lineRadius = 1.05f;
         [SerializeField] private float lineManaCost = 16f;
+        [SerializeField] private float lineCooldown = 3.2f;
         [SerializeField] private float coneDamage = 30f;
         [SerializeField] private float coneRadius = 4.2f;
         [SerializeField] private float coneHalfAngle = 48f;
         [SerializeField] private float coneManaCost = 20f;
+        [SerializeField] private float coneCooldown = 4.8f;
         [SerializeField] private float areaDamage = 26f;
         [SerializeField] private float areaRadius = 3.2f;
         [SerializeField] private float areaManaCost = 24f;
+        [SerializeField] private float areaCooldown = 7.0f;
 
         private int _comboIndex;
         private float _lastBasicTime = -99f;
         private bool _isBlocking;
+        private float _nextLineTime;
+        private float _nextConeTime;
+        private float _nextAreaTime;
 
         public bool IsBlocking => _isBlocking;
+        public float Skill1CooldownRemaining => Mathf.Max(0f, _nextLineTime - Time.time);
+        public float Skill2CooldownRemaining => Mathf.Max(0f, _nextConeTime - Time.time);
+        public float Skill3CooldownRemaining => Mathf.Max(0f, _nextAreaTime - Time.time);
 
         private void Awake()
         {
@@ -145,9 +154,12 @@ namespace Highfly.Combat
 
         public void SkillLineCleave()
         {
+            if (Skill1CooldownRemaining > 0f)
+                return;
             if (resources != null && !resources.TrySpendMana(lineManaCost))
                 return;
 
+            _nextLineTime = Time.time + Mathf.Max(0.1f, lineCooldown);
             FaceSoftTarget();
             if (animator != null)
                 animator.SetTrigger("Skill1");
@@ -161,9 +173,12 @@ namespace Highfly.Combat
 
         public void SkillCone()
         {
+            if (Skill2CooldownRemaining > 0f)
+                return;
             if (resources != null && !resources.TrySpendMana(coneManaCost))
                 return;
 
+            _nextConeTime = Time.time + Mathf.Max(0.1f, coneCooldown);
             FaceSoftTarget();
             if (animator != null)
                 animator.SetTrigger("Skill2");
@@ -175,9 +190,12 @@ namespace Highfly.Combat
 
         public void SkillArea()
         {
+            if (Skill3CooldownRemaining > 0f)
+                return;
             if (resources != null && !resources.TrySpendMana(areaManaCost))
                 return;
 
+            _nextAreaTime = Time.time + Mathf.Max(0.1f, areaCooldown);
             FaceSoftTarget();
             if (animator != null)
                 animator.SetTrigger("Skill3");
