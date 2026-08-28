@@ -1,15 +1,17 @@
 #if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEngine;
 
 namespace Highfly.Editor
 {
     /// <summary>
-    /// Non-blocking inventory for the HIGHFLY SUPREME asset stack.
-    /// New packs can be introduced progressively while the proven KayKit
-    /// vertical slice remains a safe fallback for Android builds.
+    /// Asset gate for HIGHFLY SUPREME.
+    /// Required foundation packs must be genuinely present before Android builds.
+    /// Optional Supreme packs can still be introduced progressively.
     /// </summary>
     public static class HighflySupremeAssetInventory
     {
@@ -17,30 +19,48 @@ namespace Highfly.Editor
         {
             public string Name;
             public string Root;
+            public string AnchorAsset;
             public bool RequiredNow;
 
-            public Pack(string name, string root, bool requiredNow)
+            public Pack(string name, string root, string anchorAsset, bool requiredNow)
             {
                 Name = name;
                 Root = root;
+                AnchorAsset = anchorAsset;
                 RequiredNow = requiredNow;
             }
         }
 
         private static readonly Pack[] Packs =
         {
-            new Pack("KayKit Adventurers", "Assets/External/KayKit/Adventurers", true),
-            new Pack("KayKit Skeletons", "Assets/External/KayKit/Skeletons", true),
-            new Pack("KayKit Dungeon", "Assets/External/KayKit/Dungeon", true),
-            new Pack("KayKit Medieval", "Assets/External/KayKit/Medieval", true),
+            new Pack(
+                "KayKit Adventurers",
+                "Assets/External/KayKit/Adventurers",
+                "Assets/External/KayKit/Adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/RogueHooded.fbx",
+                true),
+            new Pack(
+                "KayKit Skeletons",
+                "Assets/External/KayKit/Skeletons",
+                "Assets/External/KayKit/Skeletons/addons/kaykit_character_pack_skeletons/Characters/fbx/Skeleton_Warrior.fbx",
+                true),
+            new Pack(
+                "KayKit Dungeon",
+                "Assets/External/KayKit/Dungeon",
+                "Assets/External/KayKit/Dungeon/addons/kaykit_dungeon_remastered/Assets/fbx/floor_tile_large.fbx",
+                true),
+            new Pack(
+                "KayKit Medieval",
+                "Assets/External/KayKit/Medieval",
+                "Assets/External/KayKit/Medieval/addons/kaykit_medieval_hexagon_pack/Assets/fbx/buildings/blue/building_tavern_blue.fbx",
+                true),
 
-            new Pack("Quaternius Universal Base Characters", "Assets/External/Quaternius/UniversalBaseCharacters", false),
-            new Pack("Quaternius Modular Fantasy Outfits", "Assets/External/Quaternius/ModularFantasyOutfits", false),
-            new Pack("Quaternius Universal Animation Library 2", "Assets/External/Quaternius/UAL2", false),
-            new Pack("Quaternius Medieval Weapons", "Assets/External/Quaternius/MedievalWeapons", false),
-            new Pack("Quaternius Ultimate Modular Characters", "Assets/External/Quaternius/ModularCharacters", false),
-            new Pack("Quaternius Ultimate Animated Animals", "Assets/External/Quaternius/AnimatedAnimals", false),
-            new Pack("Quaternius Monster Expansion", "Assets/External/Quaternius/Monsters", false)
+            new Pack("Quaternius Universal Base Characters", "Assets/External/Quaternius/UniversalBaseCharacters", null, false),
+            new Pack("Quaternius Modular Fantasy Outfits", "Assets/External/Quaternius/ModularFantasyOutfits", null, false),
+            new Pack("Quaternius Universal Animation Library 2", "Assets/External/Quaternius/UAL2", null, false),
+            new Pack("Quaternius Medieval Weapons", "Assets/External/Quaternius/MedievalWeapons", null, false),
+            new Pack("Quaternius Ultimate Modular Characters", "Assets/External/Quaternius/ModularCharacters", null, false),
+            new Pack("Quaternius Ultimate Animated Animals", "Assets/External/Quaternius/AnimatedAnimals", null, false),
+            new Pack("Quaternius Monster Expansion", "Assets/External/Quaternius/Monsters", null, false)
         };
 
         [MenuItem("HIGHFLY/SUPREME/Report Asset Inventory")]
@@ -54,8 +74,10 @@ namespace Highfly.Editor
 
             foreach (Pack pack in Packs)
             {
-                bool exists = AssetDatabase.IsValidFolder(pack.Root) ||
-                              AssetDatabase.FindAssets(string.Empty, new[] { pack.Root }).Any();
+                bool rootExists = AssetDatabase.IsValidFolder(pack.Root);
+                bool anchorExists = string.IsNullOrEmpty(pack.AnchorAsset) ||
+                                    AssetDatabase.LoadMainAssetAtPath(pack.AnchorAsset) != null;
+                bool exists = rootExists && anchorExists;
 
                 if (exists)
                 {
@@ -73,11 +95,15 @@ namespace Highfly.Editor
                 "HIGHFLY SUPREME asset inventory\n" +
                 "PRESENT: " + (present.Count == 0 ? "none" : string.Join(", ", present)) + "\n" +
                 "PENDING: " + (pending.Count == 0 ? "none" : string.Join(", ", pending)) + "\n" +
-                "REQUIRED FALLBACK MISSING: " +
+                "REQUIRED FOUNDATION MISSING: " +
                 (missingRequired.Count == 0 ? "none" : string.Join(", ", missingRequired)));
 
-            // This inventory is intentionally non-blocking. Supreme packs are
-            // introduced in layers; the stable KayKit slice must remain buildable.
+            if (missingRequired.Count > 0)
+            {
+                throw new BuildFailedException(
+                    "HIGHFLY SUPREME refused to build with fallback capsules. Missing required foundation: " +
+                    string.Join(", ", missingRequired));
+            }
         }
     }
 }
