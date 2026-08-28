@@ -46,6 +46,41 @@ jobs:
           docker-images: false
           swap-storage: false
 
+      - name: Fetch official KayKit CC0 foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/highfly-kaykit
+          mkdir -p /tmp/highfly-kaykit
+          mkdir -p Assets/External/KayKit/Adventurers
+          mkdir -p Assets/External/KayKit/Skeletons
+          mkdir -p Assets/External/KayKit/Dungeon
+          mkdir -p Assets/External/KayKit/Medieval
+
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0.git /tmp/highfly-kaykit/adventurers
+          git -C /tmp/highfly-kaykit/adventurers sparse-checkout set addons/kaykit_character_pack_adventures/Characters/fbx addons/kaykit_character_pack_adventures/Assets/fbx
+          cp -R /tmp/highfly-kaykit/adventurers/addons Assets/External/KayKit/Adventurers/
+
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0.git /tmp/highfly-kaykit/skeletons
+          git -C /tmp/highfly-kaykit/skeletons sparse-checkout set addons/kaykit_character_pack_skeletons/Characters/fbx
+          cp -R /tmp/highfly-kaykit/skeletons/addons Assets/External/KayKit/Skeletons/
+
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0.git /tmp/highfly-kaykit/dungeon
+          git -C /tmp/highfly-kaykit/dungeon sparse-checkout set addons/kaykit_dungeon_remastered/Assets/fbx
+          cp -R /tmp/highfly-kaykit/dungeon/addons Assets/External/KayKit/Dungeon/
+
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0.git /tmp/highfly-kaykit/medieval
+          git -C /tmp/highfly-kaykit/medieval sparse-checkout set addons/kaykit_medieval_hexagon_pack/Assets/fbx
+          cp -R /tmp/highfly-kaykit/medieval/addons Assets/External/KayKit/Medieval/
+
+          test -f Assets/External/KayKit/Adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/RogueHooded.fbx
+          test -f Assets/External/KayKit/Skeletons/addons/kaykit_character_pack_skeletons/Characters/fbx/Skeleton_Warrior.fbx
+          test -f Assets/External/KayKit/Dungeon/addons/kaykit_dungeon_remastered/Assets/fbx/floor_tile_large.fbx
+          test -f Assets/External/KayKit/Medieval/addons/kaykit_medieval_hexagon_pack/Assets/fbx/buildings/blue/building_tavern_blue.fbx
+
+          echo "HIGHFLY KayKit foundation ready:"
+          du -sh Assets/External/KayKit/*
+
       - name: Build HIGHFLY SUPREME APK
         uses: game-ci/unity-builder@v4
         env:
