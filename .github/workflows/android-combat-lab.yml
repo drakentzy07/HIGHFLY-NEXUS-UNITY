@@ -7,6 +7,7 @@ on:
       - highfly-supreme
     paths:
       - '.github/build-trigger/supreme.txt'
+      - '.github/workflows/android-combat-lab.yml'
 
 concurrency:
   group: highfly-supreme-android
