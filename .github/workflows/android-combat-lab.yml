@@ -26,7 +26,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
-          fetch-depth: 0
+          fetch-depth: 1
+
+      - name: Free maximum safe disk for Unity
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+
+      - name: Disk diagnostics before cache
+        shell: bash
+        run: |
+          echo "=== DISK BEFORE UNITY CACHE ==="
+          df -h
+          echo "=== WORKSPACE ==="
+          du -sh . || true
 
       - name: Restore Unity Library cache
         uses: actions/cache/restore@v4
@@ -36,17 +55,6 @@ jobs:
           restore-keys: |
             Library-2021.3.45f1-Android-
             Library-2021.3.45f1-
-
-      - name: Free disk for Unity Android image
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: false
-          android: false
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: false
-          swap-storage: false
 
       - name: Fetch official KayKit CC0 foundation
         shell: bash
@@ -83,6 +91,19 @@ jobs:
 
           echo "HIGHFLY KayKit foundation ready:"
           du -sh Assets/External/KayKit/*
+
+          echo "Removing temporary KayKit git clones..."
+          rm -rf /tmp/highfly-kaykit
+
+      - name: Disk diagnostics before IL2CPP
+        shell: bash
+        run: |
+          echo "=== DISK BEFORE IL2CPP ==="
+          df -h
+          echo "=== PROJECT SIZE ==="
+          du -sh Assets Library Packages ProjectSettings 2>/dev/null || true
+          echo "=== LARGEST WORKSPACE DIRECTORIES ==="
+          du -xhd1 . 2>/dev/null | sort -h | tail -20 || true
 
       - name: Build HIGHFLY SUPREME APK
         uses: game-ci/unity-builder@v4
@@ -121,6 +142,8 @@ jobs:
 
       - name: Print diagnostics on failure
         if: failure()
+        shell: bash
         run: |
           echo "=== HIGHFLY diagnostics ==="
+          df -h || true
           find build/diagnostics -maxdepth 1 -type f -print -exec sh -c 'echo "--- $1"; cat "$1"' _ {} \; 2>/dev/null || true
