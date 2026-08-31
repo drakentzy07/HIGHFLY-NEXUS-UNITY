@@ -1,0 +1,13 @@
+name: HIGHFLY CODE04 Runner Smoke
+
+on:
+  push:
+    branches: [code04-runner]
+    paths:
+      - ".runner-smoke"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo RUNNER_OK
