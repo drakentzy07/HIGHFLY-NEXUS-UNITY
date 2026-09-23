@@ -1400,6 +1400,11 @@ namespace Highfly.Editor
 
         private static AnimatorController CreatePlayerAnimatorController(string modelPath)
         {
+            // KayKit locomotion clips arrive inside the FBX. Force only locomotion/idle
+            // clips to loop so CharacterController movement never turns into visual sliding.
+            // This intentionally does NOT change combat timing, camera, input or skill code.
+            EnsureLoopingLocomotionClips(modelPath);
+
             AnimationClip[] clips = LoadUsableClips(modelPath);
             if (clips.Length == 0)
             {
@@ -1424,11 +1429,11 @@ namespace Highfly.Editor
 
             AnimatorStateMachine sm = controller.layers[0].stateMachine;
 
-            AnimationClip idleClip = PickClip(clips, "idle");
-            AnimationClip runClip = PickClip(clips, "run", "running", "sprint", "walk");
+            AnimationClip idleClip = PickClip(clips, "Idle", "Unarmed_Idle", "2H_Melee_Idle");
+            AnimationClip runClip = PickClip(clips, "Running_A", "Running_B", "Walking_A", "Walking_B", "running", "run", "sprint", "walk");
             AnimationClip attackClip = PickClip(clips, "attack", "slash", "melee");
             AnimationClip heavyClip = PickClip(clips, "heavy", "smash", "attack");
-            AnimationClip dashClip = PickClip(clips, "roll", "dodge", "dash", "run");
+            AnimationClip dashClip = PickClip(clips, "Dodge_Forward", "Dodge_Backward", "roll", "dodge", "dash", "run");
             AnimationClip blockClip = PickClip(clips, "block", "defend", "idle");
             AnimationClip skill1Clip = PickClip(clips, "slash", "attack");
             AnimationClip skill2Clip = PickClip(clips, "spin", "attack");
@@ -1558,6 +1563,50 @@ namespace Highfly.Editor
             leave.duration = 0.08f;
         }
 
+        private static void EnsureLoopingLocomotionClips(string modelPath)
+        {
+            if (!AssetExists(modelPath))
+                return;
+
+            ModelImporter importer = AssetImporter.GetAtPath(modelPath) as ModelImporter;
+            if (importer == null)
+                return;
+
+            ModelImporterClipAnimation[] clips = importer.clipAnimations;
+            if (clips == null || clips.Length == 0)
+                clips = importer.defaultClipAnimations;
+
+            bool changed = false;
+            for (int i = 0; i < clips.Length; i++)
+            {
+                ModelImporterClipAnimation clip = clips[i];
+                string clipName = (clip.name ?? string.Empty).ToLowerInvariant();
+
+                bool shouldLoop =
+                    clipName == "idle" ||
+                    clipName.Contains("idle") ||
+                    clipName.Contains("walking") ||
+                    clipName.Contains("running") ||
+                    clipName.StartsWith("run") ||
+                    clipName.Contains("strafe") ||
+                    clipName.Contains("blocking");
+
+                if (!shouldLoop || (clip.loopTime && clip.loopPose))
+                    continue;
+
+                clip.loopTime = true;
+                clip.loopPose = true;
+                clips[i] = clip;
+                changed = true;
+            }
+
+            if (!changed)
+                return;
+
+            importer.clipAnimations = clips;
+            importer.SaveAndReimport();
+        }
+
         private static AnimationClip[] LoadUsableClips(string modelPath)
         {
             if (!AssetExists(modelPath))
@@ -1574,13 +1623,24 @@ namespace Highfly.Editor
             if (clips == null || clips.Length == 0)
                 return null;
 
+            // Exact names first. This prevents a forward run request from accidentally
+            // selecting Running_Strafe_Right just because it happens to appear first.
             for (int h = 0; h < hints.Length; h++)
             {
                 string hint = hints[h];
                 AnimationClip exact = clips.FirstOrDefault(
-                    c => c.name.IndexOf(hint, StringComparison.OrdinalIgnoreCase) >= 0);
+                    c => string.Equals(c.name, hint, StringComparison.OrdinalIgnoreCase));
                 if (exact != null)
                     return exact;
+            }
+
+            for (int h = 0; h < hints.Length; h++)
+            {
+                string hint = hints[h];
+                AnimationClip partial = clips.FirstOrDefault(
+                    c => c.name.IndexOf(hint, StringComparison.OrdinalIgnoreCase) >= 0);
+                if (partial != null)
+                    return partial;
             }
 
             return null;
