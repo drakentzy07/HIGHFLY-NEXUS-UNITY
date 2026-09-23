@@ -45,6 +45,11 @@ jobs:
           print("roads", len(d.get("roads",[])))
           print("camps", len(d.get("camps",[])))
           print("gather", len(d.get("gatherNodes",[])))
+          print("props", len(d.get("props",[])))
+          print("decorations", len(d.get("decorations",[])))
+          from collections import Counter
+          print("prop categories", Counter(str(x.get("category","")).lower() for x in d.get("props",[])).most_common(30))
+          print("decoration kinds", Counter(str(x.get("kind","")).lower() for x in d.get("decorations",[])).most_common(30))
           assert d.get("schema") == "highfly-unity-world-v01"
           assert len(d.get("terrain",[])) > 0
           PY
@@ -63,6 +68,10 @@ jobs:
             DUNGEON_LIST,
             STATIONS,
             GROUND_OBJECTS,
+            PROPS,
+            ROADS,
+            ZONES,
+            PLAYER_START,
           } from './src/sim/data.ts';
 
           const npcRole = (n: any): string => {
@@ -155,9 +164,98 @@ jobs:
             objects,
           };
 
+          const categoryAliases: Record<string, string> = {
+            greatTrees: 'greattrees',
+            decorProps: 'decorprops',
+            mudHuts: 'mudhuts',
+            ruinRings: 'ruinrings',
+            marshReeds: 'marshreeds',
+            delveMarkers: 'delvemarkers',
+          };
+
+          const num = (v: any, fallback = 0): number =>
+            Number.isFinite(Number(v)) ? Number(v) : fallback;
+
+          const props: any[] = [];
+          for (const [rawCategory, rawEntries] of Object.entries(PROPS as any)) {
+            if (!Array.isArray(rawEntries)) continue;
+            const category = categoryAliases[rawCategory] ?? rawCategory.toLowerCase();
+
+            rawEntries.forEach((raw: any, index: number) => {
+              const p: any = Array.isArray(raw)
+                ? { x: raw[0], z: raw[1] }
+                : (raw ?? {});
+
+              const x = num(p.x ?? p.x1);
+              const z = num(p.z ?? p.z1);
+              const x2 = num(p.x2, x);
+              const z2 = num(p.z2, z);
+              const width = num(p.width ?? p.w ?? (p.hw != null ? Number(p.hw) * 2 : 0));
+              const depth = num(p.depth ?? p.d ?? (p.hd != null ? Number(p.hd) * 2 : 0));
+              const radius = num(p.radius ?? p.r ?? p.ringR);
+              const height = num(p.height ?? p.h);
+              const assetId = String(p.assetId ?? '');
+              const key = String(p.key ?? assetId ?? '');
+              const kind = String(p.kind ?? assetId ?? key ?? category);
+
+              props.push({
+                id: String(p.id ?? (category + '_' + index)),
+                category,
+                kind,
+                assetId,
+                key,
+                x,
+                z,
+                x2,
+                z2,
+                rot: num(p.rot ?? p.rotation),
+                scale: num(p.scale, 1),
+                radius,
+                width,
+                depth,
+                height,
+                count: num(p.count, 1),
+              });
+            });
+          }
+
+          const roads = (ROADS as any[]).map((road: any, index: number) => ({
+            id: String(road.id ?? ('road_' + index)),
+            points: (road.points ?? road.path ?? [])
+              .filter((p: any) => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.z)))
+              .map((p: any) => ({ x: Number(p.x), z: Number(p.z) })),
+          })).filter((road: any) => road.points.length >= 2);
+
+          const zones = (ZONES as any[]).map((zone: any) => ({
+            id: String(zone.id ?? ''),
+            name: String(zone.name ?? zone.id ?? ''),
+            biome: String(zone.biome ?? ''),
+            xMin: num(zone.xMin, -180),
+            xMax: num(zone.xMax, 180),
+            zMin: num(zone.zMin),
+            zMax: num(zone.zMax),
+            hub: zone.hub ? { x: num(zone.hub.x), z: num(zone.hub.z) } : null,
+          }));
+
+          const eastbrook = zones.find((zone: any) => zone.id === 'eastbrook_vale');
+          const citySpawn = eastbrook?.hub ?? { x: num((PLAYER_START as any).x), z: num((PLAYER_START as any).z) };
+          const structure = {
+            schema: 'highfly-claudecraft-world-structure-v031',
+            source: 'levy-street/world-of-claudecraft@v0.43.3',
+            citySpawn,
+            zones,
+            roads,
+            props,
+          };
+
           const outPath = process.env.HIGHFLY_ENTITIES_OUT;
           if (!outPath) throw new Error('HIGHFLY_ENTITIES_OUT missing');
           fs.writeFileSync(outPath, JSON.stringify(out));
+
+          const structurePath = process.env.HIGHFLY_STRUCTURE_OUT;
+          if (!structurePath) throw new Error('HIGHFLY_STRUCTURE_OUT missing');
+          fs.writeFileSync(structurePath, JSON.stringify(structure));
+
           console.log(JSON.stringify({
             schema: out.schema,
             npcs: npcs.length,
@@ -165,11 +263,24 @@ jobs:
             mobs: mobs.length,
             stations: stations.length,
             objects: objects.length,
+            structureSchema: structure.schema,
+            structureProps: props.length,
+            structureRoads: roads.length,
+            structureZones: zones.length,
+            citySpawn,
+            propCategories: Object.fromEntries(
+              [...new Set(props.map((p: any) => p.category))]
+                .sort()
+                .map((category: string) => [category, props.filter((p: any) => p.category === category).length])
+            ),
           }, null, 2));
           TS
           mkdir -p "$GITHUB_WORKSPACE/Assets/Highfly/Resources/ClaudeCraft"
-          HIGHFLY_ENTITIES_OUT="$GITHUB_WORKSPACE/Assets/Highfly/Resources/ClaudeCraft/entities.json" npx --yes tsx@4.22.4 highfly-unity-entities.mts
+          HIGHFLY_ENTITIES_OUT="$GITHUB_WORKSPACE/Assets/Highfly/Resources/ClaudeCraft/entities.json" \
+          HIGHFLY_STRUCTURE_OUT="$GITHUB_WORKSPACE/Assets/Highfly/Resources/ClaudeCraft/structure.json" \
+            npx --yes tsx@4.22.4 highfly-unity-entities.mts
           test -s "$GITHUB_WORKSPACE/Assets/Highfly/Resources/ClaudeCraft/entities.json"
+          test -s "$GITHUB_WORKSPACE/Assets/Highfly/Resources/ClaudeCraft/structure.json"
           cd "$GITHUB_WORKSPACE"
 
       - name: Stage official CC0 KayKit visuals
@@ -274,22 +385,44 @@ jobs:
           <meta name="screen-orientation" content="landscape">
           <style>
           html,body{margin:0!important;padding:0!important;width:100%!important;height:100%!important;overflow:hidden!important;background:#08121d!important}
-          #unity-container{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important}
-          #unity-canvas{width:100vw!important;height:100dvh!important;display:block!important}
+          #unity-container,#unity-container.unity-desktop,#unity-container.unity-mobile{position:fixed!important;left:0!important;top:0!important;right:0!important;bottom:0!important;inset:0!important;transform:none!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important}
+          #unity-canvas,#unity-canvas.unity-mobile{position:absolute!important;inset:0!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;display:block!important}
           #unity-footer,#unity-logo,#unity-webgl-logo{display:none!important}
+          #highfly-enter{position:fixed;inset:0;z-index:99999;background:#08121d;display:none;align-items:center;justify-content:center;font-family:Arial,sans-serif}
+          #highfly-enter button{font-size:22px;font-weight:700;padding:18px 28px;border-radius:12px;border:1px solid #5ee8ff;background:#102c42;color:white}
           </style>
           '''
           boot=r'''
+          <div id="highfly-enter"><button type="button">ENTRAR A HIGHFLY</button></div>
           <script>
           (() => {
-            let requested = false;
+            const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const overlay = document.getElementById("highfly-enter");
+            const button = overlay ? overlay.querySelector("button") : null;
+            if (mobile && overlay) overlay.style.display = "flex";
+
+            const fit = () => {
+              const container = document.getElementById("unity-container");
+              const canvas = document.getElementById("unity-canvas");
+              if (container) {
+                container.className = "unity-mobile";
+                container.style.transform = "none";
+                container.style.width = "100vw";
+                container.style.height = "100dvh";
+              }
+              if (canvas) {
+                canvas.className = "unity-mobile";
+                canvas.style.width = "100vw";
+                canvas.style.height = "100dvh";
+              }
+            };
+
             const enter = async () => {
-              if (requested) return;
-              requested = true;
+              fit();
               try {
                 const el = document.documentElement;
                 if (!document.fullscreenElement && el.requestFullscreen) {
-                  await el.requestFullscreen({navigationUI:"hide"});
+                  await el.requestFullscreen();
                 }
               } catch (_) {}
               try {
@@ -297,15 +430,24 @@ jobs:
                   await screen.orientation.lock("landscape");
                 }
               } catch (_) {}
+              if (overlay) overlay.style.display = "none";
             };
-            window.addEventListener("pointerdown", enter, {once:true, passive:true});
-            window.addEventListener("touchend", enter, {once:true, passive:true});
+
+            if (button) button.addEventListener("click", enter);
+            window.addEventListener("resize", fit);
+            window.addEventListener("orientationchange", fit);
+            fit();
           })();
           </script>
           '''
+          # Unity 2021's default WebGL template emits a scary mobile warning
+          # even though this HIGHFLY build is intentionally tested on Android.
+          s=s.replace("unityShowBanner('WebGL builds are not supported on mobile devices.');", "")
+          s=s.replace('canvas.style.width = "960px";', 'canvas.style.width = "100vw";')
+          s=s.replace('canvas.style.height = "600px";', 'canvas.style.height = "100dvh";')
           if "viewport-fit=cover" not in s:
               s=s.replace("</head>", head+"\n</head>")
-          if "requestFullscreen({navigationUI" not in s:
+          if 'id="highfly-enter"' not in s:
               s=s.replace("</body>", boot+"\n</body>")
           p.write_text(s,encoding="utf-8")
           print("Patched mobile fullscreen:", p)
