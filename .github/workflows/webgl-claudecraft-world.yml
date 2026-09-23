@@ -49,6 +49,129 @@ jobs:
           assert len(d.get("terrain",[])) > 0
           PY
 
+      - name: Export authored ClaudeCraft entities for WORLD v0.3
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/claudecraft-v0433
+          git clone --branch v0.43.3 --depth 1 https://github.com/levy-street/world-of-claudecraft.git /tmp/claudecraft-v0433
+          cd /tmp/claudecraft-v0433
+          cat > highfly-unity-entities.mts <<'TS'
+          import fs from 'node:fs';
+          import {
+            NPCS,
+            MOBS,
+            DUNGEON_LIST,
+            STATIONS,
+            GROUND_OBJECTS,
+          } from './src/sim/data.ts';
+
+          const npcRole = (n: any): string => {
+            if (n.banker) return 'banker';
+            if (n.market) return 'market';
+            if (n.farmer) return 'farmer';
+            if (n.warfareVendor) return 'guard';
+            if (Array.isArray(n.vendorItems) && n.vendorItems.length) return 'vendor';
+            if (Array.isArray(n.questIds) && n.questIds.length) return 'quest';
+            const id = String(n.id ?? '').toLowerCase();
+            if (id.includes('marshal') || id.includes('warden') || id.includes('guard')) return 'guard';
+            if (id.includes('priest') || id.includes('apothecary') || id.includes('mage')) return 'mage';
+            return 'civilian';
+          };
+
+          const npcs = Object.values(NPCS)
+            .filter((n: any) => !n.dynamic && n.pos && Number.isFinite(n.pos.x) && Number.isFinite(n.pos.z))
+            .map((n: any) => ({
+              id: String(n.id ?? ''),
+              name: String(n.name ?? n.id ?? 'Habitante'),
+              title: String(n.title ?? ''),
+              role: npcRole(n),
+              greeting: String(n.greeting ?? ''),
+              x: Number(n.pos.x),
+              z: Number(n.pos.z),
+              facing: Number(n.facing ?? 0),
+              color: Number(n.color ?? 0xffffff),
+              questCount: Array.isArray(n.questIds) ? n.questIds.length : 0,
+            }));
+
+          const dungeons = DUNGEON_LIST
+            .filter((d: any) => d.overworldDoor !== false && d.doorPos)
+            .map((d: any) => ({
+              id: String(d.id ?? ''),
+              name: String(d.name ?? d.id ?? 'Mazmorra'),
+              interior: String(d.interior ?? ''),
+              enterText: String(d.enterText ?? ''),
+              leaveText: String(d.leaveText ?? ''),
+              x: Number(d.doorPos.x),
+              z: Number(d.doorPos.z),
+              suggestedPlayers: Number(d.suggestedPlayers ?? 1),
+              staticDoor: Boolean(d.staticDoor),
+            }));
+
+          const mobs = Object.values(MOBS).map((m: any) => ({
+            id: String(m.id ?? ''),
+            name: String(m.name ?? m.id ?? ''),
+            family: String(m.family ?? ''),
+            scale: Number(m.scale ?? 1),
+            color: Number(m.color ?? 0xffffff),
+            elite: Boolean(m.elite),
+            rare: Boolean(m.rare),
+            boss: Boolean(m.boss),
+          }));
+
+          const rawStations: any[] = Array.isArray(STATIONS)
+            ? STATIONS as any[]
+            : Object.values(STATIONS as any);
+          const stations = rawStations
+            .filter((s: any) => s && s.pos && Number.isFinite(s.pos.x) && Number.isFinite(s.pos.z))
+            .map((s: any, i: number) => ({
+              id: String(s.id ?? ('station_' + i)),
+              type: String(s.type ?? s.kind ?? 'station'),
+              x: Number(s.pos.x),
+              z: Number(s.pos.z),
+            }));
+
+          const objects: any[] = [];
+          for (const def of GROUND_OBJECTS as any[]) {
+            const placements = Array.isArray(def.positions) ? def.positions : (def.pos ? [def.pos] : []);
+            placements.forEach((p: any, i: number) => {
+              if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.z)) return;
+              objects.push({
+                id: String(def.id ?? def.itemId ?? 'object') + '_' + i,
+                name: String(def.name ?? def.itemId ?? 'Objeto'),
+                templateId: String(def.templateId ?? ''),
+                x: Number(p.x),
+                z: Number(p.z),
+              });
+            });
+          }
+
+          const out = {
+            schema: 'highfly-claudecraft-world-entities-v03',
+            source: 'levy-street/world-of-claudecraft@v0.43.3',
+            npcs,
+            dungeons,
+            mobs,
+            stations,
+            objects,
+          };
+
+          const outPath = process.env.HIGHFLY_ENTITIES_OUT;
+          if (!outPath) throw new Error('HIGHFLY_ENTITIES_OUT missing');
+          fs.writeFileSync(outPath, JSON.stringify(out));
+          console.log(JSON.stringify({
+            schema: out.schema,
+            npcs: npcs.length,
+            dungeons: dungeons.length,
+            mobs: mobs.length,
+            stations: stations.length,
+            objects: objects.length,
+          }, null, 2));
+          TS
+          mkdir -p "$GITHUB_WORKSPACE/Assets/Highfly/Resources/ClaudeCraft"
+          HIGHFLY_ENTITIES_OUT="$GITHUB_WORKSPACE/Assets/Highfly/Resources/ClaudeCraft/entities.json" npx --yes tsx@4.22.4 highfly-unity-entities.mts
+          test -s "$GITHUB_WORKSPACE/Assets/Highfly/Resources/ClaudeCraft/entities.json"
+          cd "$GITHUB_WORKSPACE"
+
       - name: Stage official CC0 KayKit visuals
         run: |
           rm -rf /tmp/kaykit-adventurers /tmp/kaykit-medieval
@@ -64,7 +187,15 @@ jobs:
 
           SRC="/tmp/kaykit-medieval/addons/kaykit_medieval_hexagon_pack/Assets/fbx"
           DST="Assets/Highfly/Resources/ClaudeWorldAssets"
-          mkdir -p "$DST/buildings/blue" "$DST/buildings/neutral" "$DST/nature" "$DST/props"
+          mkdir -p "$DST/buildings/blue" "$DST/buildings/neutral" "$DST/nature" "$DST/props" "$DST/characters"
+
+          CHAR_SRC="/tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx"
+          for n in Barbarian Knight Mage Rogue RogueHooded; do
+            cp "$CHAR_SRC/$n.fbx" "$DST/characters/"
+          done
+          for tex in barbarian_texture knight_texture mage_texture rogue_texture; do
+            cp "$CHAR_SRC/$tex.png" "$DST/characters/"
+          done
 
           for n in building_home_A_blue building_home_B_blue building_tavern_blue building_blacksmith_blue building_market_blue building_church_blue building_mine_blue building_well_blue building_lumbermill_blue building_windmill_blue building_watermill_blue building_tower_A_blue building_castle_blue building_barracks_blue building_archeryrange_blue; do
             cp "$SRC/buildings/blue/$n.fbx" "$DST/buildings/blue/"
@@ -126,6 +257,56 @@ jobs:
           buildName: HIGHFLY-WORLD-LAB
           buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildWebGLClaudeWorld
           allowDirtyBuild: true
+
+      - name: Patch WebGL for mobile fullscreen
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("build/WebGL/HIGHFLY-WORLD-LAB/index.html")
+          s=p.read_text(encoding="utf-8")
+          head=r'''
+          <meta name="viewport" content="width=device-width,height=device-height,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+          <meta name="mobile-web-app-capable" content="yes">
+          <meta name="apple-mobile-web-app-capable" content="yes">
+          <meta name="screen-orientation" content="landscape">
+          <style>
+          html,body{margin:0!important;padding:0!important;width:100%!important;height:100%!important;overflow:hidden!important;background:#08121d!important}
+          #unity-container{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important}
+          #unity-canvas{width:100vw!important;height:100dvh!important;display:block!important}
+          #unity-footer,#unity-logo,#unity-webgl-logo{display:none!important}
+          </style>
+          '''
+          boot=r'''
+          <script>
+          (() => {
+            let requested = false;
+            const enter = async () => {
+              if (requested) return;
+              requested = true;
+              try {
+                const el = document.documentElement;
+                if (!document.fullscreenElement && el.requestFullscreen) {
+                  await el.requestFullscreen({navigationUI:"hide"});
+                }
+              } catch (_) {}
+              try {
+                if (screen.orientation && screen.orientation.lock) {
+                  await screen.orientation.lock("landscape");
+                }
+              } catch (_) {}
+            };
+            window.addEventListener("pointerdown", enter, {once:true, passive:true});
+            window.addEventListener("touchend", enter, {once:true, passive:true});
+          })();
+          </script>
+          '''
+          if "viewport-fit=cover" not in s:
+              s=s.replace("</head>", head+"\n</head>")
+          if "requestFullscreen({navigationUI" not in s:
+              s=s.replace("</body>", boot+"\n</body>")
+          p.write_text(s,encoding="utf-8")
+          print("Patched mobile fullscreen:", p)
+          PY
 
       - name: Inspect WebGL
         if: always()
