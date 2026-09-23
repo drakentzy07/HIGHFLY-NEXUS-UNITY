@@ -260,6 +260,9 @@ jobs:
 
       - name: Patch WebGL for mobile fullscreen
         run: |
+          # game-ci builds inside a container, so generated WebGL files can be root-owned.
+          # Return ownership to the runner before patching the template.
+          sudo chown -R "$(id -u):$(id -g)" build/WebGL/HIGHFLY-WORLD-LAB
           python3 - <<'PY'
           from pathlib import Path
           p=Path("build/WebGL/HIGHFLY-WORLD-LAB/index.html")
