@@ -283,32 +283,86 @@ namespace Highfly.World
 
         private void BuildWater()
         {
-            if (_data.zones == null)
+            if (_data.terrain == null)
                 return;
 
             Transform parent = NewGroup("Water");
-            Material water = GetMaterial("water", new Color(0.05f, 0.32f, 0.58f, 0.72f));
+            Material water = GetMaterial("water", new Color(0.05f, 0.32f, 0.58f, 0.82f));
 
-            for (int zi = 0; zi < _data.zones.Length; zi++)
+            // ClaudeCraft already exports a per-vertex water mask. Rendering only
+            // circular lake metadata hid coastlines/harbours (including the spawn).
+            // Build one lightweight water mesh per terrain zone instead.
+            for (int zi = 0; zi < _data.terrain.Length; zi++)
             {
-                Zone zone = _data.zones[zi];
-                if (zone == null || zone.lakes == null)
+                TerrainZone zone = _data.terrain[zi];
+                if (zone == null || zone.waterMask == null ||
+                    zone.width < 2 || zone.depth < 2 ||
+                    zone.waterMask.Length < zone.width * zone.depth)
                     continue;
 
-                for (int li = 0; li < zone.lakes.Length; li++)
+                int count = zone.width * zone.depth;
+                Vector3[] vertices = new Vector3[count];
+                Vector2[] uv = new Vector2[count];
+
+                for (int z = 0; z < zone.depth; z++)
                 {
-                    Lake lake = zone.lakes[li];
-                    GameObject disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    disc.name = "Lake_" + zone.id + "_" + li;
-                    disc.transform.SetParent(parent, false);
-                    disc.transform.position = new Vector3(ToUnityX(lake.x), _data.waterLevel + 0.03f, lake.z);
-                    float radius = Mathf.Max(0.5f, lake.radius * 1.6f);
-                    disc.transform.localScale = new Vector3(radius * 2f, 0.025f, radius * 2f);
-                    Renderer renderer = disc.GetComponent<Renderer>();
-                    if (renderer != null) renderer.sharedMaterial = water;
-                    Collider collider = disc.GetComponent<Collider>();
-                    if (collider != null) Destroy(collider);
+                    float sourceZ = Mathf.Min(zone.maxZ, zone.minZ + z * zone.step);
+                    for (int x = 0; x < zone.width; x++)
+                    {
+                        float sourceX = Mathf.Min(zone.maxX, zone.minX + x * zone.step);
+                        int index = z * zone.width + x;
+                        vertices[index] = new Vector3(ToUnityX(sourceX), _data.waterLevel + 0.04f, sourceZ);
+                        uv[index] = new Vector2(
+                            zone.width > 1 ? x / (float)(zone.width - 1) : 0f,
+                            zone.depth > 1 ? z / (float)(zone.depth - 1) : 0f);
+                    }
                 }
+
+                List<int> triangles = new List<int>();
+                for (int z = 0; z < zone.depth - 1; z++)
+                {
+                    for (int x = 0; x < zone.width - 1; x++)
+                    {
+                        int a = z * zone.width + x;
+                        int b = a + 1;
+                        int c0 = a + zone.width;
+                        int d = c0 + 1;
+
+                        int wet =
+                            (zone.waterMask[a] != 0 ? 1 : 0) +
+                            (zone.waterMask[b] != 0 ? 1 : 0) +
+                            (zone.waterMask[c0] != 0 ? 1 : 0) +
+                            (zone.waterMask[d] != 0 ? 1 : 0);
+
+                        // Two wet corners gives a smooth enough shoreline at the
+                        // exported 4 m grid while avoiding large water sheets on land.
+                        if (wet < 2)
+                            continue;
+
+                        // Same winding as the mirrored terrain so the water faces up.
+                        triangles.Add(a); triangles.Add(b); triangles.Add(c0);
+                        triangles.Add(b); triangles.Add(d); triangles.Add(c0);
+                    }
+                }
+
+                if (triangles.Count == 0)
+                    continue;
+
+                Mesh mesh = new Mesh();
+                mesh.name = "ClaudeWater_" + zone.zoneId;
+                mesh.indexFormat = IndexFormat.UInt32;
+                mesh.vertices = vertices;
+                mesh.SetTriangles(triangles, 0);
+                mesh.uv = uv;
+                mesh.RecalculateNormals();
+                mesh.RecalculateBounds();
+
+                GameObject go = new GameObject("Water_" + zone.zoneId);
+                go.transform.SetParent(parent, false);
+                MeshFilter filter = go.AddComponent<MeshFilter>();
+                filter.sharedMesh = mesh;
+                MeshRenderer renderer = go.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = water;
             }
         }
 
@@ -409,17 +463,23 @@ namespace Highfly.World
             for (int i = 0; i < _data.props.Length; i++)
             {
                 PropData prop = _data.props[i];
-                if (prop == null) continue;
+                if (prop == null)
+                    continue;
 
-                string category = (prop.category ?? "").ToLowerInvariant();
-                string kind = (prop.kind ?? "").ToLowerInvariant();
+                string category = (prop.category ?? string.Empty).ToLowerInvariant();
+                string kind = (prop.kind ?? string.Empty).ToLowerInvariant();
                 string resource = null;
                 float target = 2.5f;
+                float authoredScale = Mathf.Clamp(prop.scale <= 0f ? 1f : prop.scale, 0.75f, 1.35f);
 
                 if (category == "buildings")
                 {
                     resource = BuildingResource(kind);
-                    target = Mathf.Max(5.5f, Mathf.Max(prop.width, prop.depth) * 2f);
+                    // The export width/depth are already world-space footprints.
+                    // v0.2 multiplied them by 2 again, which made authored buildings
+                    // drift away from the intended player scale.
+                    target = Mathf.Max(5.5f, Mathf.Max(prop.width, prop.depth) * 1.15f);
+                    authoredScale = 1f;
                 }
                 else if (category == "wells")
                 {
@@ -438,13 +498,16 @@ namespace Highfly.World
                 }
                 else if (category == "crates")
                 {
-                    resource = prop.count > 1 ? "ClaudeWorldAssets/props/crate_A_big" : "ClaudeWorldAssets/props/crate_A_small";
-                    target = prop.count > 1 ? 1.6f : 1f;
+                    resource = prop.count > 1
+                        ? "ClaudeWorldAssets/props/crate_A_big"
+                        : "ClaudeWorldAssets/props/crate_A_small";
+                    target = prop.count > 1 ? 1.5f : 0.9f;
                 }
                 else if (category == "campfires")
                 {
+                    // Reuse-first placeholder until a dedicated CC0 fire prefab is staged.
                     resource = "ClaudeWorldAssets/props/barrel";
-                    target = 0.8f;
+                    target = 0.75f;
                 }
                 else if (category == "fences" || category == "walls")
                 {
@@ -454,12 +517,16 @@ namespace Highfly.World
                 else if (category == "greattrees")
                 {
                     resource = "ClaudeWorldAssets/nature/trees_A_large";
-                    target = Mathf.Max(6f, prop.radius * 4f);
+                    target = Mathf.Max(5.5f, prop.radius * 3.2f);
+                    authoredScale = 1f;
                 }
                 else if (category == "decorprops")
                 {
                     resource = DecorResource(prop.key);
-                    target = Mathf.Max(1.5f, prop.radius * 2f);
+                    target = DecorTargetFootprint(prop.key, prop.radius);
+                    // ClaudeCraft's decor scale is an authoring scalar (often 5-7),
+                    // not a Unity metres multiplier. Applying it twice caused giants.
+                    authoredScale = 1f;
                 }
                 else if (category == "docks")
                 {
@@ -476,60 +543,186 @@ namespace Highfly.World
                     resource = "ClaudeWorldAssets/buildings/blue/building_church_blue";
                     target = 4.5f;
                 }
+                else if (category == "stalls")
+                {
+                    resource = "ClaudeWorldAssets/props/tent";
+                    target = Mathf.Max(2.8f, Mathf.Max(prop.width, prop.depth));
+                    authoredScale = 1f;
+                }
+                else if (category == "ruinrings")
+                {
+                    resource = "ClaudeWorldAssets/buildings/neutral/building_destroyed";
+                    target = Mathf.Max(4.5f, prop.radius * 2f);
+                    authoredScale = 1f;
+                }
+                else if (category == "marshreeds")
+                {
+                    resource = "ClaudeWorldAssets/nature/waterplant_B";
+                    target = 1.2f;
+                    authoredScale = 1f;
+                }
+                else if (category == "racejump")
+                {
+                    resource = "ClaudeWorldAssets/buildings/neutral/building_bridge_B";
+                    target = Mathf.Max(3.5f, prop.width);
+                    authoredScale = 1f;
+                }
+                else if (category == "delvemarkers")
+                {
+                    resource = "ClaudeWorldAssets/nature/rock_single_C";
+                    target = 1.6f;
+                    authoredScale = 1f;
+                }
+                else if (category == "racearch")
+                {
+                    resource = "ClaudeWorldAssets/buildings/neutral/wall_straight_gate";
+                    target = 5f;
+                    authoredScale = 1f;
+                }
 
                 if (resource != null)
-                    CreateWorldPrefab(parent, resource, "Prop_" + prop.id, prop.x, prop.z, prop.rot, target, prop.scale);
+                    CreateWorldPrefab(
+                        parent,
+                        resource,
+                        "Prop_" + prop.id,
+                        prop.x,
+                        prop.z,
+                        prop.rot,
+                        target,
+                        authoredScale);
             }
         }
 
         private void BuildDecorations()
         {
-            if (_data.decorations == null)
+            if (_data.decorations == null || _data.decorations.Length == 0)
                 return;
 
             Transform parent = NewGroup("Decorations");
-            int spawned = 0;
+            HashSet<string> spawned = new HashSet<string>();
+            int spawnedCount = 0;
+
+            float startX = _data.playerStart != null ? _data.playerStart.x : 0f;
+            float startZ = _data.playerStart != null ? _data.playerStart.z : 0f;
+            const float priorityRadius = 180f;
+            float priorityRadiusSq = priorityRadius * priorityRadius;
+
+            // First guarantee the area the player actually sees after loading.
+            // v0.2 used a global "first 950" cap; Eastbrook spawn decorations are
+            // later in the export, so the starting landscape looked empty.
             for (int i = 0; i < _data.decorations.Length; i++)
             {
-                if (spawned >= 950) break;
                 Decoration decor = _data.decorations[i];
-                if (decor == null) continue;
-
-                string kind = (decor.kind ?? "").ToLowerInvariant();
-                string resource = null;
-                float size = 2.2f;
-
-                if (kind.Contains("tree") || kind.Contains("pine") || kind.Contains("oak"))
-                {
-                    resource = (i & 1) == 0
-                        ? "ClaudeWorldAssets/nature/tree_single_A"
-                        : "ClaudeWorldAssets/nature/tree_single_B";
-                    size = 3.8f * Mathf.Max(0.7f, decor.scale);
-                }
-                else if (kind.Contains("rock") || kind.Contains("stone"))
-                {
-                    resource = (i % 3) == 0
-                        ? "ClaudeWorldAssets/nature/rock_single_C"
-                        : ((i & 1) == 0 ? "ClaudeWorldAssets/nature/rock_single_A" : "ClaudeWorldAssets/nature/rock_single_B");
-                    size = 1.7f * Mathf.Max(0.65f, decor.scale);
-                }
-                else if (kind.Contains("water") || kind.Contains("lily") || kind.Contains("reed"))
-                {
-                    resource = (i & 1) == 0
-                        ? "ClaudeWorldAssets/nature/waterplant_A"
-                        : "ClaudeWorldAssets/nature/waterlily_A";
-                    size = 1.4f * Mathf.Max(0.65f, decor.scale);
-                }
-                else
-                {
-                    // Keep WebGL/mobile sane: unknown procedural dressing is skipped
-                    // until it has a real prefab mapping.
+                if (decor == null)
                     continue;
-                }
 
-                CreateWorldPrefab(parent, resource, "Decor_" + decor.id, decor.x, decor.z, decor.rotation, size, 1f);
-                spawned++;
+                float dx = decor.x - startX;
+                float dz = decor.z - startZ;
+                if (dx * dx + dz * dz > priorityRadiusSq)
+                    continue;
+
+                if (TrySpawnDecoration(parent, decor, i))
+                {
+                    spawned.Add(DecorationKey(decor, i));
+                    spawnedCount++;
+                }
             }
+
+            // Then distribute a mobile/WebGL-safe budget across every zone instead
+            // of exhausting the entire budget in the first zones of the JSON.
+            const int maxPerZone = 150;
+            const int maxTotal = 2500;
+
+            if (_data.zones != null)
+            {
+                for (int zi = 0; zi < _data.zones.Length && spawnedCount < maxTotal; zi++)
+                {
+                    Zone zone = _data.zones[zi];
+                    if (zone == null)
+                        continue;
+
+                    int zoneCount = 0;
+                    for (int i = 0; i < _data.decorations.Length && spawnedCount < maxTotal; i++)
+                    {
+                        Decoration decor = _data.decorations[i];
+                        if (decor == null || zoneCount >= maxPerZone)
+                            continue;
+
+                        string key = DecorationKey(decor, i);
+                        if (spawned.Contains(key) || !ContainsPoint(zone, decor.x, decor.z))
+                            continue;
+
+                        if (!TrySpawnDecoration(parent, decor, i))
+                            continue;
+
+                        spawned.Add(key);
+                        spawnedCount++;
+                        zoneCount++;
+                    }
+                }
+            }
+
+            Debug.Log("HIGHFLY ClaudeCraft decorations spawned=" + spawnedCount +
+                      " / exported=" + _data.decorations.Length);
+        }
+
+        private bool TrySpawnDecoration(Transform parent, Decoration decor, int index)
+        {
+            string kind = (decor.kind ?? string.Empty).ToLowerInvariant();
+            string resource = null;
+            float size = 2.2f;
+
+            if (kind.Contains("tree") || kind.Contains("pine") || kind.Contains("oak"))
+            {
+                resource = (index & 1) == 0
+                    ? "ClaudeWorldAssets/nature/tree_single_A"
+                    : "ClaudeWorldAssets/nature/tree_single_B";
+                size = 3.4f * Mathf.Max(0.72f, decor.scale);
+            }
+            else if (kind.Contains("rock") || kind.Contains("stone"))
+            {
+                resource = (index % 3) == 0
+                    ? "ClaudeWorldAssets/nature/rock_single_C"
+                    : ((index & 1) == 0
+                        ? "ClaudeWorldAssets/nature/rock_single_A"
+                        : "ClaudeWorldAssets/nature/rock_single_B");
+                size = 1.5f * Mathf.Max(0.65f, decor.scale);
+            }
+            else if (kind.Contains("water") || kind.Contains("lily") || kind.Contains("reed"))
+            {
+                resource = (index & 1) == 0
+                    ? "ClaudeWorldAssets/nature/waterplant_A"
+                    : "ClaudeWorldAssets/nature/waterlily_A";
+                size = 1.2f * Mathf.Max(0.65f, decor.scale);
+            }
+            else
+            {
+                return false;
+            }
+
+            return CreateWorldPrefab(
+                parent,
+                resource,
+                "Decor_" + DecorationKey(decor, index),
+                decor.x,
+                decor.z,
+                decor.rotation,
+                size,
+                1f) != null;
+        }
+
+        private static string DecorationKey(Decoration decor, int index)
+        {
+            return decor != null && !string.IsNullOrEmpty(decor.id)
+                ? decor.id
+                : "index_" + index;
+        }
+
+        private static bool ContainsPoint(Zone zone, float x, float z)
+        {
+            return zone != null &&
+                   x >= zone.xMin && x <= zone.xMax &&
+                   z >= zone.zMin && z <= zone.zMax;
         }
 
         private static string BuildingResource(string kind)
@@ -553,12 +746,39 @@ namespace Highfly.World
 
         private static string DecorResource(string key)
         {
-            string value = (key ?? "").ToLowerInvariant();
+            string value = (key ?? string.Empty).ToLowerInvariant();
+
             if (value.Contains("tree")) return "ClaudeWorldAssets/nature/tree_single_A";
             if (value.Contains("rock") || value.Contains("crystal")) return "ClaudeWorldAssets/nature/rock_single_C";
             if (value.Contains("tent")) return "ClaudeWorldAssets/props/tent";
             if (value.Contains("crate")) return "ClaudeWorldAssets/props/crate_A_big";
+            if (value.Contains("sack")) return "ClaudeWorldAssets/props/sack";
+            if (value.Contains("barrel")) return "ClaudeWorldAssets/props/barrel";
+            if (value.Contains("watchtower")) return "ClaudeWorldAssets/buildings/blue/building_tower_A_blue";
+            if (value.Contains("fence")) return "ClaudeWorldAssets/buildings/neutral/fence_wood_straight";
+            if (value.Contains("shrub") || value.Contains("flower") || value.Contains("reed"))
+                return "ClaudeWorldAssets/nature/waterplant_A";
+
+            // Boats/ships/anchors/buoys/torches intentionally remain unmapped here.
+            // We do not fake them with unrelated geometry; they get a proper CC0 donor
+            // in the next art pass.
             return null;
+        }
+
+        private static float DecorTargetFootprint(string key, float radius)
+        {
+            string value = (key ?? string.Empty).ToLowerInvariant();
+
+            if (value.Contains("sack")) return 0.65f;
+            if (value.Contains("barrel")) return 0.8f;
+            if (value.Contains("crate")) return Mathf.Max(0.9f, radius * 1.4f);
+            if (value.Contains("watchtower")) return Mathf.Max(5f, radius * 2f);
+            if (value.Contains("fence")) return 2.5f;
+            if (value.Contains("shrub") || value.Contains("flower") || value.Contains("reed")) return 0.9f;
+            if (value.Contains("rock") || value.Contains("crystal")) return Mathf.Max(1.1f, radius * 2f);
+            if (value.Contains("tent")) return 3f;
+
+            return Mathf.Max(1f, radius * 2f);
         }
 
         private GameObject CreateWorldPrefab(
