@@ -219,12 +219,15 @@ jobs:
             });
           }
 
-          const roads = (ROADS as any[]).map((road: any, index: number) => ({
-            id: String(road.id ?? ('road_' + index)),
-            points: (road.points ?? road.path ?? [])
-              .filter((p: any) => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.z)))
-              .map((p: any) => ({ x: Number(p.x), z: Number(p.z) })),
-          })).filter((road: any) => road.points.length >= 2);
+          const roads = (ROADS as any[]).map((road: any, index: number) => {
+            const rawPoints = Array.isArray(road) ? road : (road.points ?? road.path ?? []);
+            return {
+              id: String((!Array.isArray(road) && road.id) ? road.id : ('road_' + index)),
+              points: rawPoints
+                .filter((p: any) => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.z)))
+                .map((p: any) => ({ x: Number(p.x), z: Number(p.z) })),
+            };
+          }).filter((road: any) => road.points.length >= 2);
 
           const zones = (ZONES as any[]).map((zone: any) => ({
             id: String(zone.id ?? ''),
