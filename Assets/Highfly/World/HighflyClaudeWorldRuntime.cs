@@ -23,6 +23,7 @@ namespace Highfly.World
             public GatherNode[] gatherNodes;
             public Portal[] portals;
             public Decoration[] decorations;
+            public PropData[] props;
         }
 
         [Serializable] private sealed class Point { public float x; public float z; }
@@ -103,6 +104,26 @@ namespace Highfly.World
             public float rotation;
         }
 
+        [Serializable] private sealed class PropData
+        {
+            public string id;
+            public string category;
+            public string kind;
+            public string assetId;
+            public string key;
+            public float x;
+            public float z;
+            public float x2;
+            public float z2;
+            public float rot;
+            public float scale;
+            public float radius;
+            public float width;
+            public float depth;
+            public float height;
+            public int count;
+        }
+
         private WorldData _data;
         private Transform _worldRoot;
         private readonly Dictionary<string, Material> _materials = new Dictionary<string, Material>();
@@ -139,18 +160,23 @@ namespace Highfly.World
             GameObject root = new GameObject("CLAUDECRAFT_WORLD_V01");
             _worldRoot = root.transform;
 
+            ImproveWorldLighting();
             BuildTerrain();
             BuildWater();
             BuildRoads();
+            BuildProps();
+            BuildDecorations();
             BuildWorldMarkers();
             ConfigurePlayerAndCamera();
 
             Debug.Log(
-                "HIGHFLY ClaudeCraft WORLD v0.1 loaded | zones=" + (_data.zones != null ? _data.zones.Length : 0) +
+                "HIGHFLY ClaudeCraft WORLD v0.2 loaded | zones=" + (_data.zones != null ? _data.zones.Length : 0) +
                 " terrain=" + _data.terrain.Length +
                 " roads=" + (_data.roads != null ? _data.roads.Length : 0) +
                 " camps=" + (_data.camps != null ? _data.camps.Length : 0) +
-                " gather=" + (_data.gatherNodes != null ? _data.gatherNodes.Length : 0));
+                " gather=" + (_data.gatherNodes != null ? _data.gatherNodes.Length : 0) +
+                " props=" + (_data.props != null ? _data.props.Length : 0) +
+                " decorations=" + (_data.decorations != null ? _data.decorations.Length : 0));
         }
 
         private void DisableLegacyLabWorld()
@@ -224,13 +250,14 @@ namespace Highfly.World
                         int c = a + zone.width;
                         int d = c + 1;
 
-                        // X is mirrored from ClaudeCraft into Unity. Reverse winding.
+                        // Mirroring X reverses handedness. Keeping the source grid
+                        // order restores upward-facing triangles in Unity.
                         triangles[t++] = a;
-                        triangles[t++] = c;
-                        triangles[t++] = b;
                         triangles[t++] = b;
                         triangles[t++] = c;
+                        triangles[t++] = b;
                         triangles[t++] = d;
+                        triangles[t++] = c;
                     }
                 }
 
@@ -291,7 +318,7 @@ namespace Highfly.World
                 return;
 
             Transform parent = NewGroup("Roads");
-            Material roadMaterial = GetMaterial("road", new Color(0.36f, 0.31f, 0.24f, 1f));
+            Material roadMaterial = GetMaterial("road_surface", new Color(0.38f, 0.29f, 0.18f, 1f));
 
             for (int ri = 0; ri < _data.roads.Length; ri++)
             {
@@ -301,21 +328,330 @@ namespace Highfly.World
 
                 GameObject go = new GameObject(string.IsNullOrEmpty(road.id) ? "Road_" + ri : road.id);
                 go.transform.SetParent(parent, false);
-                LineRenderer line = go.AddComponent<LineRenderer>();
-                line.sharedMaterial = roadMaterial;
-                line.widthMultiplier = 0.55f;
-                line.numCornerVertices = 2;
-                line.numCapVertices = 2;
-                line.useWorldSpace = true;
-                line.positionCount = road.points.Length;
 
-                for (int i = 0; i < road.points.Length; i++)
+                List<Vector3> vertices = new List<Vector3>();
+                List<int> triangles = new List<int>();
+                List<Vector2> uvs = new List<Vector2>();
+
+                const float halfWidth = 1.35f;
+                for (int i = 0; i < road.points.Length - 1; i++)
                 {
-                    Point point = road.points[i];
-                    float y = SampleHeight(point.x, point.z) + 0.12f;
-                    line.SetPosition(i, new Vector3(ToUnityX(point.x), y, point.z));
+                    Point p0 = road.points[i];
+                    Point p1 = road.points[i + 1];
+                    Vector3 a = new Vector3(ToUnityX(p0.x), SampleHeight(p0.x, p0.z) + 0.08f, p0.z);
+                    Vector3 b = new Vector3(ToUnityX(p1.x), SampleHeight(p1.x, p1.z) + 0.08f, p1.z);
+                    Vector3 dir = b - a;
+                    dir.y = 0f;
+                    if (dir.sqrMagnitude < 0.001f) continue;
+                    dir.Normalize();
+                    Vector3 side = new Vector3(-dir.z, 0f, dir.x) * halfWidth;
+
+                    int v = vertices.Count;
+                    vertices.Add(a - side);
+                    vertices.Add(a + side);
+                    vertices.Add(b - side);
+                    vertices.Add(b + side);
+                    uvs.Add(new Vector2(0f, 0f));
+                    uvs.Add(new Vector2(1f, 0f));
+                    uvs.Add(new Vector2(0f, 1f));
+                    uvs.Add(new Vector2(1f, 1f));
+
+                    triangles.Add(v + 0); triangles.Add(v + 2); triangles.Add(v + 1);
+                    triangles.Add(v + 1); triangles.Add(v + 2); triangles.Add(v + 3);
+                }
+
+                if (vertices.Count == 0)
+                {
+                    Destroy(go);
+                    continue;
+                }
+
+                Mesh mesh = new Mesh();
+                mesh.name = "RoadMesh_" + ri;
+                mesh.indexFormat = IndexFormat.UInt32;
+                mesh.SetVertices(vertices);
+                mesh.SetTriangles(triangles, 0);
+                mesh.SetUVs(0, uvs);
+                mesh.RecalculateNormals();
+                mesh.RecalculateBounds();
+
+                MeshFilter filter = go.AddComponent<MeshFilter>();
+                filter.sharedMesh = mesh;
+                MeshRenderer renderer = go.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = roadMaterial;
+            }
+        }
+
+        private void ImproveWorldLighting()
+        {
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.46f, 0.50f, 0.55f, 1f);
+            RenderSettings.fog = true;
+            RenderSettings.fogColor = new Color(0.34f, 0.45f, 0.56f, 1f);
+            RenderSettings.fogDensity = 0.0012f;
+
+            GameObject sun = new GameObject("CLAUDECRAFT_SUN");
+            sun.transform.SetParent(_worldRoot, false);
+            sun.transform.rotation = Quaternion.Euler(48f, -32f, 0f);
+            Light light = sun.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.18f;
+            light.color = new Color(1f, 0.94f, 0.82f, 1f);
+            light.shadows = LightShadows.Soft;
+        }
+
+        private void BuildProps()
+        {
+            if (_data.props == null)
+                return;
+
+            Transform parent = NewGroup("AuthoredProps");
+            for (int i = 0; i < _data.props.Length; i++)
+            {
+                PropData prop = _data.props[i];
+                if (prop == null) continue;
+
+                string category = (prop.category ?? "").ToLowerInvariant();
+                string kind = (prop.kind ?? "").ToLowerInvariant();
+                string resource = null;
+                float target = 2.5f;
+
+                if (category == "buildings")
+                {
+                    resource = BuildingResource(kind);
+                    target = Mathf.Max(5.5f, Mathf.Max(prop.width, prop.depth) * 2f);
+                }
+                else if (category == "wells")
+                {
+                    resource = "ClaudeWorldAssets/buildings/blue/building_well_blue";
+                    target = 2.5f;
+                }
+                else if (category == "mines")
+                {
+                    resource = "ClaudeWorldAssets/buildings/blue/building_mine_blue";
+                    target = 6f;
+                }
+                else if (category == "tents")
+                {
+                    resource = "ClaudeWorldAssets/props/tent";
+                    target = 3f;
+                }
+                else if (category == "crates")
+                {
+                    resource = prop.count > 1 ? "ClaudeWorldAssets/props/crate_A_big" : "ClaudeWorldAssets/props/crate_A_small";
+                    target = prop.count > 1 ? 1.6f : 1f;
+                }
+                else if (category == "campfires")
+                {
+                    resource = "ClaudeWorldAssets/props/barrel";
+                    target = 0.8f;
+                }
+                else if (category == "fences" || category == "walls")
+                {
+                    BuildFenceProp(parent, prop, category == "walls");
+                    continue;
+                }
+                else if (category == "greattrees")
+                {
+                    resource = "ClaudeWorldAssets/nature/trees_A_large";
+                    target = Mathf.Max(6f, prop.radius * 4f);
+                }
+                else if (category == "decorprops")
+                {
+                    resource = DecorResource(prop.key);
+                    target = Mathf.Max(1.5f, prop.radius * 2f);
+                }
+                else if (category == "docks")
+                {
+                    resource = "ClaudeWorldAssets/buildings/neutral/building_bridge_A";
+                    target = 7f;
+                }
+                else if (category == "mudhuts")
+                {
+                    resource = "ClaudeWorldAssets/buildings/blue/building_home_B_blue";
+                    target = 5.5f;
+                }
+                else if (category == "graveyards")
+                {
+                    resource = "ClaudeWorldAssets/buildings/blue/building_church_blue";
+                    target = 4.5f;
+                }
+
+                if (resource != null)
+                    CreateWorldPrefab(parent, resource, "Prop_" + prop.id, prop.x, prop.z, prop.rot, target, prop.scale);
+            }
+        }
+
+        private void BuildDecorations()
+        {
+            if (_data.decorations == null)
+                return;
+
+            Transform parent = NewGroup("Decorations");
+            int spawned = 0;
+            for (int i = 0; i < _data.decorations.Length; i++)
+            {
+                if (spawned >= 950) break;
+                Decoration decor = _data.decorations[i];
+                if (decor == null) continue;
+
+                string kind = (decor.kind ?? "").ToLowerInvariant();
+                string resource = null;
+                float size = 2.2f;
+
+                if (kind.Contains("tree") || kind.Contains("pine") || kind.Contains("oak"))
+                {
+                    resource = (i & 1) == 0
+                        ? "ClaudeWorldAssets/nature/tree_single_A"
+                        : "ClaudeWorldAssets/nature/tree_single_B";
+                    size = 3.8f * Mathf.Max(0.7f, decor.scale);
+                }
+                else if (kind.Contains("rock") || kind.Contains("stone"))
+                {
+                    resource = (i % 3) == 0
+                        ? "ClaudeWorldAssets/nature/rock_single_C"
+                        : ((i & 1) == 0 ? "ClaudeWorldAssets/nature/rock_single_A" : "ClaudeWorldAssets/nature/rock_single_B");
+                    size = 1.7f * Mathf.Max(0.65f, decor.scale);
+                }
+                else if (kind.Contains("water") || kind.Contains("lily") || kind.Contains("reed"))
+                {
+                    resource = (i & 1) == 0
+                        ? "ClaudeWorldAssets/nature/waterplant_A"
+                        : "ClaudeWorldAssets/nature/waterlily_A";
+                    size = 1.4f * Mathf.Max(0.65f, decor.scale);
+                }
+                else
+                {
+                    // Keep WebGL/mobile sane: unknown procedural dressing is skipped
+                    // until it has a real prefab mapping.
+                    continue;
+                }
+
+                CreateWorldPrefab(parent, resource, "Decor_" + decor.id, decor.x, decor.z, decor.rotation, size, 1f);
+                spawned++;
+            }
+        }
+
+        private static string BuildingResource(string kind)
+        {
+            if (kind.Contains("inn") || kind.Contains("tavern")) return "ClaudeWorldAssets/buildings/blue/building_tavern_blue";
+            if (kind.Contains("smith") || kind.Contains("forge")) return "ClaudeWorldAssets/buildings/blue/building_blacksmith_blue";
+            if (kind.Contains("market") || kind.Contains("shop")) return "ClaudeWorldAssets/buildings/blue/building_market_blue";
+            if (kind.Contains("chapel") || kind.Contains("church") || kind.Contains("temple")) return "ClaudeWorldAssets/buildings/blue/building_church_blue";
+            if (kind.Contains("castle") || kind.Contains("keep")) return "ClaudeWorldAssets/buildings/blue/building_castle_blue";
+            if (kind.Contains("tower")) return "ClaudeWorldAssets/buildings/blue/building_tower_A_blue";
+            if (kind.Contains("barrack") || kind.Contains("guard")) return "ClaudeWorldAssets/buildings/blue/building_barracks_blue";
+            if (kind.Contains("archer")) return "ClaudeWorldAssets/buildings/blue/building_archeryrange_blue";
+            if (kind.Contains("lumber")) return "ClaudeWorldAssets/buildings/blue/building_lumbermill_blue";
+            if (kind.Contains("windmill")) return "ClaudeWorldAssets/buildings/blue/building_windmill_blue";
+            if (kind.Contains("watermill")) return "ClaudeWorldAssets/buildings/blue/building_watermill_blue";
+            if (kind.Contains("mine")) return "ClaudeWorldAssets/buildings/blue/building_mine_blue";
+            return kind.GetHashCode() % 2 == 0
+                ? "ClaudeWorldAssets/buildings/blue/building_home_A_blue"
+                : "ClaudeWorldAssets/buildings/blue/building_home_B_blue";
+        }
+
+        private static string DecorResource(string key)
+        {
+            string value = (key ?? "").ToLowerInvariant();
+            if (value.Contains("tree")) return "ClaudeWorldAssets/nature/tree_single_A";
+            if (value.Contains("rock") || value.Contains("crystal")) return "ClaudeWorldAssets/nature/rock_single_C";
+            if (value.Contains("tent")) return "ClaudeWorldAssets/props/tent";
+            if (value.Contains("crate")) return "ClaudeWorldAssets/props/crate_A_big";
+            return null;
+        }
+
+        private GameObject CreateWorldPrefab(
+            Transform parent,
+            string resourcePath,
+            string name,
+            float sourceX,
+            float sourceZ,
+            float sourceRot,
+            float targetFootprint,
+            float authoredScale)
+        {
+            GameObject prefab = Resources.Load<GameObject>(resourcePath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("HIGHFLY ClaudeCraft: missing Resources prefab " + resourcePath);
+                return null;
+            }
+
+            GameObject go = Instantiate(prefab, parent);
+            go.name = name;
+            go.transform.position = new Vector3(ToUnityX(sourceX), SampleHeight(sourceX, sourceZ), sourceZ);
+            go.transform.rotation = Quaternion.Euler(0f, SourceYawToUnity(sourceRot), 0f);
+
+            Renderer[] renderers = go.GetComponentsInChildren<Renderer>();
+            if (renderers.Length > 0)
+            {
+                Bounds bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+                float footprint = Mathf.Max(0.01f, Mathf.Max(bounds.size.x, bounds.size.z));
+                float factor = Mathf.Clamp(targetFootprint / footprint, 0.18f, 8f) * Mathf.Max(0.1f, authoredScale);
+                go.transform.localScale = Vector3.one * factor;
+
+                // Re-base to terrain after scaling so the asset's lowest visible point
+                // sits on the sampled ClaudeCraft ground.
+                renderers = go.GetComponentsInChildren<Renderer>();
+                if (renderers.Length > 0)
+                {
+                    bounds = renderers[0].bounds;
+                    for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+                    float ground = SampleHeight(sourceX, sourceZ);
+                    go.transform.position += Vector3.up * (ground - bounds.min.y + 0.02f);
                 }
             }
+
+            AddSimpleCollider(go);
+            return go;
+        }
+
+        private void BuildFenceProp(Transform parent, PropData prop, bool wall)
+        {
+            float dx = prop.x2 - prop.x;
+            float dz = prop.z2 - prop.z;
+            float length = Mathf.Sqrt(dx * dx + dz * dz);
+            if (length < 0.2f) return;
+
+            float mx = (prop.x + prop.x2) * 0.5f;
+            float mz = (prop.z + prop.z2) * 0.5f;
+            string resource = wall
+                ? "ClaudeWorldAssets/buildings/neutral/wall_straight"
+                : "ClaudeWorldAssets/buildings/neutral/fence_wood_straight";
+
+            GameObject go = CreateWorldPrefab(parent, resource, "Fence_" + prop.id, mx, mz, 0f, Mathf.Max(1.5f, length), 1f);
+            if (go != null)
+            {
+                float yaw = Mathf.Atan2(-dx, dz) * Mathf.Rad2Deg;
+                go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            }
+        }
+
+        private static void AddSimpleCollider(GameObject go)
+        {
+            if (go.GetComponentInChildren<Collider>() != null)
+                return;
+
+            Renderer[] renderers = go.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) return;
+
+            Bounds b = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) b.Encapsulate(renderers[i].bounds);
+
+            BoxCollider collider = go.AddComponent<BoxCollider>();
+            collider.center = go.transform.InverseTransformPoint(b.center);
+            Vector3 localSize = go.transform.InverseTransformVector(b.size);
+            collider.size = new Vector3(Mathf.Abs(localSize.x), Mathf.Abs(localSize.y), Mathf.Abs(localSize.z));
+        }
+
+        private static float SourceYawToUnity(float sourceRot)
+        {
+            float degrees = Mathf.Abs(sourceRot) <= Mathf.PI * 2.2f
+                ? sourceRot * Mathf.Rad2Deg
+                : sourceRot;
+            return -degrees;
         }
 
         private void BuildWorldMarkers()
@@ -324,39 +660,40 @@ namespace Highfly.World
 
             if (_data.camps != null)
             {
-                Material campMaterial = GetMaterial("camp", new Color(0.78f, 0.17f, 0.12f, 1f));
                 for (int i = 0; i < _data.camps.Length; i++)
                 {
                     Camp camp = _data.camps[i];
-                    CreateMarker(
+                    CreateWorldPrefab(
                         parent,
+                        "ClaudeWorldAssets/props/tent",
                         "Camp_" + (string.IsNullOrEmpty(camp.mobId) ? i.ToString() : camp.mobId),
-                        PrimitiveType.Sphere,
                         camp.x,
                         camp.z,
-                        Mathf.Clamp(0.45f + camp.count * 0.06f, 0.45f, 1.2f),
-                        campMaterial);
+                        0f,
+                        Mathf.Clamp(2.2f + camp.count * 0.12f, 2.2f, 3.8f),
+                        1f);
                 }
             }
 
             if (_data.gatherNodes != null)
             {
-                Material ore = GetMaterial("ore", new Color(0.32f, 0.48f, 0.64f, 1f));
-                Material wood = GetMaterial("wood", new Color(0.31f, 0.20f, 0.11f, 1f));
-                Material herb = GetMaterial("herb", new Color(0.16f, 0.56f, 0.24f, 1f));
-
                 for (int i = 0; i < _data.gatherNodes.Length; i++)
                 {
                     GatherNode node = _data.gatherNodes[i];
-                    Material material = node.type == "ore" ? ore : node.type == "wood" ? wood : herb;
-                    CreateMarker(
+                    string resource = node.type == "ore"
+                        ? "ClaudeWorldAssets/props/resource_stone"
+                        : node.type == "wood"
+                            ? "ClaudeWorldAssets/props/resource_lumber"
+                            : "ClaudeWorldAssets/nature/waterplant_B";
+                    CreateWorldPrefab(
                         parent,
+                        resource,
                         "Gather_" + node.id,
-                        PrimitiveType.Cube,
                         node.x,
                         node.z,
-                        0.30f + Mathf.Clamp(node.tier, 1, 6) * 0.06f,
-                        material);
+                        0f,
+                        0.9f + Mathf.Clamp(node.tier, 1, 6) * 0.12f,
+                        1f);
                 }
             }
 
@@ -410,7 +747,7 @@ namespace Highfly.World
 
             float sourceX = _data.playerStart != null ? _data.playerStart.x : 0f;
             float sourceZ = _data.playerStart != null ? _data.playerStart.z : 0f;
-            Vector3 spawn = new Vector3(ToUnityX(sourceX), SampleHeight(sourceX, sourceZ) + 1.1f, sourceZ);
+            Vector3 spawn = new Vector3(ToUnityX(sourceX), SampleHeight(sourceX, sourceZ) + 2.2f, sourceZ);
 
             CharacterController controller = motor.GetComponent<CharacterController>();
             bool wasEnabled = controller != null && controller.enabled;
@@ -422,16 +759,38 @@ namespace Highfly.World
             HighflyWorldSafety safety = motor.GetComponent<HighflyWorldSafety>();
             if (safety != null)
             {
-                safety.Configure(spawn, -80f, true, true);
+                safety.Configure(spawn, WorldMinHeight() - 25f, true, true);
                 safety.SetRespawnPosition(spawn);
             }
 
             Camera camera = Camera.main;
             if (camera != null)
             {
-                camera.farClipPlane = 900f;
+                camera.farClipPlane = 1200f;
                 camera.nearClipPlane = 0.08f;
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.backgroundColor = new Color(0.33f, 0.48f, 0.63f, 1f);
             }
+        }
+
+        private float WorldMinHeight()
+        {
+            float min = 0f;
+            bool hasValue = false;
+            if (_data != null && _data.terrain != null)
+            {
+                for (int i = 0; i < _data.terrain.Length; i++)
+                {
+                    TerrainZone zone = _data.terrain[i];
+                    if (zone == null) continue;
+                    if (!hasValue || zone.minHeight < min)
+                    {
+                        min = zone.minHeight;
+                        hasValue = true;
+                    }
+                }
+            }
+            return hasValue ? min : -50f;
         }
 
         private float SampleHeight(float sourceX, float sourceZ)
@@ -518,7 +877,7 @@ namespace Highfly.World
         private static Color TerrainColor(string id)
         {
             if (string.IsNullOrEmpty(id))
-                return new Color(0.24f, 0.42f, 0.25f, 1f);
+                return new Color(0.32f, 0.52f, 0.31f, 1f);
 
             string value = id.ToLowerInvariant();
             if (value.Contains("frost")) return new Color(0.58f, 0.68f, 0.72f, 1f);
@@ -528,7 +887,7 @@ namespace Highfly.World
             if (value.Contains("palm") || value.Contains("farshore")) return new Color(0.32f, 0.50f, 0.28f, 1f);
             if (value.Contains("gale")) return new Color(0.34f, 0.46f, 0.34f, 1f);
             if (value.Contains("amber")) return new Color(0.48f, 0.38f, 0.22f, 1f);
-            return new Color(0.26f, 0.46f, 0.27f, 1f);
+            return new Color(0.34f, 0.55f, 0.33f, 1f);
         }
     }
 }
