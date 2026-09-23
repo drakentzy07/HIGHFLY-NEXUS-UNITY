@@ -1615,22 +1615,6 @@ namespace Highfly.World
         }
     }
 
-    public sealed class HighflyWorldBillboard : MonoBehaviour
-    {
-        private void LateUpdate()
-        {
-            Camera camera = Camera.main;
-            if (camera == null)
-                return;
-
-            Vector3 away = transform.position - camera.transform.position;
-            if (away.sqrMagnitude < 0.0001f)
-                return;
-
-            transform.rotation = Quaternion.LookRotation(away.normalized, Vector3.up);
-        }
-    }
-
     public sealed class HighflyWorldNpcInteraction : MonoBehaviour
     {
         private string _displayName;
