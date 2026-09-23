@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: highfly-claudecraft-world-webgl
+  cancel-in-progress: true
+
 jobs:
   webgl-world:
     name: Unity WebGL ClaudeCraft World
@@ -44,6 +48,50 @@ jobs:
           assert d.get("schema") == "highfly-unity-world-v01"
           assert len(d.get("terrain",[])) > 0
           PY
+
+      - name: Stage official CC0 KayKit visuals
+        run: |
+          rm -rf /tmp/kaykit-adventurers /tmp/kaykit-medieval
+          git clone --depth 1 https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0.git /tmp/kaykit-adventurers
+          git clone --depth 1 https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0.git /tmp/kaykit-medieval
+
+          AROOT="Assets/External/KayKit/Adventurers/addons/kaykit_character_pack_adventures"
+          mkdir -p "$AROOT/Characters/fbx" "$AROOT/Assets/fbx"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/RogueHooded.fbx "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/rogue_texture.png "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/sword_1handed.fbx "$AROOT/Assets/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/rogue_texture.png "$AROOT/Assets/fbx/" || true
+
+          SRC="/tmp/kaykit-medieval/addons/kaykit_medieval_hexagon_pack/Assets/fbx"
+          DST="Assets/Highfly/Resources/ClaudeWorldAssets"
+          mkdir -p "$DST/buildings/blue" "$DST/buildings/neutral" "$DST/nature" "$DST/props"
+
+          for n in building_home_A_blue building_home_B_blue building_tavern_blue building_blacksmith_blue building_market_blue building_church_blue building_mine_blue building_well_blue building_lumbermill_blue building_windmill_blue building_watermill_blue building_tower_A_blue building_castle_blue building_barracks_blue building_archeryrange_blue; do
+            cp "$SRC/buildings/blue/$n.fbx" "$DST/buildings/blue/"
+          done
+          cp "$SRC/buildings/blue/hexagons_medieval.png" "$DST/buildings/blue/"
+
+          for n in building_bridge_A building_bridge_B building_destroyed wall_straight wall_straight_gate fence_wood_straight fence_stone_straight; do
+            cp "$SRC/buildings/neutral/$n.fbx" "$DST/buildings/neutral/"
+          done
+          cp "$SRC/buildings/neutral/hexagons_medieval.png" "$DST/buildings/neutral/"
+
+          for n in tree_single_A tree_single_B trees_A_small trees_A_medium trees_A_large rock_single_A rock_single_B rock_single_C waterlily_A waterplant_A waterplant_B; do
+            cp "$SRC/decoration/nature/$n.fbx" "$DST/nature/"
+          done
+          cp "$SRC/decoration/nature/hexagons_medieval.png" "$DST/nature/"
+
+          for n in barrel crate_A_big crate_A_small sack tent resource_lumber resource_stone wheelbarrow weaponrack; do
+            cp "$SRC/decoration/props/$n.fbx" "$DST/props/"
+          done
+          cp "$SRC/decoration/props/hexagons_medieval.png" "$DST/props/"
+
+          mkdir -p Assets/Highfly/ThirdPartyNotices
+          cp /tmp/kaykit-adventurers/LICENSE.txt Assets/Highfly/ThirdPartyNotices/KayKit-Adventurers-CC0.txt
+          cp /tmp/kaykit-medieval/LICENSE.txt Assets/Highfly/ThirdPartyNotices/KayKit-Medieval-CC0.txt
+
+          echo "Staged KayKit visuals:"
+          find Assets/External/KayKit/Adventurers Assets/Highfly/Resources/ClaudeWorldAssets -type f | sort
 
       - name: Cache Unity Library
         uses: actions/cache@v4
