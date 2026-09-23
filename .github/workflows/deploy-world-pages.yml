@@ -1,0 +1,97 @@
+name: Deploy HIGHFLY World Pages
+
+on:
+  workflow_run:
+    workflows:
+      - "Build HIGHFLY ClaudeCraft World WebGL"
+    types:
+      - completed
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-world-pages.yml"
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: highfly-world-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: >
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Resolve successful WebGL run
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            RUN_ID="$EVENT_RUN_ID"
+          else
+            RUN_ID="$(
+              curl -fsSL \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=highfly%2Fclaudecraft-world-importer-v01&status=success&per_page=30" \
+              | jq -r '.workflow_runs[] | select(.name=="Build HIGHFLY ClaudeCraft World WebGL") | .id' \
+              | head -1
+            )"
+          fi
+
+          test -n "$RUN_ID"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Publishing WebGL from successful run $RUN_ID"
+
+      - name: Download exact successful WebGL artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: HIGHFLY-CLAUDECRAFT-WORLD-WEBGL-v0.1
+          path: site
+          repository: drakentzy07/HIGHFLY-NEXUS-UNITY
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify playable payload
+        run: |
+          set -euo pipefail
+          test -s site/index.html
+          test -s site/Build/HIGHFLY-WORLD-LAB.loader.js
+          test -s site/Build/HIGHFLY-WORLD-LAB.framework.js
+          test -s site/Build/HIGHFLY-WORLD-LAB.wasm
+          test -s site/Build/HIGHFLY-WORLD-LAB.data
+          echo "HIGHFLY WebGL payload verified"
+          du -sh site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Publish URL
+        run: |
+          echo "HIGHFLY WORLD LIVE: ${{ steps.deployment.outputs.page_url }}"
