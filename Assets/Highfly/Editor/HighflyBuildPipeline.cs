@@ -98,6 +98,83 @@ namespace Highfly.Editor
             }
         }
 
+        public static void BuildWebGLClaudeWorld()
+        {
+            Directory.CreateDirectory(DiagnosticsDirectory);
+            WriteDiagnostic("10-webgl-pipeline-started.txt",
+                "HIGHFLY ClaudeCraft WebGL pipeline started\n" +
+                "Unity: " + Application.unityVersion + "\n" +
+                "Initial active target: " + EditorUserBuildSettings.activeBuildTarget + "\n");
+
+            try
+            {
+                bool switched = EditorUserBuildSettings.SwitchActiveBuildTarget(
+                    BuildTargetGroup.WebGL,
+                    BuildTarget.WebGL);
+
+                WriteDiagnostic("11-webgl-target-switch.txt",
+                    "SwitchActiveBuildTarget returned: " + switched + "\n" +
+                    "Active target after switch: " + EditorUserBuildSettings.activeBuildTarget + "\n");
+
+                if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.WebGL)
+                    throw new Exception("HIGHFLY could not activate WebGL. Active target is " + EditorUserBuildSettings.activeBuildTarget);
+
+                string worldJson = "Assets/Highfly/Resources/ClaudeCraft/world.json";
+                if (!File.Exists(worldJson))
+                    throw new FileNotFoundException("ClaudeCraft Unity world data missing", worldJson);
+
+                HighflyCombatLabBuilder.BuildOrRefreshCombatLab();
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+
+                PlayerSettings.companyName = "HIGHFLY";
+                PlayerSettings.productName = "HIGHFLY WORLD LAB";
+                PlayerSettings.runInBackground = true;
+                PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
+                PlayerSettings.WebGL.decompressionFallback = true;
+
+                string outputPath = GetArgument("customBuildPath");
+                if (string.IsNullOrEmpty(outputPath))
+                    outputPath = Path.Combine("build", "WebGL", "HIGHFLY-WORLD-LAB");
+
+                Directory.CreateDirectory(outputPath);
+
+                BuildPlayerOptions options = new BuildPlayerOptions
+                {
+                    scenes = new[] { HighflyCombatLabBuilder.ScenePath },
+                    locationPathName = outputPath,
+                    target = BuildTarget.WebGL,
+                    targetGroup = BuildTargetGroup.WebGL,
+                    options = BuildOptions.None
+                };
+
+                WriteDiagnostic("12-webgl-build-started.txt",
+                    "Output: " + outputPath + "\n" +
+                    "World JSON: " + worldJson + "\n");
+
+                BuildReport report = BuildPipeline.BuildPlayer(options);
+                BuildSummary summary = report.summary;
+
+                WriteDiagnostic("13-webgl-build-result.txt",
+                    "Result: " + summary.result + "\n" +
+                    "Errors: " + summary.totalErrors + "\n" +
+                    "Warnings: " + summary.totalWarnings + "\n" +
+                    "Output: " + summary.outputPath + "\n" +
+                    "Size: " + summary.totalSize + "\n");
+
+                if (summary.result != BuildResult.Succeeded)
+                    throw new Exception("HIGHFLY ClaudeCraft WebGL build failed: " + summary.result + " / " + summary.totalErrors + " errors");
+
+                WriteDiagnostic("19-webgl-success.txt", "HIGHFLY ClaudeCraft WebGL built successfully: " + outputPath + "\n");
+            }
+            catch (Exception exception)
+            {
+                WriteDiagnostic("WEBGL_ERROR.txt", exception.ToString());
+                Debug.LogException(exception);
+                throw;
+            }
+        }
+
         private static void WriteDiagnostic(string fileName, string contents)
         {
             try
