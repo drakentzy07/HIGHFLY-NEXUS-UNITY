@@ -11,6 +11,7 @@ namespace Highfly.World
     {
         private const string ResourcePath = "ClaudeCraft/world";
         private const string EntityResourcePath = "ClaudeCraft/entities";
+        private const string StructureResourcePath = "ClaudeCraft/structure";
 
         [Serializable] private sealed class WorldData
         {
@@ -125,6 +126,15 @@ namespace Highfly.World
             public int count;
         }
 
+        [Serializable] private sealed class StructureData
+        {
+            public string schema;
+            public Point citySpawn;
+            public Zone[] zones;
+            public Road[] roads;
+            public PropData[] props;
+        }
+
         [Serializable] private sealed class EntityData
         {
             public string schema;
@@ -192,6 +202,7 @@ namespace Highfly.World
         }
 
         private WorldData _data;
+        private StructureData _structure;
         private EntityData _entities;
         private Transform _worldRoot;
         private HighflyThirdPersonMotor _playerMotor;
@@ -221,6 +232,22 @@ namespace Highfly.World
 
             _data = JsonUtility.FromJson<WorldData>(json.text);
 
+            TextAsset structureJson = Resources.Load<TextAsset>(StructureResourcePath);
+            if (structureJson != null)
+            {
+                _structure = JsonUtility.FromJson<StructureData>(structureJson.text);
+                if (_structure != null)
+                {
+                    if (_structure.zones != null && _structure.zones.Length > 0) _data.zones = _structure.zones;
+                    if (_structure.roads != null && _structure.roads.Length > 0) _data.roads = _structure.roads;
+                    if (_structure.props != null && _structure.props.Length > 0) _data.props = _structure.props;
+                }
+            }
+            else
+            {
+                Debug.LogWarning("HIGHFLY ClaudeCraft: Resources/" + StructureResourcePath + ".json not found; using legacy world structure export.");
+            }
+
             TextAsset entityJson = Resources.Load<TextAsset>(EntityResourcePath);
             if (entityJson != null)
                 _entities = JsonUtility.FromJson<EntityData>(entityJson.text);
@@ -246,7 +273,7 @@ namespace Highfly.World
             BuildDecorations();
             BuildWorldMarkers();
             ConfigurePlayerAndCamera();
-            BuildNpcPopulation();
+            ConfigureWorldLabUi();
             BuildDungeonEntrances();
 
             Debug.Log(
@@ -257,7 +284,7 @@ namespace Highfly.World
                 " gather=" + (_data.gatherNodes != null ? _data.gatherNodes.Length : 0) +
                 " props=" + (_data.props != null ? _data.props.Length : 0) +
                 " decorations=" + (_data.decorations != null ? _data.decorations.Length : 0) +
-                " npcs=" + (_entities != null && _entities.npcs != null ? _entities.npcs.Length : 0) +
+                " worldMode=NO_NPCS_NO_MOBS" +
                 " dungeons=" + (_entities != null && _entities.dungeons != null ? _entities.dungeons.Length : 0));
         }
 
@@ -596,10 +623,34 @@ namespace Highfly.World
                     resource = "ClaudeWorldAssets/props/barrel";
                     target = 0.75f;
                 }
-                else if (category == "fences" || category == "walls")
+                else if (category == "fences")
                 {
-                    BuildFenceProp(parent, prop, category == "walls");
+                    BuildFenceProp(parent, prop, false);
                     continue;
+                }
+                else if (category == "walls")
+                {
+                    float wallDx = prop.x2 - prop.x;
+                    float wallDz = prop.z2 - prop.z;
+                    if (wallDx * wallDx + wallDz * wallDz > 0.25f)
+                    {
+                        BuildFenceProp(parent, prop, true);
+                    }
+                    else
+                    {
+                        string wallResource = (!string.IsNullOrEmpty(prop.assetId) && prop.assetId.ToLowerInvariant().Contains("gate"))
+                            ? "ClaudeWorldAssets/buildings/neutral/wall_straight_gate"
+                            : "ClaudeWorldAssets/buildings/neutral/wall_straight";
+                        float wallFootprint = Mathf.Max(3.2f, Mathf.Max(prop.width, prop.depth));
+                        CreateWorldPrefab(parent, wallResource, "Wall_" + prop.id, prop.x, prop.z, prop.rot, wallFootprint, 1f);
+                    }
+                    continue;
+                }
+                else if (category == "benches")
+                {
+                    resource = "ClaudeWorldAssets/props/crate_A_big";
+                    target = Mathf.Max(1.4f, Mathf.Max(prop.width, prop.depth));
+                    authoredScale = 1f;
                 }
                 else if (category == "greattrees")
                 {
@@ -775,12 +826,21 @@ namespace Highfly.World
                         : "ClaudeWorldAssets/nature/rock_single_B");
                 size = 1.5f * Mathf.Max(0.65f, decor.scale);
             }
-            else if (kind.Contains("water") || kind.Contains("lily") || kind.Contains("reed"))
+            else if (kind.Contains("water") || kind.Contains("lily") || kind.Contains("reed") ||
+                     kind.Contains("grass") || kind.Contains("shrub") || kind.Contains("flower") ||
+                     kind.Contains("bush") || kind.Contains("fern") || kind.Contains("foliage"))
             {
                 resource = (index & 1) == 0
                     ? "ClaudeWorldAssets/nature/waterplant_A"
                     : "ClaudeWorldAssets/nature/waterlily_A";
                 size = 1.2f * Mathf.Max(0.65f, decor.scale);
+            }
+            else if (kind.Contains("palm") || kind.Contains("forest") || kind.Contains("grove"))
+            {
+                resource = (index % 3) == 0
+                    ? "ClaudeWorldAssets/nature/trees_A_medium"
+                    : "ClaudeWorldAssets/nature/tree_single_A";
+                size = 3.8f * Mathf.Max(0.72f, decor.scale);
             }
             else
             {
@@ -841,9 +901,19 @@ namespace Highfly.World
             if (value.Contains("crate")) return "ClaudeWorldAssets/props/crate_A_big";
             if (value.Contains("sack")) return "ClaudeWorldAssets/props/sack";
             if (value.Contains("barrel")) return "ClaudeWorldAssets/props/barrel";
-            if (value.Contains("watchtower")) return "ClaudeWorldAssets/buildings/blue/building_tower_A_blue";
-            if (value.Contains("fence")) return "ClaudeWorldAssets/buildings/neutral/fence_wood_straight";
-            if (value.Contains("shrub") || value.Contains("flower") || value.Contains("reed"))
+            if (value.Contains("watchtower") || value.Contains("tower")) return "ClaudeWorldAssets/buildings/blue/building_tower_A_blue";
+            if (value.Contains("blacksmith") || value.Contains("forge")) return "ClaudeWorldAssets/buildings/blue/building_blacksmith_blue";
+            if (value.Contains("barracks") || value.Contains("barrack")) return "ClaudeWorldAssets/buildings/blue/building_barracks_blue";
+            if (value.Contains("tavern") || value.Contains("inn")) return "ClaudeWorldAssets/buildings/blue/building_tavern_blue";
+            if (value.Contains("market")) return "ClaudeWorldAssets/buildings/blue/building_market_blue";
+            if (value.Contains("church") || value.Contains("chapel")) return "ClaudeWorldAssets/buildings/blue/building_church_blue";
+            if (value.Contains("castle") || value.Contains("keep")) return "ClaudeWorldAssets/buildings/blue/building_castle_blue";
+            if (value.Contains("mine")) return "ClaudeWorldAssets/buildings/blue/building_mine_blue";
+            if (value.Contains("windmill")) return "ClaudeWorldAssets/buildings/blue/building_windmill_blue";
+            if (value.Contains("lumber")) return "ClaudeWorldAssets/buildings/blue/building_lumbermill_blue";
+            if (value.Contains("bridge") || value.Contains("dock")) return "ClaudeWorldAssets/buildings/neutral/building_bridge_A";
+            if (value.Contains("fence") || value.Contains("iron")) return "ClaudeWorldAssets/buildings/neutral/fence_wood_straight";
+            if (value.Contains("shrub") || value.Contains("flower") || value.Contains("reed") || value.Contains("grass") || value.Contains("bush"))
                 return "ClaudeWorldAssets/nature/waterplant_A";
 
             // Boats/ships/anchors/buoys/torches intentionally remain unmapped here.
@@ -1305,6 +1375,14 @@ namespace Highfly.World
             sourceX = _data.playerStart != null ? _data.playerStart.x : 0f;
             sourceZ = _data.playerStart != null ? _data.playerStart.z : 0f;
 
+            if (_structure != null && _structure.citySpawn != null && !IsWaterAt(_structure.citySpawn.x, _structure.citySpawn.z))
+            {
+                sourceX = _structure.citySpawn.x;
+                sourceZ = _structure.citySpawn.z;
+                Debug.Log("HIGHFLY WORLD v0.3 city spawn from authored ClaudeCraft hub=(" + sourceX + "," + sourceZ + ")");
+                return true;
+            }
+
             if (_data.zones == null || _data.props == null)
                 return false;
 
@@ -1459,6 +1537,46 @@ namespace Highfly.World
 
             if (enabled)
                 controller.enabled = true;
+        }
+
+        private void ConfigureWorldLabUi()
+        {
+            // WORLD LAB is for exploration only. Keep locomotion/camera/interaction,
+            // but hide Combat Lab presentation and action controls in this build.
+            string[] hideObjects =
+            {
+                "StatusPanel",
+                "TargetPill",
+                "ATAQUE_Button",
+                "PESADO_Button",
+                "S1_CORTE_Button",
+                "S2_ABANICO_Button",
+                "S3_ÁREA_Button",
+                "BLOQ_Button"
+            };
+
+            for (int i = 0; i < hideObjects.Length; i++)
+            {
+                GameObject go = GameObject.Find(hideObjects[i]);
+                if (go != null)
+                    go.SetActive(false);
+            }
+
+            HighflyCombatHUD combatHud = FindObjectOfType<HighflyCombatHUD>();
+            if (combatHud != null)
+                combatHud.enabled = false;
+
+            HighflyDungeonObjective objective = FindObjectOfType<HighflyDungeonObjective>();
+            if (objective != null)
+                objective.enabled = false;
+
+            UnityEngine.UI.Text[] texts = FindObjectsOfType<UnityEngine.UI.Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                string value = texts[i] != null ? texts[i].text : string.Empty;
+                if (value.Contains("CRIPTA F") || value.Contains("AUTO-TARGET ACTIVO"))
+                    texts[i].gameObject.SetActive(false);
+            }
         }
 
         private float WorldMinHeight()
