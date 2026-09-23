@@ -271,7 +271,9 @@ namespace Highfly.World
             BuildWater();
             BuildRoads();
             BuildProps();
+            EnsureEastbrookVisible();
             BuildDecorations();
+            EnsureEastbrookVegetation();
             BuildWorldMarkers();
             ConfigurePlayerAndCamera();
             ConfigureWorldLabUi();
@@ -741,8 +743,9 @@ namespace Highfly.World
             HashSet<string> spawned = new HashSet<string>();
             int spawnedCount = 0;
 
-            float startX = _data.playerStart != null ? _data.playerStart.x : 0f;
-            float startZ = _data.playerStart != null ? _data.playerStart.z : 0f;
+            float startX;
+            float startZ;
+            ResolveWorldLabSpawn(out startX, out startZ);
             const float priorityRadius = 180f;
             float priorityRadiusSq = priorityRadius * priorityRadius;
 
@@ -1373,99 +1376,208 @@ namespace Highfly.World
 
         private bool TryFindTownSpawn(out float sourceX, out float sourceZ)
         {
-            sourceX = _data.playerStart != null ? _data.playerStart.x : 0f;
-            sourceZ = _data.playerStart != null ? _data.playerStart.z : 0f;
+            // WORLD LAB is a world-experience test, so it must open inside a real
+            // settlement. Eastbrook Vale is ClaudeCraft v0.43.3's authored starter
+            // town hub at (-14,-100). Prefer the parsed source record, then use the
+            // canonical source coordinate as a last-resort pin.
+            if (_data != null && _data.zones != null)
+            {
+                for (int i = 0; i < _data.zones.Length; i++)
+                {
+                    Zone zone = _data.zones[i];
+                    if (zone == null || zone.hub == null)
+                        continue;
+                    if (!string.Equals(zone.id, "eastbrook_vale", StringComparison.OrdinalIgnoreCase))
+                        continue;
 
-            if (_structure != null && _structure.citySpawn != null && !IsWaterAt(_structure.citySpawn.x, _structure.citySpawn.z))
+                    sourceX = zone.hub.x;
+                    sourceZ = zone.hub.z;
+                    Debug.Log("HIGHFLY WORLD spawn: Eastbrook zone hub=(" + sourceX + "," + sourceZ + ")");
+                    return true;
+                }
+            }
+
+            if (_structure != null && _structure.citySpawn != null)
             {
                 sourceX = _structure.citySpawn.x;
                 sourceZ = _structure.citySpawn.z;
-                Debug.Log("HIGHFLY WORLD v0.3 city spawn from authored ClaudeCraft hub=(" + sourceX + "," + sourceZ + ")");
+                Debug.Log("HIGHFLY WORLD spawn: authored structure hub=(" + sourceX + "," + sourceZ + ")");
                 return true;
             }
 
-            if (_data.zones == null || _data.props == null)
-                return false;
-
-            float bestScore = float.MinValue;
-            float bestX = sourceX;
-            float bestZ = sourceZ;
-
-            for (int zi = 0; zi < _data.zones.Length; zi++)
-            {
-                Zone zone = _data.zones[zi];
-                if (zone == null || zone.hub == null)
-                    continue;
-
-                int buildings = 0;
-                int services = 0;
-                for (int pi = 0; pi < _data.props.Length; pi++)
-                {
-                    PropData prop = _data.props[pi];
-                    if (prop == null)
-                        continue;
-
-                    float dx = prop.x - zone.hub.x;
-                    float dz = prop.z - zone.hub.z;
-                    if (dx * dx + dz * dz > 100f * 100f)
-                        continue;
-
-                    string category = (prop.category ?? string.Empty).ToLowerInvariant();
-                    if (category == "buildings")
-                        buildings++;
-                    else if (category == "wells" || category == "stalls" || category == "docks" || category == "mines")
-                        services++;
-                }
-
-                float score = buildings * 10f + services * 2.5f;
-                if (score <= bestScore)
-                    continue;
-
-                bestScore = score;
-                bestX = zone.hub.x;
-                bestZ = zone.hub.z;
-            }
-
-            if (bestScore < 10f)
-                return false;
-
-            float nearestRoadSq = float.MaxValue;
-            float roadX = bestX;
-            float roadZ = bestZ;
-            bool foundRoad = false;
-
-            if (_data.roads != null)
-            {
-                for (int ri = 0; ri < _data.roads.Length; ri++)
-                {
-                    Road road = _data.roads[ri];
-                    if (road == null || road.points == null)
-                        continue;
-
-                    for (int pi = 0; pi < road.points.Length; pi++)
-                    {
-                        Point point = road.points[pi];
-                        if (point == null || IsWaterAt(point.x, point.z))
-                            continue;
-
-                        float dx = point.x - bestX;
-                        float dz = point.z - bestZ;
-                        float sq = dx * dx + dz * dz;
-                        if (sq < nearestRoadSq)
-                        {
-                            nearestRoadSq = sq;
-                            roadX = point.x;
-                            roadZ = point.z;
-                            foundRoad = true;
-                        }
-                    }
-                }
-            }
-
-            sourceX = foundRoad ? roadX : bestX;
-            sourceZ = foundRoad ? roadZ : bestZ;
-            Debug.Log("HIGHFLY WORLD v0.3 city spawn source=(" + sourceX + "," + sourceZ + ") score=" + bestScore);
+            sourceX = -14f;
+            sourceZ = -100f;
+            Debug.LogWarning("HIGHFLY WORLD spawn: source hub record missing; using ClaudeCraft v0.43.3 Eastbrook canonical coordinate.");
             return true;
+        }
+
+        private void ResolveWorldLabSpawn(out float sourceX, out float sourceZ)
+        {
+            if (TryFindTownSpawn(out sourceX, out sourceZ))
+                return;
+
+            sourceX = -14f;
+            sourceZ = -100f;
+        }
+
+        private void EnsureEastbrookVisible()
+        {
+            const float hubX = -14f;
+            const float hubZ = -100f;
+            const float radius = 92f;
+
+            Transform props = _worldRoot != null ? _worldRoot.Find("AuthoredProps") : null;
+            int visibleNearHub = 0;
+            if (props != null)
+            {
+                for (int i = 0; i < props.childCount; i++)
+                {
+                    Transform child = props.GetChild(i);
+                    Vector3 p = child.position;
+                    float dx = p.x - ToUnityX(hubX);
+                    float dz = p.z - hubZ;
+                    if (dx * dx + dz * dz <= radius * radius &&
+                        child.GetComponentsInChildren<Renderer>(true).Length > 0)
+                        visibleNearHub++;
+                }
+            }
+
+            Debug.Log("HIGHFLY WORLD Eastbrook authored visuals near hub=" + visibleNearHub);
+            if (visibleNearHub >= 7)
+                return;
+
+            Debug.LogWarning("HIGHFLY WORLD: Eastbrook visual importer produced too little near the hub; building the canonical v0.43.3 town slice.");
+
+            Transform city = NewGroup("EastbrookGuaranteed");
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_home_A_blue", "Eastbrook_Bank", 12f, -94f, -2.3561945f, 8.6f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_blacksmith_blue", "Eastbrook_Smithy", -2f, -122f, -2.0344439f, 8.4f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_tavern_blue", "Eastbrook_Inn", -38f, -88f, -2.5535901f, 8.6f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_church_blue", "Eastbrook_Chapel", 2f, -78f, 0.7853982f, 6.9f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_home_A_blue", "Eastbrook_Weaving", -28f, -122f, 2.5535901f, 6.9f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_home_B_blue", "Eastbrook_Toolworks", -16f, -128f, 0.5880026f, 6.9f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_home_A_blue", "Eastbrook_MarketHome", -33f, -111f, 0.2f, 6.9f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_home_B_blue", "Eastbrook_EastHome", 22f, -106f, -1.46f, 6.9f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_home_B_blue", "Eastbrook_QuaysideHome", -82f, -102f, -2.2f, 6.9f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_market_blue", "Eastbrook_HarbourMarket", -68f, -108f, -2.2f, 8.6f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_home_A_blue", "Eastbrook_DockHome", -50f, -112f, -2.2f, 6.9f, 1f);
+
+            CreateWorldPrefab(city, "ClaudeWorldAssets/buildings/blue/building_well_blue", "Eastbrook_Well", -14f, -100f, 0f, 2.8f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/props/tent", "Eastbrook_MarketStall_A", -20.5f, -94f, 2.4805495f, 2.8f, 1f);
+            CreateWorldPrefab(city, "ClaudeWorldAssets/props/tent", "Eastbrook_MarketStall_B", -19f, -108f, 0.6610432f, 2.8f, 1f);
+
+            Transform roads = NewGroup("EastbrookGuaranteedRoads");
+            Material road = GetMaterial("eastbrook_road_surface", new Color(0.34f, 0.25f, 0.15f, 1f));
+
+            CreateGuaranteedRoad(roads, road, 2f, new[]
+            {
+                new Point { x = -20f, z = -102f }, new Point { x = -26f, z = -101f },
+                new Point { x = -44f, z = -98f }, new Point { x = -56f, z = -88f },
+                new Point { x = -62f, z = -76f }, new Point { x = -70f, z = -68f },
+                new Point { x = -80f, z = -66f }, new Point { x = -88f, z = -60f },
+                new Point { x = -92f, z = -56f }
+            }, "Eastbrook_MainStreet");
+
+            CreateGuaranteedRoad(roads, road, 1.5f, new[]
+            {
+                new Point { x = -11f, z = -105.5f }, new Point { x = -10f, z = -112f },
+                new Point { x = -9f, z = -119f }, new Point { x = -12f, z = -123f },
+                new Point { x = -22f, z = -120.5f }
+            }, "Eastbrook_CraftsLane");
+
+            CreateGuaranteedRoad(roads, road, 1.5f, new[]
+            {
+                new Point { x = 14.6f, z = -88.6f }, new Point { x = 12f, z = -85f },
+                new Point { x = 10f, z = -80f }, new Point { x = 6f, z = -72f },
+                new Point { x = 0f, z = -58f }
+            }, "Eastbrook_NorthRoad");
+        }
+
+        private void CreateGuaranteedRoad(Transform parent, Material material, float halfWidth, Point[] points, string namePrefix)
+        {
+            if (points == null || points.Length < 2)
+                return;
+
+            for (int i = 0; i < points.Length - 1; i++)
+            {
+                Point p0 = points[i];
+                Point p1 = points[i + 1];
+                Vector3 a = new Vector3(ToUnityX(p0.x), SampleHeight(p0.x, p0.z) + 0.10f, p0.z);
+                Vector3 b = new Vector3(ToUnityX(p1.x), SampleHeight(p1.x, p1.z) + 0.10f, p1.z);
+                Vector3 dir = b - a;
+                dir.y = 0f;
+                float length = dir.magnitude;
+                if (length < 0.1f)
+                    continue;
+
+                GameObject strip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                strip.name = namePrefix + "_" + i;
+                strip.transform.SetParent(parent, false);
+                strip.transform.position = (a + b) * 0.5f;
+                strip.transform.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up);
+                strip.transform.localScale = new Vector3(halfWidth * 2f, 0.08f, length);
+
+                Renderer renderer = strip.GetComponent<Renderer>();
+                if (renderer != null)
+                    renderer.sharedMaterial = material;
+
+                Collider collider = strip.GetComponent<Collider>();
+                if (collider != null)
+                    Destroy(collider);
+            }
+        }
+
+        private void EnsureEastbrookVegetation()
+        {
+            if (_data == null || _data.decorations == null || _data.decorations.Length == 0)
+                return;
+
+            const float hubX = -14f;
+            const float hubZ = -100f;
+            const float radius = 220f;
+            float radiusSq = radius * radius;
+
+            Transform parent = _worldRoot != null ? _worldRoot.Find("Decorations") : null;
+            if (parent == null)
+                parent = NewGroup("Decorations");
+
+            int nearHub = 0;
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                Vector3 p = parent.GetChild(i).position;
+                float sourceX = -p.x;
+                float dx = sourceX - hubX;
+                float dz = p.z - hubZ;
+                if (dx * dx + dz * dz <= radiusSq)
+                    nearHub++;
+            }
+
+            if (nearHub >= 80)
+            {
+                Debug.Log("HIGHFLY WORLD Eastbrook vegetation near hub=" + nearHub);
+                return;
+            }
+
+            int added = 0;
+            for (int i = 0; i < _data.decorations.Length && nearHub + added < 180; i++)
+            {
+                Decoration decor = _data.decorations[i];
+                if (decor == null)
+                    continue;
+
+                float dx = decor.x - hubX;
+                float dz = decor.z - hubZ;
+                if (dx * dx + dz * dz > radiusSq)
+                    continue;
+
+                string key = "Decor_" + DecorationKey(decor, i);
+                if (GameObject.Find(key) != null)
+                    continue;
+
+                if (TrySpawnDecoration(parent, decor, i))
+                    added++;
+            }
+
+            Debug.Log("HIGHFLY WORLD Eastbrook source vegetation added=" + added + " previous=" + nearHub);
         }
 
         private bool IsWaterAt(float sourceX, float sourceZ)
@@ -1570,6 +1682,10 @@ namespace Highfly.World
             HighflyDungeonObjective objective = FindObjectOfType<HighflyDungeonObjective>();
             if (objective != null)
                 objective.enabled = false;
+
+            GameObject attachedSword = GameObject.Find("Hunter_Sword");
+            if (attachedSword != null)
+                attachedSword.SetActive(false);
 
             UnityEngine.UI.Text[] texts = FindObjectsOfType<UnityEngine.UI.Text>(true);
             for (int i = 0; i < texts.Length; i++)
