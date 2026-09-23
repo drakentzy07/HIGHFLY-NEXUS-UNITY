@@ -10,6 +10,7 @@ namespace Highfly.World
     public sealed class HighflyClaudeWorldRuntime : MonoBehaviour
     {
         private const string ResourcePath = "ClaudeCraft/world";
+        private const string EntityResourcePath = "ClaudeCraft/entities";
 
         [Serializable] private sealed class WorldData
         {
@@ -124,8 +125,78 @@ namespace Highfly.World
             public int count;
         }
 
+        [Serializable] private sealed class EntityData
+        {
+            public string schema;
+            public NpcData[] npcs;
+            public DungeonData[] dungeons;
+            public MobData[] mobs;
+            public StationData[] stations;
+            public WorldObjectData[] objects;
+        }
+
+        [Serializable] private sealed class NpcData
+        {
+            public string id;
+            public string name;
+            public string title;
+            public string role;
+            public string greeting;
+            public float x;
+            public float z;
+            public float facing;
+            public int color;
+            public int questCount;
+        }
+
+        [Serializable] private sealed class DungeonData
+        {
+            public string id;
+            public string name;
+            public string interior;
+            public string enterText;
+            public string leaveText;
+            public float x;
+            public float z;
+            public int suggestedPlayers;
+            public bool staticDoor;
+        }
+
+        [Serializable] private sealed class MobData
+        {
+            public string id;
+            public string name;
+            public string family;
+            public float scale;
+            public int color;
+            public bool elite;
+            public bool rare;
+            public bool boss;
+        }
+
+        [Serializable] private sealed class StationData
+        {
+            public string id;
+            public string type;
+            public float x;
+            public float z;
+        }
+
+        [Serializable] private sealed class WorldObjectData
+        {
+            public string id;
+            public string name;
+            public string templateId;
+            public float x;
+            public float z;
+        }
+
         private WorldData _data;
+        private EntityData _entities;
         private Transform _worldRoot;
+        private HighflyThirdPersonMotor _playerMotor;
+        private Vector3 _lastDryPosition;
+        private bool _hasLastDryPosition;
         private readonly Dictionary<string, Material> _materials = new Dictionary<string, Material>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -149,6 +220,13 @@ namespace Highfly.World
             }
 
             _data = JsonUtility.FromJson<WorldData>(json.text);
+
+            TextAsset entityJson = Resources.Load<TextAsset>(EntityResourcePath);
+            if (entityJson != null)
+                _entities = JsonUtility.FromJson<EntityData>(entityJson.text);
+            else
+                Debug.LogWarning("HIGHFLY ClaudeCraft: Resources/" + EntityResourcePath + ".json not found; authored NPC/dungeon pass disabled.");
+
             if (_data == null || _data.terrain == null || _data.terrain.Length == 0)
             {
                 Debug.LogError("HIGHFLY ClaudeCraft: invalid or empty world export.");
@@ -168,15 +246,24 @@ namespace Highfly.World
             BuildDecorations();
             BuildWorldMarkers();
             ConfigurePlayerAndCamera();
+            BuildNpcPopulation();
+            BuildDungeonEntrances();
 
             Debug.Log(
-                "HIGHFLY ClaudeCraft WORLD v0.2 loaded | zones=" + (_data.zones != null ? _data.zones.Length : 0) +
+                "HIGHFLY ClaudeCraft WORLD v0.3 loaded | zones=" + (_data.zones != null ? _data.zones.Length : 0) +
                 " terrain=" + _data.terrain.Length +
                 " roads=" + (_data.roads != null ? _data.roads.Length : 0) +
                 " camps=" + (_data.camps != null ? _data.camps.Length : 0) +
                 " gather=" + (_data.gatherNodes != null ? _data.gatherNodes.Length : 0) +
                 " props=" + (_data.props != null ? _data.props.Length : 0) +
-                " decorations=" + (_data.decorations != null ? _data.decorations.Length : 0));
+                " decorations=" + (_data.decorations != null ? _data.decorations.Length : 0) +
+                " npcs=" + (_entities != null && _entities.npcs != null ? _entities.npcs.Length : 0) +
+                " dungeons=" + (_entities != null && _entities.dungeons != null ? _entities.dungeons.Length : 0));
+        }
+
+        private void LateUpdate()
+        {
+            MaintainWaterTraversal();
         }
 
         private void DisableLegacyLabWorld()
@@ -919,20 +1006,229 @@ namespace Highfly.World
 
             if (_data.portals != null)
             {
-                Material portal = GetMaterial("portal", new Color(0.44f, 0.18f, 0.85f, 1f));
                 for (int i = 0; i < _data.portals.Length; i++)
-                {
-                    Portal p = _data.portals[i];
-                    CreateMarker(
-                        parent,
-                        "Portal_" + p.id,
-                        PrimitiveType.Cylinder,
-                        p.x,
-                        p.z,
-                        0.75f,
-                        portal);
-                }
+                    CreatePortalLandmark(parent, _data.portals[i]);
             }
+        }
+
+
+        private void CreatePortalLandmark(Transform parent, Portal portal)
+        {
+            if (portal == null)
+                return;
+
+            GameObject root = new GameObject("Portal_" + portal.id);
+            root.transform.SetParent(parent, false);
+            float ground = SampleHeight(portal.x, portal.z);
+            root.transform.position = new Vector3(ToUnityX(portal.x), ground, portal.z);
+
+            CreateWorldPrefab(
+                root.transform,
+                "ClaudeWorldAssets/buildings/neutral/wall_straight_gate",
+                "PortalFrame_" + portal.id,
+                portal.x,
+                portal.z,
+                0f,
+                5.2f,
+                1f);
+
+            GameObject surface = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            surface.name = "PortalSurface_" + portal.id;
+            surface.transform.SetParent(root.transform, false);
+            surface.transform.localPosition = new Vector3(0f, 2.15f, 0.08f);
+            surface.transform.localScale = new Vector3(2.25f, 3.15f, 1f);
+            MeshRenderer renderer = surface.GetComponent<MeshRenderer>();
+            if (renderer != null)
+                renderer.sharedMaterial = GetMaterial("portal_surface", new Color(0.16f, 0.62f, 0.95f, 0.86f));
+            Collider surfaceCollider = surface.GetComponent<Collider>();
+            if (surfaceCollider != null)
+                Destroy(surfaceCollider);
+
+            BoxCollider trigger = root.AddComponent<BoxCollider>();
+            trigger.isTrigger = true;
+            trigger.center = new Vector3(0f, 2.0f, 0f);
+            trigger.size = new Vector3(3.2f, 4.2f, 2.0f);
+
+            HighflyWorldPortalTrigger portalTrigger = root.AddComponent<HighflyWorldPortalTrigger>();
+            portalTrigger.Configure(
+                new Vector3(
+                    ToUnityX(portal.targetX),
+                    SampleHeight(portal.targetX, portal.targetZ) + 1.1f,
+                    portal.targetZ),
+                portal.id);
+        }
+
+        private void BuildNpcPopulation()
+        {
+            if (_entities == null || _entities.npcs == null || _entities.npcs.Length == 0)
+                return;
+
+            Transform parent = NewGroup("AuthoredNPCs");
+            RuntimeAnimatorController sharedController = null;
+            HighflyThirdPersonMotor motor = _playerMotor != null ? _playerMotor : FindObjectOfType<HighflyThirdPersonMotor>();
+            if (motor != null)
+            {
+                Animator playerAnimator = motor.GetComponentInChildren<Animator>();
+                if (playerAnimator != null)
+                    sharedController = playerAnimator.runtimeAnimatorController;
+            }
+
+            int spawned = 0;
+            for (int i = 0; i < _entities.npcs.Length; i++)
+            {
+                NpcData npc = _entities.npcs[i];
+                if (npc == null || string.IsNullOrEmpty(npc.id))
+                    continue;
+
+                string resource = NpcResource(npc, i);
+                GameObject go = CreateWorldPrefab(
+                    parent,
+                    resource,
+                    "NPC_" + npc.id,
+                    npc.x,
+                    npc.z,
+                    npc.facing,
+                    0.82f,
+                    1f);
+                if (go == null)
+                    continue;
+
+                Animator animator = go.GetComponentInChildren<Animator>();
+                if (animator != null && sharedController != null)
+                {
+                    animator.runtimeAnimatorController = sharedController;
+                    animator.applyRootMotion = false;
+                    animator.SetFloat("Speed", 0f);
+                }
+
+                CreateNpcNameplate(go, npc);
+
+                HighflyWorldNpcInteraction interaction = go.AddComponent<HighflyWorldNpcInteraction>();
+                interaction.Configure(
+                    npc.name,
+                    npc.title,
+                    npc.greeting,
+                    string.IsNullOrEmpty(npc.role) ? "habitante" : npc.role);
+
+                spawned++;
+            }
+
+            Debug.Log("HIGHFLY ClaudeCraft authored NPCs spawned=" + spawned);
+        }
+
+        private static string NpcResource(NpcData npc, int index)
+        {
+            string role = (npc.role ?? string.Empty).ToLowerInvariant();
+            string id = (npc.id ?? string.Empty).ToLowerInvariant();
+
+            if (role.Contains("guard") || role.Contains("marshal") || id.Contains("marshal") || id.Contains("warden"))
+                return "ClaudeWorldAssets/characters/Knight";
+            if (role.Contains("mage") || role.Contains("healer") || id.Contains("apothecary") || id.Contains("priest"))
+                return "ClaudeWorldAssets/characters/Mage";
+            if (role.Contains("farmer") || id.Contains("foreman"))
+                return "ClaudeWorldAssets/characters/Barbarian";
+            if (role.Contains("vendor") || role.Contains("banker") || role.Contains("market"))
+                return (index & 1) == 0
+                    ? "ClaudeWorldAssets/characters/Rogue"
+                    : "ClaudeWorldAssets/characters/Mage";
+
+            switch (index % 4)
+            {
+                case 0: return "ClaudeWorldAssets/characters/Knight";
+                case 1: return "ClaudeWorldAssets/characters/Rogue";
+                case 2: return "ClaudeWorldAssets/characters/Mage";
+                default: return "ClaudeWorldAssets/characters/Barbarian";
+            }
+        }
+
+        private static void CreateNpcNameplate(GameObject npcObject, NpcData npc)
+        {
+            Renderer[] renderers = npcObject.GetComponentsInChildren<Renderer>();
+            float y = npcObject.transform.position.y + 2.0f;
+            if (renderers.Length > 0)
+            {
+                Bounds bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++)
+                    bounds.Encapsulate(renderers[i].bounds);
+                y = bounds.max.y + 0.32f;
+            }
+
+            GameObject label = new GameObject("Nameplate");
+            label.transform.SetParent(npcObject.transform, true);
+            label.transform.position = new Vector3(npcObject.transform.position.x, y, npcObject.transform.position.z);
+
+            TextMesh text = label.AddComponent<TextMesh>();
+            text.text = string.IsNullOrEmpty(npc.title)
+                ? npc.name
+                : npc.name + "\n<size=70%>" + npc.title + "</size>";
+            text.anchor = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignment.Center;
+            text.fontSize = 44;
+            text.characterSize = 0.035f;
+            text.color = Color.white;
+
+            label.AddComponent<HighflyWorldBillboard>();
+        }
+
+        private void BuildDungeonEntrances()
+        {
+            if (_entities == null || _entities.dungeons == null)
+                return;
+
+            Transform parent = NewGroup("DungeonEntrances");
+            int spawned = 0;
+
+            for (int i = 0; i < _entities.dungeons.Length; i++)
+            {
+                DungeonData dungeon = _entities.dungeons[i];
+                if (dungeon == null || string.IsNullOrEmpty(dungeon.id))
+                    continue;
+
+                GameObject gate = CreateWorldPrefab(
+                    parent,
+                    "ClaudeWorldAssets/buildings/neutral/wall_straight_gate",
+                    "Dungeon_" + dungeon.id,
+                    dungeon.x,
+                    dungeon.z,
+                    0f,
+                    dungeon.staticDoor ? 6.0f : 4.8f,
+                    1f);
+
+                if (gate == null)
+                    continue;
+
+                Renderer[] renderers = gate.GetComponentsInChildren<Renderer>();
+                float labelY = gate.transform.position.y + 3.5f;
+                if (renderers.Length > 0)
+                {
+                    Bounds b = renderers[0].bounds;
+                    for (int r = 1; r < renderers.Length; r++)
+                        b.Encapsulate(renderers[r].bounds);
+                    labelY = b.max.y + 0.45f;
+                }
+
+                GameObject label = new GameObject("DungeonName");
+                label.transform.SetParent(gate.transform, true);
+                label.transform.position = new Vector3(gate.transform.position.x, labelY, gate.transform.position.z);
+                TextMesh text = label.AddComponent<TextMesh>();
+                text.text = dungeon.name + "\n" + Mathf.Max(1, dungeon.suggestedPlayers) + " JUG.";
+                text.anchor = TextAnchor.MiddleCenter;
+                text.alignment = TextAlignment.Center;
+                text.fontSize = 48;
+                text.characterSize = 0.04f;
+                text.color = new Color(0.78f, 0.88f, 1f, 1f);
+                label.AddComponent<HighflyWorldBillboard>();
+
+                HighflyWorldLandmarkInteraction interaction = gate.AddComponent<HighflyWorldLandmarkInteraction>();
+                interaction.Configure(
+                    dungeon.name,
+                    string.IsNullOrEmpty(dungeon.enterText) ? "Entrada de mazmorra de ClaudeCraft." : dungeon.enterText,
+                    "EXAMINAR");
+
+                spawned++;
+            }
+
+            Debug.Log("HIGHFLY ClaudeCraft dungeon entrances spawned=" + spawned);
         }
 
         private void CreateMarker(
@@ -965,9 +1261,16 @@ namespace Highfly.World
                 return;
             }
 
-            float sourceX = _data.playerStart != null ? _data.playerStart.x : 0f;
-            float sourceZ = _data.playerStart != null ? _data.playerStart.z : 0f;
+            float sourceX;
+            float sourceZ;
+            if (!TryFindTownSpawn(out sourceX, out sourceZ))
+            {
+                sourceX = _data.playerStart != null ? _data.playerStart.x : 0f;
+                sourceZ = _data.playerStart != null ? _data.playerStart.z : 0f;
+            }
+
             Vector3 spawn = new Vector3(ToUnityX(sourceX), SampleHeight(sourceX, sourceZ) + 2.2f, sourceZ);
+            _playerMotor = motor;
 
             CharacterController controller = motor.GetComponent<CharacterController>();
             bool wasEnabled = controller != null && controller.enabled;
@@ -975,6 +1278,9 @@ namespace Highfly.World
             motor.transform.position = spawn;
             motor.transform.rotation = Quaternion.identity;
             if (wasEnabled) controller.enabled = true;
+
+            _lastDryPosition = spawn;
+            _hasLastDryPosition = true;
 
             HighflyWorldSafety safety = motor.GetComponent<HighflyWorldSafety>();
             if (safety != null)
@@ -991,6 +1297,168 @@ namespace Highfly.World
                 camera.clearFlags = CameraClearFlags.SolidColor;
                 camera.backgroundColor = new Color(0.33f, 0.48f, 0.63f, 1f);
             }
+        }
+
+
+        private bool TryFindTownSpawn(out float sourceX, out float sourceZ)
+        {
+            sourceX = _data.playerStart != null ? _data.playerStart.x : 0f;
+            sourceZ = _data.playerStart != null ? _data.playerStart.z : 0f;
+
+            if (_data.zones == null || _data.props == null)
+                return false;
+
+            float bestScore = float.MinValue;
+            float bestX = sourceX;
+            float bestZ = sourceZ;
+
+            for (int zi = 0; zi < _data.zones.Length; zi++)
+            {
+                Zone zone = _data.zones[zi];
+                if (zone == null || zone.hub == null)
+                    continue;
+
+                int buildings = 0;
+                int services = 0;
+                for (int pi = 0; pi < _data.props.Length; pi++)
+                {
+                    PropData prop = _data.props[pi];
+                    if (prop == null)
+                        continue;
+
+                    float dx = prop.x - zone.hub.x;
+                    float dz = prop.z - zone.hub.z;
+                    if (dx * dx + dz * dz > 100f * 100f)
+                        continue;
+
+                    string category = (prop.category ?? string.Empty).ToLowerInvariant();
+                    if (category == "buildings")
+                        buildings++;
+                    else if (category == "wells" || category == "stalls" || category == "docks" || category == "mines")
+                        services++;
+                }
+
+                float score = buildings * 10f + services * 2.5f;
+                if (score <= bestScore)
+                    continue;
+
+                bestScore = score;
+                bestX = zone.hub.x;
+                bestZ = zone.hub.z;
+            }
+
+            if (bestScore < 10f)
+                return false;
+
+            float nearestRoadSq = float.MaxValue;
+            float roadX = bestX;
+            float roadZ = bestZ;
+            bool foundRoad = false;
+
+            if (_data.roads != null)
+            {
+                for (int ri = 0; ri < _data.roads.Length; ri++)
+                {
+                    Road road = _data.roads[ri];
+                    if (road == null || road.points == null)
+                        continue;
+
+                    for (int pi = 0; pi < road.points.Length; pi++)
+                    {
+                        Point point = road.points[pi];
+                        if (point == null || IsWaterAt(point.x, point.z))
+                            continue;
+
+                        float dx = point.x - bestX;
+                        float dz = point.z - bestZ;
+                        float sq = dx * dx + dz * dz;
+                        if (sq < nearestRoadSq)
+                        {
+                            nearestRoadSq = sq;
+                            roadX = point.x;
+                            roadZ = point.z;
+                            foundRoad = true;
+                        }
+                    }
+                }
+            }
+
+            sourceX = foundRoad ? roadX : bestX;
+            sourceZ = foundRoad ? roadZ : bestZ;
+            Debug.Log("HIGHFLY WORLD v0.3 city spawn source=(" + sourceX + "," + sourceZ + ") score=" + bestScore);
+            return true;
+        }
+
+        private bool IsWaterAt(float sourceX, float sourceZ)
+        {
+            if (_data == null || _data.terrain == null)
+                return false;
+
+            for (int i = 0; i < _data.terrain.Length; i++)
+            {
+                TerrainZone zone = _data.terrain[i];
+                if (zone == null || zone.waterMask == null || zone.waterMask.Length == 0)
+                    continue;
+                if (sourceX < zone.minX || sourceX > zone.maxX || sourceZ < zone.minZ || sourceZ > zone.maxZ)
+                    continue;
+
+                int x = Mathf.Clamp(
+                    Mathf.RoundToInt((sourceX - zone.minX) / Mathf.Max(0.001f, zone.step)),
+                    0,
+                    zone.width - 1);
+                int z = Mathf.Clamp(
+                    Mathf.RoundToInt((sourceZ - zone.minZ) / Mathf.Max(0.001f, zone.step)),
+                    0,
+                    zone.depth - 1);
+                int index = z * zone.width + x;
+                return index >= 0 && index < zone.waterMask.Length && zone.waterMask[index] != 0;
+            }
+
+            return false;
+        }
+
+        private void MaintainWaterTraversal()
+        {
+            if (_playerMotor == null || _data == null)
+                return;
+
+            Vector3 position = _playerMotor.transform.position;
+            float sourceX = -position.x;
+            float sourceZ = position.z;
+            float ground = SampleHeight(sourceX, sourceZ);
+            bool water = IsWaterAt(sourceX, sourceZ);
+
+            if (!water)
+            {
+                if (position.y >= ground - 0.8f)
+                {
+                    _lastDryPosition = position;
+                    _hasLastDryPosition = true;
+                }
+                return;
+            }
+
+            float depth = _data.waterLevel - ground;
+            if (depth <= 0.75f)
+                return;
+
+            // World Lab traversal only: keep the hunter at the surface instead
+            // of letting the CharacterController sink to the seabed. A dedicated
+            // swimming locomotion state can replace this without touching world data.
+            float surfaceRootY = _data.waterLevel - 0.38f;
+            if (position.y >= surfaceRootY)
+                return;
+
+            CharacterController controller = _playerMotor.GetComponent<CharacterController>();
+            bool enabled = controller != null && controller.enabled;
+            if (enabled)
+                controller.enabled = false;
+
+            position.y = surfaceRootY;
+            _playerMotor.transform.position = position;
+
+            if (enabled)
+                controller.enabled = true;
         }
 
         private float WorldMinHeight()
@@ -1108,6 +1576,145 @@ namespace Highfly.World
             if (value.Contains("gale")) return new Color(0.34f, 0.46f, 0.34f, 1f);
             if (value.Contains("amber")) return new Color(0.48f, 0.38f, 0.22f, 1f);
             return new Color(0.34f, 0.55f, 0.33f, 1f);
+        }
+    }
+
+    public sealed class HighflyWorldPortalTrigger : MonoBehaviour
+    {
+        private static float _nextUseAt;
+        private Vector3 _destination;
+        private string _portalId;
+
+        public void Configure(Vector3 destination, string portalId)
+        {
+            _destination = destination;
+            _portalId = portalId ?? "portal";
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (Time.unscaledTime < _nextUseAt)
+                return;
+
+            HighflyThirdPersonMotor motor = other.GetComponentInParent<HighflyThirdPersonMotor>();
+            if (motor == null)
+                return;
+
+            CharacterController controller = motor.GetComponent<CharacterController>();
+            bool enabled = controller != null && controller.enabled;
+            if (enabled)
+                controller.enabled = false;
+
+            motor.transform.position = _destination;
+
+            if (enabled)
+                controller.enabled = true;
+
+            _nextUseAt = Time.unscaledTime + 1.25f;
+            Debug.Log("HIGHFLY WORLD portal used: " + _portalId);
+        }
+    }
+
+    public sealed class HighflyWorldBillboard : MonoBehaviour
+    {
+        private void LateUpdate()
+        {
+            Camera camera = Camera.main;
+            if (camera == null)
+                return;
+
+            Vector3 away = transform.position - camera.transform.position;
+            if (away.sqrMagnitude < 0.0001f)
+                return;
+
+            transform.rotation = Quaternion.LookRotation(away.normalized, Vector3.up);
+        }
+    }
+
+    public sealed class HighflyWorldNpcInteraction : MonoBehaviour
+    {
+        private string _displayName;
+        private string _title;
+        private string _greeting;
+        private string _role;
+        private HighflyThirdPersonMotor _player;
+        private bool _open;
+
+        public void Configure(string displayName, string title, string greeting, string role)
+        {
+            _displayName = string.IsNullOrEmpty(displayName) ? "Habitante" : displayName;
+            _title = title ?? string.Empty;
+            _greeting = string.IsNullOrEmpty(greeting) ? "..." : greeting;
+            _role = role ?? "habitante";
+        }
+
+        private void Update()
+        {
+            if (_player == null)
+                _player = FindObjectOfType<HighflyThirdPersonMotor>();
+            if (_player != null && Vector3.Distance(transform.position, _player.transform.position) > 4.5f)
+                _open = false;
+        }
+
+        private void OnGUI()
+        {
+            if (_player == null)
+                return;
+
+            float distance = Vector3.Distance(transform.position, _player.transform.position);
+            if (distance > 3.0f)
+                return;
+
+            float width = Mathf.Min(360f, Screen.width * 0.64f);
+            Rect button = new Rect((Screen.width - width) * 0.5f, Screen.height - 118f, width, 54f);
+            if (GUI.Button(button, "HABLAR · " + _displayName))
+                _open = !_open;
+
+            if (!_open)
+                return;
+
+            string heading = string.IsNullOrEmpty(_title)
+                ? _displayName
+                : _displayName + " — " + _title;
+            string body = heading + "\n[" + _role.ToUpperInvariant() + "]\n" + _greeting;
+            GUI.Box(new Rect((Screen.width - width) * 0.5f, Screen.height - 285f, width, 155f), body);
+        }
+    }
+
+    public sealed class HighflyWorldLandmarkInteraction : MonoBehaviour
+    {
+        private string _title;
+        private string _body;
+        private string _verb;
+        private HighflyThirdPersonMotor _player;
+        private bool _open;
+
+        public void Configure(string title, string body, string verb)
+        {
+            _title = title ?? "Lugar";
+            _body = body ?? string.Empty;
+            _verb = string.IsNullOrEmpty(verb) ? "INTERACTUAR" : verb;
+        }
+
+        private void Update()
+        {
+            if (_player == null)
+                _player = FindObjectOfType<HighflyThirdPersonMotor>();
+            if (_player != null && Vector3.Distance(transform.position, _player.transform.position) > 6f)
+                _open = false;
+        }
+
+        private void OnGUI()
+        {
+            if (_player == null || Vector3.Distance(transform.position, _player.transform.position) > 4.5f)
+                return;
+
+            float width = Mathf.Min(380f, Screen.width * 0.68f);
+            if (GUI.Button(new Rect((Screen.width - width) * 0.5f, Screen.height - 118f, width, 54f), _verb + " · " + _title))
+                _open = !_open;
+
+            if (_open)
+                GUI.Box(new Rect((Screen.width - width) * 0.5f, Screen.height - 265f, width, 135f), _title + "\n" + _body);
         }
     }
 }
