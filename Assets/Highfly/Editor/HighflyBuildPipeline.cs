@@ -4,6 +4,7 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Highfly.Editor
 {
@@ -130,8 +131,22 @@ namespace Highfly.Editor
                 PlayerSettings.companyName = "HIGHFLY";
                 PlayerSettings.productName = "HIGHFLY WORLD LAB";
                 PlayerSettings.runInBackground = true;
+
+                // Project uses Linear color space. Unity 2021 WebGL can only use
+                // Linear with WebGL 2.0, so automatic graphics APIs (which include
+                // a WebGL 1.0 fallback) make BuildPipeline reject the player.
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.WebGL, false);
+                PlayerSettings.SetGraphicsAPIs(
+                    BuildTarget.WebGL,
+                    new[] { GraphicsDeviceType.OpenGLES3 });
+
                 PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
                 PlayerSettings.WebGL.decompressionFallback = true;
+
+                WriteDiagnostic("11b-webgl-rendering.txt",
+                    "Color space: " + PlayerSettings.colorSpace + "\n" +
+                    "Use default graphics APIs: " + PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.WebGL) + "\n" +
+                    "Graphics APIs: " + string.Join(", ", PlayerSettings.GetGraphicsAPIs(BuildTarget.WebGL)) + "\n");
 
                 string outputPath = GetArgument("customBuildPath");
                 if (string.IsNullOrEmpty(outputPath))
