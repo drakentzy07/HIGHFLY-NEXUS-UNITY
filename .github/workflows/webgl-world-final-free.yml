@@ -1,0 +1,254 @@
+name: Build HIGHFLY World Final FREE WebGL
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - highfly/world-final-free-v01
+    paths:
+      - "Assets/Highfly/**"
+      - ".github/workflows/webgl-world-final-free.yml"
+      - "Packages/**"
+      - "ProjectSettings/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: highfly-world-final-free
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Unity WebGL World Final FREE
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout HIGHFLY Unity
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Stage KayKit hunter
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/kaykit-adventurers
+          git clone --depth 1 https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0.git /tmp/kaykit-adventurers
+
+          AROOT="Assets/External/KayKit/Adventurers/addons/kaykit_character_pack_adventures"
+          mkdir -p "$AROOT/Characters/fbx" "$AROOT/Assets/fbx"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/RogueHooded.fbx "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/rogue_texture.png "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/sword_1handed.fbx "$AROOT/Assets/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/rogue_texture.png "$AROOT/Assets/fbx/" || true
+
+          mkdir -p Assets/Highfly/ThirdPartyNotices
+          cp /tmp/kaykit-adventurers/LICENSE.txt Assets/Highfly/ThirdPartyNotices/KayKit-Adventurers-CC0.txt
+
+      - name: Download Quaternius CC0 world donors
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/highfly-q
+          mkdir -p /tmp/highfly-q/village /tmp/highfly-q/props
+
+          curl -L --fail --retry 4             "https://opengameart.org/sites/default/files/medieval_village_megakitstandard.zip"             -o /tmp/highfly-q/village.zip
+          curl -L --fail --retry 4             "https://opengameart.org/sites/default/files/fantasy_props_megakitstandard.zip"             -o /tmp/highfly-q/props.zip
+
+          unzip -q /tmp/highfly-q/village.zip -d /tmp/highfly-q/village
+          unzip -q /tmp/highfly-q/props.zip -d /tmp/highfly-q/props
+
+          VFBX="$(find /tmp/highfly-q/village -type d -name FBX | head -1)"
+          VTEX="$(find /tmp/highfly-q/village -type d -name Textures | head -1)"
+          PFBX="$(find /tmp/highfly-q/props -type d -path '*/Exports/FBX' | head -1)"
+          PTEX="$(find /tmp/highfly-q/props -type d -name Textures | head -1)"
+
+          test -d "$VFBX"
+          test -d "$VTEX"
+          test -d "$PFBX"
+
+          VDST="Assets/Highfly/Resources/WorldFinal/Village"
+          PDST="Assets/Highfly/Resources/WorldFinal/Props"
+          mkdir -p "$VDST/FBX" "$VDST/Textures" "$PDST/FBX" "$PDST/Textures"
+
+          village_assets=(
+            Wall_Plaster_Straight
+            Wall_Plaster_Window_Wide_Round
+            Wall_Plaster_Door_Round
+            Wall_UnevenBrick_Straight
+            Wall_UnevenBrick_Window_Wide_Round
+            Wall_UnevenBrick_Door_Round
+            Wall_Arch
+            Floor_UnevenBrick
+            Roof_RoundTiles_6x8
+            Roof_RoundTiles_8x12
+            Roof_RoundTiles_8x14
+            Roof_Tower_RoundTiles
+            Prop_Chimney
+            Prop_WoodenFence_Single
+          )
+
+          for n in "${village_assets[@]}"; do
+            cp "$VFBX/$n.fbx" "$VDST/FBX/"
+          done
+
+          find "$VTEX" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.tga' \)             -exec cp {} "$VDST/Textures/" \;
+
+          prop_assets=(
+            Anvil
+            Workbench
+            WeaponStand
+            Stall_Empty
+            Stall_Cart_Empty
+            FarmCrate_Apple
+            FarmCrate_Carrot
+            Chest_Wood
+            Coin_Pile
+            Barrel
+            Pickaxe_Bronze
+            Axe_Bronze
+            Crate_Wooden
+            Potion_1
+          )
+
+          for n in "${prop_assets[@]}"; do
+            cp "$PFBX/$n.fbx" "$PDST/FBX/"
+          done
+
+          if [ -n "${PTEX:-}" ] && [ -d "$PTEX" ]; then
+            find "$PTEX" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.tga' \)               -exec cp {} "$PDST/Textures/" \;
+          fi
+
+          cat > Assets/Highfly/ThirdPartyNotices/Quaternius-World-Final-CC0.txt <<'EOF'
+          HIGHFLY World Final FREE donor assets
+          Author: Quaternius
+          Packs: Medieval Village MegaKit Standard; Fantasy Props MegaKit Standard
+          License: CC0 / public domain
+          Sources:
+          https://quaternius.com/packs/medievalvillagemegakit.html
+          https://quaternius.com/packs/fantasypropsmegakit.html
+          EOF
+
+          echo "World Final staged payload:"
+          find "$VDST" "$PDST" -type f | sort
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-2021.3.45f1-WebGL-WorldFinalFree-${{ hashFiles('Assets/Highfly/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-2021.3.45f1-WebGL-
+            Library-2021.3.45f1-
+
+      - name: Free disk for Unity
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+
+      - name: Build HIGHFLY World Final FREE WebGL
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: 2021.3.45f1
+          targetPlatform: WebGL
+          buildsPath: build
+          buildName: HIGHFLY-WORLD-FINAL
+          buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildWebGLClaudeWorld
+          allowDirtyBuild: true
+
+      - name: Patch WebGL for mobile fullscreen
+        run: |
+          set -euo pipefail
+          INDEX="$(find build/WebGL -name index.html | head -1)"
+          test -f "$INDEX"
+          ROOT="$(dirname "$INDEX")"
+          sudo chown -R "$(id -u):$(id -g)" "$ROOT"
+
+          python3 - "$INDEX" <<'PY'
+          from pathlib import Path
+          import os, re, sys
+          p=Path(sys.argv[1])
+          s=p.read_text(encoding="utf-8")
+          version=os.environ.get("GITHUB_RUN_ID","dev")
+          s=re.sub(r'((?:[^"/]+)\.(?:loader\.js|framework\.js|wasm|data))"', lambda m:m.group(1)+'?v='+version+'"', s)
+          head=r'''
+          <meta name="viewport" content="width=device-width,height=device-height,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+          <meta name="mobile-web-app-capable" content="yes">
+          <meta name="screen-orientation" content="landscape">
+          <style>
+          html,body{margin:0!important;padding:0!important;width:100%!important;height:100%!important;overflow:hidden!important;background:#08121d!important}
+          #unity-container,#unity-container.unity-desktop,#unity-container.unity-mobile{position:fixed!important;inset:0!important;transform:none!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important}
+          #unity-canvas,#unity-canvas.unity-mobile{position:absolute!important;inset:0!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;display:block!important}
+          #unity-footer,#unity-logo,#unity-webgl-logo{display:none!important}
+          #highfly-enter{position:fixed;inset:0;z-index:99999;background:#08121d;display:none;align-items:center;justify-content:center;font-family:Arial,sans-serif}
+          #highfly-enter button{font-size:22px;font-weight:700;padding:18px 28px;border-radius:12px;border:1px solid #5ee8ff;background:#102c42;color:white}
+          </style>
+          '''
+          boot=r'''
+          <div id="highfly-enter"><button type="button">ENTRAR A HIGHFLY</button></div>
+          <script>
+          (() => {
+            const mobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const overlay=document.getElementById("highfly-enter");
+            const button=overlay?overlay.querySelector("button"):null;
+            if(mobile&&overlay) overlay.style.display="flex";
+            const fit=()=>{
+              const c=document.getElementById("unity-container");
+              const v=document.getElementById("unity-canvas");
+              if(c){c.className="unity-mobile";c.style.width="100vw";c.style.height="100dvh";}
+              if(v){v.className="unity-mobile";v.style.width="100vw";v.style.height="100dvh";}
+            };
+            const enter=async()=>{
+              fit();
+              try{if(!document.fullscreenElement&&document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen();}catch(_){}
+              try{if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock("landscape");}catch(_){}
+              if(overlay)overlay.style.display="none";
+            };
+            if(button)button.addEventListener("click",enter);
+            window.addEventListener("resize",fit);
+            window.addEventListener("orientationchange",fit);
+            fit();
+          })();
+          </script>
+          '''
+          s=s.replace("unityShowBanner('WebGL builds are not supported on mobile devices.');","")
+          if "viewport-fit=cover" not in s: s=s.replace("</head>",head+"\n</head>")
+          if 'id="highfly-enter"' not in s: s=s.replace("</body>",boot+"\n</body>")
+          s=s.replace("</head>",f'<meta name="highfly-build" content="{version}">\n</head>',1)
+          p.write_text(s,encoding="utf-8")
+          print("Patched",p)
+          PY
+
+      - name: Inspect World Final build
+        if: always()
+        run: |
+          find build -maxdepth 5 -type f -printf "%p %k KB\n" | sort | head -300 || true
+          find build/diagnostics -maxdepth 2 -type f -print -exec cat {} \; || true
+
+      - name: Upload World Final WebGL
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-WORLD-FINAL-FREE-WEBGL-v0.1
+          path: build/WebGL/**
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-WORLD-FINAL-FREE-DIAGNOSTICS-v0.1
+          path: build/diagnostics/**
+          if-no-files-found: warn
+          retention-days: 7
