@@ -64,21 +64,29 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: HIGHFLY-WORLD-FINAL-FREE-WEBGL-v0.1
-          path: site
+          path: site-publish
           repository: drakentzy07/HIGHFLY-NEXUS-UNITY
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify playable payload
+      - name: Normalize + verify playable payload
         run: |
           set -euo pipefail
-          test -s site/index.html
-          test -s site/Build/HIGHFLY-WORLD-FINAL.loader.js
-          test -s site/Build/HIGHFLY-WORLD-FINAL.framework.js
-          test -s site/Build/HIGHFLY-WORLD-FINAL.wasm
-          test -s site/Build/HIGHFLY-WORLD-FINAL.data
-          echo "HIGHFLY WebGL payload verified"
-          du -sh site
+          INDEX="$(find site -type f -name index.html | head -1)"
+          test -n "$INDEX"
+          ROOT="$(dirname "$INDEX")"
+
+          rm -rf site-publish
+          mkdir -p site-publish
+          cp -a "$ROOT"/. site-publish/
+
+          test -s site-publish/index.html
+          test -s site-publish/Build/HIGHFLY-WORLD-FINAL.loader.js
+          test -s site-publish/Build/HIGHFLY-WORLD-FINAL.framework.js
+          test -s site-publish/Build/HIGHFLY-WORLD-FINAL.wasm
+          test -s site-publish/Build/HIGHFLY-WORLD-FINAL.data
+          echo "HIGHFLY World Final WebGL payload verified"
+          du -sh site-publish
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -96,4 +104,4 @@ jobs:
         run: |
           echo "HIGHFLY WORLD LIVE: ${{ steps.deployment.outputs.page_url }}"
 
-# World Final FREE publish trigger v1
+# World Final FREE publish trigger v2
