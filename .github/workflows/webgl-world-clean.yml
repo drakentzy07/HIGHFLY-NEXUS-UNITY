@@ -1,4 +1,4 @@
-name: Build + Deploy HIGHFLY World Clean
+name: Build HIGHFLY World Clean WebGL
 
 on:
   workflow_dispatch:
@@ -13,8 +13,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: highfly-world-clean
@@ -192,16 +190,6 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Upload Pages payload
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/WebGL/HIGHFLY-WORLD-LAB
-
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -211,15 +199,3 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  deploy:
-    name: Deploy World Clean to GitHub Pages
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Deploy Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
