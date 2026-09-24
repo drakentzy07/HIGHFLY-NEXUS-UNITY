@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using Highfly.Combat;
 using Highfly.Core;
+using Highfly.UI;
+using UnityEngine.UI;
 
 namespace Highfly.World
 {
@@ -45,6 +47,7 @@ namespace Highfly.World
                 return;
 
             DisablePrototypeWorlds();
+            CleanPrototypeHud();
 
             GameObject root = new GameObject("HIGHFLY_WORLD_FINAL_FREE_V01");
             _root = root.transform;
@@ -88,6 +91,30 @@ namespace Highfly.World
             HighflyZonePortal[] portals = FindObjectsOfType<HighflyZonePortal>();
             for (int i = 0; i < portals.Length; i++)
                 portals[i].gameObject.SetActive(false);
+        }
+
+        private void CleanPrototypeHud()
+        {
+            HighflyDungeonObjective[] objectives = FindObjectsOfType<HighflyDungeonObjective>();
+            for (int i = 0; i < objectives.Length; i++)
+                objectives[i].enabled = false;
+
+            Text[] texts = FindObjectsOfType<Text>();
+            for (int i = 0; i < texts.Length; i++)
+            {
+                string value = texts[i].text ?? string.Empty;
+                if (value.Contains("CRIPTA") ||
+                    value.Contains("ENEMIGOS") ||
+                    value.Contains("AUTO TARGET") ||
+                    value.Contains("AUTO-TARGET"))
+                {
+                    texts[i].gameObject.SetActive(false);
+                }
+            }
+
+            GameObject targetPill = GameObject.Find("TargetPill");
+            if (targetPill != null)
+                targetPill.SetActive(false);
         }
 
         private void ConfigureLighting()
