@@ -1,0 +1,151 @@
+name: Deploy HIGHFLY RG Poly City01 6000.6 Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - highfly/world-final-rgpoly-city01-v01
+    paths:
+      - ".github/workflows/deploy-rgpoly-city01-6000-6-pages.yml"
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: highfly-rgpoly-city01-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Resolve latest successful 6000.6 WebGL run
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID="$(
+            curl -fsSL               -H "Authorization: Bearer $GH_TOKEN"               -H "Accept: application/vnd.github+json"               "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=highfly%2Fworld-final-rgpoly-city01-v01&status=success&per_page=50"             | jq -r '.workflow_runs[] | select(.name=="Build HIGHFLY RG Poly City01 on Unity 6000.6 Golden Host") | .id'             | head -1
+          )"
+          test -n "$RUN_ID"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Publishing 6000.6 WebGL from run $RUN_ID"
+
+      - name: Download exact successful 6000.6 WebGL artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: HIGHFLY-RGPOLY-CITY01-GOLDENHOST-6000-6-WEBGL-v0.1
+          path: site-download
+          repository: drakentzy07/HIGHFLY-NEXUS-UNITY
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalize and verify playable payload
+        shell: bash
+        run: |
+          set -euxo pipefail
+          INDEX="$(find site-download -type f -name index.html | head -1)"
+          test -n "$INDEX"
+          ROOT="$(dirname "$INDEX")"
+
+          rm -rf site-publish
+          mkdir -p site-publish
+          cp -a "$ROOT"/. site-publish/
+
+          test -s site-publish/index.html
+          test -s site-publish/Build/HIGHFLY-WORLD-RGPOLY.loader.js
+          test -s site-publish/Build/HIGHFLY-WORLD-RGPOLY.framework.js
+          test -s site-publish/Build/HIGHFLY-WORLD-RGPOLY.wasm
+          test -s site-publish/Build/HIGHFLY-WORLD-RGPOLY.data
+          touch site-publish/.nojekyll
+          echo "HIGHFLY RG Poly City01 6000.6 payload verified"
+          du -sh site-publish
+
+      - name: Patch mobile fullscreen
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, os
+          p=Path("site-publish/index.html")
+          s=p.read_text(encoding="utf-8")
+          version=os.environ.get("GITHUB_RUN_ID","dev")
+
+          s=re.sub(r'((?:[^"/]+)\.(?:loader\.js|framework\.js|wasm|data))"',
+                   lambda m:m.group(1)+'?v='+version+'"', s)
+
+          head=r'''
+          <meta name="viewport" content="width=device-width,height=device-height,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+          <meta name="mobile-web-app-capable" content="yes">
+          <meta name="screen-orientation" content="landscape">
+          <style>
+          html,body{margin:0!important;padding:0!important;width:100%!important;height:100%!important;overflow:hidden!important;background:#08121d!important}
+          #unity-container,#unity-container.unity-desktop,#unity-container.unity-mobile{position:fixed!important;inset:0!important;transform:none!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important}
+          #unity-canvas,#unity-canvas.unity-mobile{position:absolute!important;inset:0!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;display:block!important}
+          #unity-footer,#unity-logo,#unity-webgl-logo{display:none!important}
+          #highfly-enter{position:fixed;inset:0;z-index:99999;background:#08121d;display:none;align-items:center;justify-content:center;font-family:Arial,sans-serif}
+          #highfly-enter button{font-size:22px;font-weight:700;padding:18px 28px;border-radius:12px;border:1px solid #5ee8ff;background:#102c42;color:white}
+          </style>
+          '''
+          boot=r'''
+          <div id="highfly-enter"><button type="button">ENTRAR A HIGHFLY</button></div>
+          <script>
+          (() => {
+            const mobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const overlay=document.getElementById("highfly-enter");
+            const button=overlay?overlay.querySelector("button"):null;
+            if(mobile&&overlay) overlay.style.display="flex";
+            const fit=()=>{
+              const c=document.getElementById("unity-container");
+              const v=document.getElementById("unity-canvas");
+              if(c){c.className="unity-mobile";c.style.width="100vw";c.style.height="100dvh";}
+              if(v){v.className="unity-mobile";v.style.width="100vw";v.style.height="100dvh";}
+            };
+            const enter=async()=>{
+              fit();
+              try{if(!document.fullscreenElement&&document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen();}catch(_){}
+              try{if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock("landscape");}catch(_){}
+              if(overlay)overlay.style.display="none";
+            };
+            if(button)button.addEventListener("click",enter);
+            window.addEventListener("resize",fit);
+            window.addEventListener("orientationchange",fit);
+            fit();
+          })();
+          </script>
+          '''
+          s=s.replace("unityShowBanner('WebGL builds are not supported on mobile devices.');","")
+          if "viewport-fit=cover" not in s:
+              s=s.replace("</head>",head+"\n</head>")
+          if 'id="highfly-enter"' not in s:
+              s=s.replace("</body>",boot+"\n</body>")
+          s=s.replace("</head>",f'<meta name="highfly-build" content="{version}">\n</head>',1)
+          p.write_text(s,encoding="utf-8")
+          print("Patched",p)
+          PY
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site-publish
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Publish URL
+        run: |
+          echo "HIGHFLY RG POLY CITY01 6000.6 LIVE: ${{ steps.deployment.outputs.page_url }}"
