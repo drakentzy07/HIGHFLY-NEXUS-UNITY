@@ -31,6 +31,9 @@ namespace Highfly.World
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoBoot()
         {
+            if (GameObject.Find("HIGHFLY_RG_POLY_CITY01") != null)
+                return;
+
             if (Resources.Load<TextAsset>(EnableMarker) == null)
                 return;
 
@@ -43,6 +46,12 @@ namespace Highfly.World
 
         private void Start()
         {
+            if (GameObject.Find("HIGHFLY_RG_POLY_CITY01") != null)
+            {
+                gameObject.SetActive(false);
+                return;
+            }
+
             if (Resources.Load<TextAsset>(EnableMarker) == null)
                 return;
 
