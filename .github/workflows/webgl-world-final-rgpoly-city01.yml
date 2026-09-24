@@ -132,12 +132,14 @@ jobs:
           test -f "Assets/Stylized Medieval Kingdom URP/Prefabs/Wall/Wall_Gate Variant.prefab"
           test -f "Assets/Stylized Medieval Kingdom URP/Prefabs/WatermillWheel Variant.prefab"
 
-      - name: Cache Unity Library
-        uses: actions/cache@v4
+      - name: Restore prepared Unity Library cache
+        id: rgpoly-library-cache
+        uses: actions/cache/restore@v4
         with:
           path: Library
-          key: Library-6000.4.0f1-WebGL-RGPolyCity01-${{ hashFiles('Assets/Highfly/**', 'ci/world/**', 'Packages/**', 'ProjectSettings/**') }}
+          key: Library-6000.4.0f1-WebGL-RGPolyCity01-v2-${{ hashFiles('Assets/Highfly/**', 'ci/world/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: |
+            Library-6000.4.0f1-WebGL-RGPolyCity01-v2-
             Library-6000.4.0f1-WebGL-RGPolyCity01-
             Library-6000.4.0f1-WebGL-
 
@@ -152,7 +154,48 @@ jobs:
           docker-images: false
           swap-storage: false
 
-      - name: Build HIGHFLY RG Poly City01 WebGL
+      - name: Prepare full RG Poly City01 in Unity
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: 6000.4.0f1
+          targetPlatform: WebGL
+          buildsPath: build/prepare
+          buildName: HIGHFLY-RGPOLY-PREPARE
+          buildMethod: Highfly.Editor.HighflyBuildPipeline.PrepareWebGLRgPolyWorld
+          allowDirtyBuild: true
+
+      - name: Verify prepared City01 scene
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -f "Assets/Highfly/Scenes/WorldLab.unity"
+          grep -q "HIGHFLY_RG_POLY_CITY01" "Assets/Highfly/Scenes/WorldLab.unity"
+          grep -q "HIGHFLY_PLAYER" "Assets/Highfly/Scenes/WorldLab.unity"
+          du -sh Library || true
+          du -sh Assets/Highfly/Scenes/WorldLab.unity || true
+
+      - name: Save prepared Unity Library cache before heavy build
+        if: steps.rgpoly-library-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: Library
+          key: Library-6000.4.0f1-WebGL-RGPolyCity01-v2-${{ hashFiles('Assets/Highfly/**', 'ci/world/**', 'Packages/**', 'ProjectSettings/**') }}
+
+      - name: Upload prepared City01 diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-RGPOLY-CITY01-PREPARED-v0.2
+          path: |
+            Assets/Highfly/Scenes/WorldLab.unity
+            build/diagnostics/**
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Build prepared HIGHFLY RG Poly City01 WebGL
         uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -163,7 +206,7 @@ jobs:
           targetPlatform: WebGL
           buildsPath: build
           buildName: HIGHFLY-WORLD-RGPOLY
-          buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildWebGLClaudeWorld
+          buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildPreparedWebGLRgPolyWorld
           allowDirtyBuild: true
 
       - name: Patch WebGL for mobile fullscreen
