@@ -214,6 +214,11 @@ namespace Highfly.World
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoBoot()
         {
+            // Legacy donor runtime: only boot when ClaudeCraft data is explicitly present.
+            // WORLD CLEAN deliberately ships without that data, so it cannot steal the scene.
+            if (Resources.Load<TextAsset>(ResourcePath) == null)
+                return;
+
             if (FindObjectOfType<HighflyClaudeWorldRuntime>() != null)
                 return;
 
