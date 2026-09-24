@@ -6,6 +6,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using UnityEngine.Rendering;
 using Highfly.Combat;
 using Highfly.Core;
 using Highfly.Mobile;
@@ -40,9 +41,12 @@ namespace Highfly.Editor
             if (!File.Exists(RgPolySourceScene))
                 throw new Exception("HIGHFLY RG Poly source scene missing: " + RgPolySourceScene);
 
+            OptimizeRgPolyTextures();
+
             Scene scene = EditorSceneManager.OpenScene(RgPolySourceScene, OpenSceneMode.Single);
             scene.name = "HIGHFLY_WORLD_FINAL_RG_POLY";
 
+            ConfigureRgPolyRenderPipeline();
             RemoveRgPolyDemoCameras(scene);
             RemoveRgPolyDemoRuntime(scene);
             EnsureEventSystem();
@@ -133,6 +137,72 @@ namespace Highfly.Editor
                 "HIGHFLY WORLD FINAL RG POLY prepared from full Demo Stylized Medieval scene" +
                 " | current HIGHFLY motor/camera/HUD preserved" +
                 " | spawn=" + RgPolySpawn);
+        }
+
+        private static void OptimizeRgPolyTextures()
+        {
+            const string packRoot = "Assets/Stylized Medieval Kingdom URP";
+            string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { packRoot });
+            int changed = 0;
+
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null)
+                    continue;
+
+                bool dirty = false;
+
+                if (importer.maxTextureSize > 1024)
+                {
+                    importer.maxTextureSize = 1024;
+                    dirty = true;
+                }
+
+                if (importer.textureCompression == TextureImporterCompression.Uncompressed)
+                {
+                    importer.textureCompression = TextureImporterCompression.Compressed;
+                    dirty = true;
+                }
+
+                if (!dirty)
+                    continue;
+
+                importer.SaveAndReimport();
+                changed++;
+            }
+
+            Debug.Log("HIGHFLY RG Poly mobile texture pass: " + changed + "/" + guids.Length);
+        }
+
+        private static void ConfigureRgPolyRenderPipeline()
+        {
+            const string packRoot = "Assets/Stylized Medieval Kingdom URP";
+            string[] guids = AssetDatabase.FindAssets(
+                "t:RenderPipelineAsset",
+                new[] { packRoot });
+
+            if (guids.Length == 0)
+            {
+                Debug.LogWarning("HIGHFLY RG Poly: no RenderPipelineAsset found in pack.");
+                return;
+            }
+
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                RenderPipelineAsset pipeline =
+                    AssetDatabase.LoadAssetAtPath<RenderPipelineAsset>(path);
+
+                if (pipeline == null)
+                    continue;
+
+                GraphicsSettings.renderPipelineAsset = pipeline;
+                QualitySettings.renderPipeline = pipeline;
+                Debug.Log("HIGHFLY RG Poly render pipeline: " + path);
+                return;
+            }
         }
 
         private static void RemoveRgPolyDemoCameras(Scene scene)
