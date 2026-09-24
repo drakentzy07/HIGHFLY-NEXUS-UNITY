@@ -3,7 +3,7 @@ name: Deploy HIGHFLY World Pages
 on:
   workflow_run:
     workflows:
-      - "Build HIGHFLY ClaudeCraft World WebGL"
+      - "Build HIGHFLY World Clean WebGL"
     types:
       - completed
   workflow_dispatch:
@@ -50,8 +50,8 @@ jobs:
               curl -fsSL \
                 -H "Authorization: Bearer $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=highfly%2Fclaudecraft-world-importer-v01&status=success&per_page=30" \
-              | jq -r '.workflow_runs[] | select(.name=="Build HIGHFLY ClaudeCraft World WebGL") | .id' \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=highfly%2Fworld-village-clean-v01&status=success&per_page=30" \
+              | jq -r '.workflow_runs[] | select(.name=="Build HIGHFLY World Clean WebGL") | .id' \
               | head -1
             )"
           fi
@@ -63,7 +63,7 @@ jobs:
       - name: Download exact successful WebGL artifact
         uses: actions/download-artifact@v4
         with:
-          name: HIGHFLY-CLAUDECRAFT-WORLD-WEBGL-v0.1
+          name: HIGHFLY-WORLD-CLEAN-WEBGL-v0.1
           path: site
           repository: drakentzy07/HIGHFLY-NEXUS-UNITY
           run-id: ${{ steps.source.outputs.run_id }}
