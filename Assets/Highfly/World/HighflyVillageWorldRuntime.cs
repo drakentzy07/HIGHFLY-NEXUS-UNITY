@@ -44,7 +44,7 @@ namespace Highfly.World
             BuildNatureAndProps();
             PlacePlayer();
 
-            Debug.Log("HIGHFLY WORLD CLEAN v0.1 loaded | KayKit Medieval village | stable motor/camera preserved");
+            Debug.Log("HIGHFLY WORLD CLEAN v0.2 loaded | KayKit Medieval village | stable motor/camera preserved");
         }
 
         private void DisableLegacyWorld()
@@ -235,24 +235,35 @@ namespace Highfly.World
                 return CreateFallbackBuilding(parent, objectName + "_Fallback", position, yaw, targetHeight);
             }
 
-            GameObject go = Instantiate(prefab, position, Quaternion.Euler(0f, yaw, 0f), parent);
-            go.name = objectName;
+            // Keep the imported FBX root transform intact. Model assets can carry
+            // axis-conversion rotation/scale on their root; replacing that transform
+            // with our world yaw is what made buildings appear sideways/upside-down.
+            GameObject holder = new GameObject(objectName);
+            holder.transform.SetParent(parent, false);
+            holder.transform.position = position;
+            holder.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
-            Bounds before = GetRendererBounds(go);
+            GameObject go = Instantiate(prefab, holder.transform);
+            go.name = objectName + "_Model";
+            go.transform.localPosition = prefab.transform.localPosition;
+            go.transform.localRotation = prefab.transform.localRotation;
+            go.transform.localScale = prefab.transform.localScale;
+
+            Bounds before = GetRendererBounds(holder);
             if (before.size.y > 0.01f)
             {
                 float scale = Mathf.Clamp(targetHeight / before.size.y, 0.12f, 12f);
-                go.transform.localScale *= scale;
+                holder.transform.localScale = Vector3.one * scale;
             }
 
-            Bounds after = GetRendererBounds(go);
+            Bounds after = GetRendererBounds(holder);
             if (after.size.y > 0.01f)
-                go.transform.position += Vector3.up * (-after.min.y);
+                holder.transform.position += Vector3.up * (-after.min.y);
 
             if (addCollider)
-                AddBoundsCollider(go);
+                AddBoundsCollider(holder);
 
-            return go;
+            return holder;
         }
 
         private GameObject CreateFallbackBuilding(
