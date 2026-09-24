@@ -49,6 +49,7 @@ namespace Highfly.Editor
 
             Scene scene = EditorSceneManager.OpenScene(RgPolySourceScene, OpenSceneMode.Single);
             ConfigureRgPolyRenderPipeline();
+            ReplaceRgPolyWaterForWebGL(scene);
             RemoveRgPolyDemoCameras(scene);
             RemoveRgPolyDemoRuntime(scene);
             EnsureEventSystem();
@@ -72,9 +73,15 @@ namespace Highfly.Editor
                 targeting,
                 out HighflyThirdPersonCamera cameraRig);
 
-            camera.fieldOfView = 62f;
+            camera.fieldOfView = 58f;
             camera.nearClipPlane = 0.08f;
             camera.farClipPlane = 650f;
+
+            // WORLD v0.2 framing: closer action-RPG composition while preserving
+            // the proven orbit/touch implementation.
+            SetFloat(cameraRig, "distance", 4.65f);
+            SetFloat(cameraRig, "height", 1.48f);
+            SetFloat(cameraRig, "pitch", 12f);
 
             Sprite circleSprite = CreateCircleSprite();
             GameObject canvas = CreateMobileHUD(
@@ -139,6 +146,107 @@ namespace Highfly.Editor
                 "HIGHFLY WORLD FINAL RG POLY prepared from full Demo Stylized Medieval scene" +
                 " | current HIGHFLY motor/camera/HUD preserved" +
                 " | spawn=" + RgPolySpawn);
+        }
+
+        private static void ReplaceRgPolyWaterForWebGL(Scene scene)
+        {
+            const string materialPath =
+                "Assets/Highfly/Generated/HIGHFLY_Water_WebGL.mat";
+
+            Material water = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+            if (water == null)
+            {
+                Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader == null)
+                    shader = Shader.Find("Universal Render Pipeline/Simple Lit");
+                if (shader == null)
+                    throw new Exception(
+                        "HIGHFLY RG Poly: no URP fallback shader available for WebGL water.");
+
+                Directory.CreateDirectory("Assets/Highfly/Generated");
+
+                water = new Material(shader);
+                water.name = "HIGHFLY_Water_WebGL";
+
+                Color waterColor = new Color(0.035f, 0.30f, 0.52f, 1f);
+                if (water.HasProperty("_BaseColor"))
+                    water.SetColor("_BaseColor", waterColor);
+                if (water.HasProperty("_Color"))
+                    water.SetColor("_Color", waterColor);
+                if (water.HasProperty("_Smoothness"))
+                    water.SetFloat("_Smoothness", 0.90f);
+                if (water.HasProperty("_Metallic"))
+                    water.SetFloat("_Metallic", 0.03f);
+
+                AssetDatabase.CreateAsset(water, materialPath);
+                AssetDatabase.SaveAssets();
+            }
+
+            int replacements = 0;
+            int unsupported = 0;
+
+            Renderer[] renderers =
+                UnityEngine.Object.FindObjectsOfType<Renderer>(true);
+
+            for (int r = 0; r < renderers.Length; r++)
+            {
+                Renderer renderer = renderers[r];
+                if (renderer == null || renderer.gameObject.scene != scene)
+                    continue;
+
+                Material[] materials = renderer.sharedMaterials;
+                bool changed = false;
+
+                for (int i = 0; i < materials.Length; i++)
+                {
+                    Material material = materials[i];
+                    if (material == null)
+                        continue;
+
+                    string materialName = material.name ?? string.Empty;
+                    string shaderName =
+                        material.shader != null ? material.shader.name : string.Empty;
+
+                    bool isKnownRgPolyWater =
+                        materialName.IndexOf(
+                            "Water IS",
+                            StringComparison.OrdinalIgnoreCase) >= 0;
+
+                    bool looksLikeWater =
+                        materialName.IndexOf(
+                            "Water",
+                            StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        materialName.IndexOf(
+                            "River",
+                            StringComparison.OrdinalIgnoreCase) >= 0;
+
+                    bool unsupportedShader =
+                        material.shader == null || !material.shader.isSupported;
+
+                    if (unsupportedShader)
+                        unsupported++;
+
+                    if (!isKnownRgPolyWater &&
+                        !(looksLikeWater && unsupportedShader))
+                        continue;
+
+                    materials[i] = water;
+                    changed = true;
+                    replacements++;
+
+                    Debug.Log(
+                        "HIGHFLY RG Poly WebGL water replacement: " +
+                        renderer.name + " | material=" + materialName +
+                        " | shader=" + shaderName);
+                }
+
+                if (changed)
+                    renderer.sharedMaterials = materials;
+            }
+
+            Debug.Log(
+                "HIGHFLY RG Poly WebGL water fallback applied: replacements=" +
+                replacements + " | unsupportedMaterialSlotsSeen=" + unsupported);
         }
 
         private static void OptimizeRgPolyTextures()
