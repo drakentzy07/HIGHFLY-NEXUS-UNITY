@@ -70,8 +70,8 @@ namespace Highfly.Editor
                 safety = player.AddComponent<HighflyWorldSafety>();
             safety.Configure(Vector3.zero, -100f, true, true);
 
-            GameObject runtime = new GameObject("HIGHFLY_CLAUDECRAFT_WORLD_RUNTIME");
-            runtime.AddComponent<HighflyClaudeWorldRuntime>();
+            GameObject runtime = new GameObject("HIGHFLY_VILLAGE_WORLD_RUNTIME");
+            runtime.AddComponent<HighflyVillageWorldRuntime>();
 
             EditorSceneManager.SaveScene(scene, WorldScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(WorldScenePath, true) };
@@ -80,7 +80,7 @@ namespace Highfly.Editor
             AssetDatabase.Refresh();
 
             Debug.Log("HIGHFLY WORLD LAB shell generated at " + WorldScenePath +
-                      " | no legacy city/dungeon/enemy/portal objects baked into the scene.");
+                      " | clean village runtime | no legacy crypt/dungeon/enemy shell baked into the scene.");
         }
 
         private static void CreateInteractionUI(
