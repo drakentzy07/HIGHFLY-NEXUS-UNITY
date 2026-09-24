@@ -1,4 +1,4 @@
-name: Deploy ClaudeCraft World WebGL to Pages
+name: Deploy HIGHFLY World Pages
 
 on:
   workflow_dispatch:
@@ -7,6 +7,11 @@ on:
       - highfly/claudecraft-world-importer-v01
     paths:
       - ".github/workflows/pages-claudecraft-world.yml"
+  workflow_run:
+    workflows:
+      - "Build HIGHFLY ClaudeCraft World WebGL"
+    types:
+      - completed
 
 permissions:
   contents: read
@@ -20,19 +25,35 @@ concurrency:
 
 jobs:
   deploy:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download successful WebGL artifact
+      - name: Resolve WebGL build run
+        id: build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          else
+            RUN_ID="$(gh api -H "Accept: application/vnd.github+json" "/repos/drakentzy07/HIGHFLY-NEXUS-UNITY/actions/workflows/webgl-claudecraft-world.yml/runs?branch=highfly%2Fclaudecraft-world-importer-v01&status=success&per_page=1" --jq '.workflow_runs[0].id')"
+          fi
+          test -n "$RUN_ID"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Deploying WebGL artifact from build run $RUN_ID"
+
+      - name: Download matching WebGL artifact
         uses: actions/download-artifact@v4
         with:
           name: HIGHFLY-CLAUDECRAFT-WORLD-WEBGL-v0.1
           path: site
           repository: drakentzy07/HIGHFLY-NEXUS-UNITY
-          run-id: 35910197401
+          run-id: ${{ steps.build.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify WebGL payload
@@ -42,6 +63,7 @@ jobs:
           test -s site/Build/HIGHFLY-WORLD-LAB.framework.js
           test -s site/Build/HIGHFLY-WORLD-LAB.wasm
           test -s site/Build/HIGHFLY-WORLD-LAB.data
+          echo "Artifact source build run: ${{ steps.build.outputs.run_id }}"
           find site -maxdepth 2 -type f -printf "%p %k KB\n" | sort
 
       - name: Configure Pages
