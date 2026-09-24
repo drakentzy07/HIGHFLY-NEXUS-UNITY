@@ -1,0 +1,75 @@
+name: Audit HIGHFLY World Final FREE
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - highfly/world-final-free-v01
+    paths:
+      - ".github/workflows/world-final-free-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit CC0 world assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Quaternius CC0 Standard packs
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/highfly-world-free/village /tmp/highfly-world-free/props
+
+          curl -L --fail --retry 4             "https://opengameart.org/sites/default/files/medieval_village_megakitstandard.zip"             -o /tmp/highfly-world-free/medieval_village.zip
+
+          curl -L --fail --retry 4             "https://opengameart.org/sites/default/files/fantasy_props_megakitstandard.zip"             -o /tmp/highfly-world-free/fantasy_props.zip
+
+          unzip -q /tmp/highfly-world-free/medieval_village.zip -d /tmp/highfly-world-free/village
+          unzip -q /tmp/highfly-world-free/fantasy_props.zip -d /tmp/highfly-world-free/props
+
+      - name: Build asset inventory
+        run: |
+          set -euo pipefail
+          mkdir -p build/world-audit
+
+          {
+            echo "# HIGHFLY WORLD FINAL FREE — ASSET INVENTORY"
+            echo
+            echo "Generated from Quaternius Medieval Village MegaKit Standard + Fantasy Props MegaKit Standard."
+            echo
+            echo "## Counts"
+            echo
+            printf "Village FBX: "; find /tmp/highfly-world-free/village -type f -iname '*.fbx' | wc -l
+            printf "Village GLTF/GLB: "; find /tmp/highfly-world-free/village -type f \( -iname '*.gltf' -o -iname '*.glb' \) | wc -l
+            printf "Props FBX: "; find /tmp/highfly-world-free/props -type f -iname '*.fbx' | wc -l
+            printf "Props GLTF/GLB: "; find /tmp/highfly-world-free/props -type f \( -iname '*.gltf' -o -iname '*.glb' \) | wc -l
+            echo
+            echo "## Village files"
+            find /tmp/highfly-world-free/village -type f | sed 's#^/tmp/highfly-world-free/village/##' | sort
+            echo
+            echo "## Props files"
+            find /tmp/highfly-world-free/props -type f | sed 's#^/tmp/highfly-world-free/props/##' | sort
+          } > build/world-audit/WORLD_FINAL_FREE_INVENTORY.txt
+
+          cat build/world-audit/WORLD_FINAL_FREE_INVENTORY.txt
+
+      - name: Package exact free donor payload
+        run: |
+          set -euo pipefail
+          mkdir -p build/world-audit/payload
+          cp /tmp/highfly-world-free/medieval_village.zip build/world-audit/payload/
+          cp /tmp/highfly-world-free/fantasy_props.zip build/world-audit/payload/
+
+      - name: Upload audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-WORLD-FINAL-FREE-AUDIT
+          path: build/world-audit/**
+          if-no-files-found: error
+          retention-days: 14
