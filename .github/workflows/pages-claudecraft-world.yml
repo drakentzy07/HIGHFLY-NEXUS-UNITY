@@ -7,11 +7,6 @@ on:
       - highfly/claudecraft-world-importer-v01
     paths:
       - ".github/workflows/pages-claudecraft-world.yml"
-  workflow_run:
-    workflows:
-      - "Build HIGHFLY ClaudeCraft World WebGL"
-    types:
-      - completed
 
 permissions:
   contents: read
@@ -25,20 +20,19 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download matching WebGL artifact
+      - name: Download CURRENT world WebGL artifact
         uses: actions/download-artifact@v4
         with:
           name: HIGHFLY-CLAUDECRAFT-WORLD-WEBGL-v0.1
           path: site
           repository: drakentzy07/HIGHFLY-NEXUS-UNITY
-          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || 35936540999 }}
+          run-id: 35936540999
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify WebGL payload
@@ -48,7 +42,7 @@ jobs:
           test -s site/Build/HIGHFLY-WORLD-LAB.framework.js
           test -s site/Build/HIGHFLY-WORLD-LAB.wasm
           test -s site/Build/HIGHFLY-WORLD-LAB.data
-          echo "Deploy source run: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || 35936540999 }}"
+          echo "Deploying exact world build run 35936540999"
           find site -maxdepth 2 -type f -printf "%p %k KB\n" | sort
 
       - name: Configure Pages
