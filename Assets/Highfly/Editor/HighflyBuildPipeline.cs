@@ -99,6 +99,101 @@ namespace Highfly.Editor
             }
         }
 
+        public static void PrepareWebGLRgPolyWorld()
+        {
+            Directory.CreateDirectory(DiagnosticsDirectory);
+            WriteDiagnostic("20-rgpoly-prepare-started.txt",
+                "HIGHFLY RG Poly prepare started\n" +
+                "Unity: " + Application.unityVersion + "\n");
+
+            bool switched = EditorUserBuildSettings.SwitchActiveBuildTarget(
+                BuildTargetGroup.WebGL,
+                BuildTarget.WebGL);
+
+            if (!switched && EditorUserBuildSettings.activeBuildTarget != BuildTarget.WebGL)
+                throw new Exception("HIGHFLY could not activate WebGL for RG Poly preparation.");
+
+            HighflyCombatLabBuilder.BuildOrRefreshWorldLabShell();
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            if (!File.Exists(HighflyCombatLabBuilder.WorldScenePath))
+                throw new Exception("HIGHFLY RG Poly prepared WorldLab scene is missing.");
+
+            WriteDiagnostic("21-rgpoly-prepare-success.txt",
+                "Prepared scene: " + HighflyCombatLabBuilder.WorldScenePath + "\n" +
+                "Active target: " + EditorUserBuildSettings.activeBuildTarget + "\n");
+
+            Debug.Log("HIGHFLY RG POLY PREPARE SUCCESS");
+        }
+
+        public static void BuildPreparedWebGLRgPolyWorld()
+        {
+            Directory.CreateDirectory(DiagnosticsDirectory);
+            WriteDiagnostic("30-rgpoly-build-started.txt",
+                "HIGHFLY RG Poly prepared WebGL build started\n" +
+                "Unity: " + Application.unityVersion + "\n");
+
+            bool switched = EditorUserBuildSettings.SwitchActiveBuildTarget(
+                BuildTargetGroup.WebGL,
+                BuildTarget.WebGL);
+
+            if (!switched && EditorUserBuildSettings.activeBuildTarget != BuildTarget.WebGL)
+                throw new Exception("HIGHFLY could not activate WebGL for prepared RG Poly build.");
+
+            if (!File.Exists(HighflyCombatLabBuilder.WorldScenePath))
+                throw new Exception("HIGHFLY prepared WorldLab scene not found: " + HighflyCombatLabBuilder.WorldScenePath);
+
+            PlayerSettings.companyName = "HIGHFLY";
+            PlayerSettings.productName = "HIGHFLY WORLD RG POLY CITY01";
+            PlayerSettings.runInBackground = true;
+            PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.WebGL, false);
+            PlayerSettings.SetGraphicsAPIs(
+                BuildTarget.WebGL,
+                new[] { GraphicsDeviceType.OpenGLES3 });
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
+            PlayerSettings.WebGL.decompressionFallback = true;
+
+            string outputPath = GetArgument("customBuildPath");
+            if (string.IsNullOrEmpty(outputPath))
+                outputPath = Path.Combine("build", "WebGL", "HIGHFLY-WORLD-RGPOLY");
+
+            Directory.CreateDirectory(outputPath);
+
+            BuildPlayerOptions options = new BuildPlayerOptions
+            {
+                scenes = new[] { HighflyCombatLabBuilder.WorldScenePath },
+                locationPathName = outputPath,
+                target = BuildTarget.WebGL,
+                targetGroup = BuildTargetGroup.WebGL,
+                options = BuildOptions.None
+            };
+
+            WriteDiagnostic("31-rgpoly-build-player.txt",
+                "Output: " + outputPath + "\n" +
+                "Prepared scene only; no world regeneration in this process.\n");
+
+            BuildReport report = BuildPipeline.BuildPlayer(options);
+            BuildSummary summary = report.summary;
+
+            WriteDiagnostic("32-rgpoly-build-result.txt",
+                "Result: " + summary.result + "\n" +
+                "Errors: " + summary.totalErrors + "\n" +
+                "Warnings: " + summary.totalWarnings + "\n" +
+                "Output: " + summary.outputPath + "\n" +
+                "Size: " + summary.totalSize + "\n");
+
+            if (summary.result != BuildResult.Succeeded)
+                throw new Exception(
+                    "HIGHFLY RG Poly WebGL build failed: " +
+                    summary.result + " / " + summary.totalErrors + " errors");
+
+            WriteDiagnostic("39-rgpoly-success.txt",
+                "HIGHFLY RG Poly City01 WebGL built successfully: " + outputPath + "\n");
+
+            Debug.Log("HIGHFLY RG POLY WEBGL BUILD SUCCESS");
+        }
+
         public static void BuildWebGLClaudeWorld()
         {
             Directory.CreateDirectory(DiagnosticsDirectory);
