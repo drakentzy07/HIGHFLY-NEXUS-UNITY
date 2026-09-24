@@ -34,7 +34,7 @@ namespace Highfly.Editor
                 if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
                     throw new Exception("HIGHFLY could not activate the Android build target. Active target is " + EditorUserBuildSettings.activeBuildTarget);
 
-                HighflyCombatLabBuilder.BuildOrRefreshCombatLab();
+                HighflyCombatLabBuilder.BuildOrRefreshWorldLabShell();
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
                 WriteDiagnostic("02-scene-generated.txt", "Combat Lab scene generated: " + HighflyCombatLabBuilder.ScenePath + "\n");
@@ -67,7 +67,7 @@ namespace Highfly.Editor
 
                 BuildPlayerOptions options = new BuildPlayerOptions
                 {
-                    scenes = new[] { HighflyCombatLabBuilder.ScenePath },
+                    scenes = new[] { HighflyCombatLabBuilder.WorldScenePath },
                     locationPathName = outputPath,
                     target = BuildTarget.Android,
                     targetGroup = BuildTargetGroup.Android,
