@@ -1,0 +1,220 @@
+name: Build + Deploy HIGHFLY World Clean
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - highfly/world-village-clean-v01
+    paths:
+      - "Assets/Highfly/**"
+      - ".github/workflows/webgl-world-clean.yml"
+      - "Packages/**"
+      - "ProjectSettings/**"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: highfly-world-clean
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Unity WebGL World Clean
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout HIGHFLY Unity
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Stage official CC0 KayKit character + village
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/kaykit-adventurers /tmp/kaykit-medieval
+          git clone --depth 1 https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0.git /tmp/kaykit-adventurers
+          git clone --depth 1 https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0.git /tmp/kaykit-medieval
+
+          AROOT="Assets/External/KayKit/Adventurers/addons/kaykit_character_pack_adventures"
+          mkdir -p "$AROOT/Characters/fbx" "$AROOT/Assets/fbx"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/RogueHooded.fbx "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/rogue_texture.png "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/sword_1handed.fbx "$AROOT/Assets/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/rogue_texture.png "$AROOT/Assets/fbx/" || true
+
+          SRC="/tmp/kaykit-medieval/addons/kaykit_medieval_hexagon_pack/Assets/fbx"
+          DST="Assets/Highfly/Resources/ClaudeWorldAssets"
+          mkdir -p "$DST/buildings/blue" "$DST/buildings/neutral" "$DST/nature" "$DST/props"
+
+          for n in building_home_A_blue building_home_B_blue building_tavern_blue building_blacksmith_blue building_market_blue building_church_blue building_mine_blue building_well_blue building_lumbermill_blue building_windmill_blue building_watermill_blue building_tower_A_blue building_castle_blue building_barracks_blue building_archeryrange_blue; do
+            cp "$SRC/buildings/blue/$n.fbx" "$DST/buildings/blue/"
+          done
+          cp "$SRC/buildings/blue/hexagons_medieval.png" "$DST/buildings/blue/"
+
+          for n in building_bridge_A building_bridge_B building_destroyed wall_straight wall_straight_gate fence_wood_straight fence_stone_straight; do
+            cp "$SRC/buildings/neutral/$n.fbx" "$DST/buildings/neutral/"
+          done
+          cp "$SRC/buildings/neutral/hexagons_medieval.png" "$DST/buildings/neutral/"
+
+          for n in tree_single_A tree_single_B trees_A_small trees_A_medium trees_A_large rock_single_A rock_single_B rock_single_C; do
+            cp "$SRC/decoration/nature/$n.fbx" "$DST/nature/"
+          done
+          cp "$SRC/decoration/nature/hexagons_medieval.png" "$DST/nature/"
+
+          for n in barrel crate_A_big crate_A_small sack tent resource_lumber resource_stone wheelbarrow weaponrack; do
+            cp "$SRC/decoration/props/$n.fbx" "$DST/props/"
+          done
+          cp "$SRC/decoration/props/hexagons_medieval.png" "$DST/props/"
+
+          mkdir -p Assets/Highfly/ThirdPartyNotices
+          cp /tmp/kaykit-adventurers/LICENSE.txt Assets/Highfly/ThirdPartyNotices/KayKit-Adventurers-CC0.txt
+          cp /tmp/kaykit-medieval/LICENSE.txt Assets/Highfly/ThirdPartyNotices/KayKit-Medieval-CC0.txt
+
+          echo "KayKit world payload:"
+          find "$AROOT" "$DST" -type f | sort
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-2021.3.45f1-WebGL-WorldClean-${{ hashFiles('Assets/Highfly/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-2021.3.45f1-WebGL-
+            Library-2021.3.45f1-
+
+      - name: Free disk for Unity
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+
+      - name: Build HIGHFLY World Clean WebGL
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: 2021.3.45f1
+          targetPlatform: WebGL
+          buildsPath: build
+          buildName: HIGHFLY-WORLD-LAB
+          buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildWebGLClaudeWorld
+          allowDirtyBuild: true
+
+      - name: Patch WebGL for mobile fullscreen
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" build/WebGL/HIGHFLY-WORLD-LAB
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re
+          p=Path("build/WebGL/HIGHFLY-WORLD-LAB/index.html")
+          s=p.read_text(encoding="utf-8")
+          version=os.environ.get("GITHUB_RUN_ID","dev")
+          s=re.sub(
+              r'(HIGHFLY-WORLD-LAB\.(?:loader\.js|framework\.js|wasm|data))"',
+              lambda m: m.group(1) + '?v=' + version + '"',
+              s
+          )
+          s=s.replace("</head>", f'<meta name="highfly-build" content="{version}">\n</head>', 1)
+          head=r'''
+          <meta name="viewport" content="width=device-width,height=device-height,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+          <meta name="mobile-web-app-capable" content="yes">
+          <meta name="screen-orientation" content="landscape">
+          <style>
+          html,body{margin:0!important;padding:0!important;width:100%!important;height:100%!important;overflow:hidden!important;background:#08121d!important}
+          #unity-container,#unity-container.unity-desktop,#unity-container.unity-mobile{position:fixed!important;inset:0!important;transform:none!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important}
+          #unity-canvas,#unity-canvas.unity-mobile{position:absolute!important;inset:0!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;display:block!important}
+          #unity-footer,#unity-logo,#unity-webgl-logo{display:none!important}
+          #highfly-enter{position:fixed;inset:0;z-index:99999;background:#08121d;display:none;align-items:center;justify-content:center;font-family:Arial,sans-serif}
+          #highfly-enter button{font-size:22px;font-weight:700;padding:18px 28px;border-radius:12px;border:1px solid #5ee8ff;background:#102c42;color:white}
+          </style>
+          '''
+          boot=r'''
+          <div id="highfly-enter"><button type="button">ENTRAR A HIGHFLY</button></div>
+          <script>
+          (() => {
+            const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const overlay = document.getElementById("highfly-enter");
+            const button = overlay ? overlay.querySelector("button") : null;
+            if (mobile && overlay) overlay.style.display = "flex";
+            const fit = () => {
+              const container = document.getElementById("unity-container");
+              const canvas = document.getElementById("unity-canvas");
+              if (container) { container.className = "unity-mobile"; container.style.width = "100vw"; container.style.height = "100dvh"; }
+              if (canvas) { canvas.className = "unity-mobile"; canvas.style.width = "100vw"; canvas.style.height = "100dvh"; }
+            };
+            const enter = async () => {
+              fit();
+              try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch (_) {}
+              try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); } catch (_) {}
+              if (overlay) overlay.style.display = "none";
+            };
+            if (button) button.addEventListener("click", enter);
+            window.addEventListener("resize", fit);
+            window.addEventListener("orientationchange", fit);
+            fit();
+          })();
+          </script>
+          '''
+          s=s.replace("unityShowBanner('WebGL builds are not supported on mobile devices.');", "")
+          s=s.replace('canvas.style.width = "960px";', 'canvas.style.width = "100vw";')
+          s=s.replace('canvas.style.height = "600px";', 'canvas.style.height = "100dvh";')
+          if "viewport-fit=cover" not in s:
+              s=s.replace("</head>", head+"\n</head>")
+          if 'id="highfly-enter"' not in s:
+              s=s.replace("</body>", boot+"\n</body>")
+          p.write_text(s,encoding="utf-8")
+          print("Patched mobile fullscreen:", p, "build", version)
+          PY
+
+      - name: Inspect WebGL + diagnostics
+        if: always()
+        run: |
+          find build -maxdepth 4 -type f -printf "%p %k KB\n" | sort | head -200 || true
+          find build/diagnostics -maxdepth 2 -type f -print -exec cat {} \; || true
+
+      - name: Upload downloadable WebGL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-WORLD-CLEAN-WEBGL-v0.1
+          path: build/WebGL/HIGHFLY-WORLD-LAB/**
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Pages payload
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/WebGL/HIGHFLY-WORLD-LAB
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-WORLD-CLEAN-DIAGNOSTICS-v0.1
+          path: build/diagnostics/**
+          if-no-files-found: warn
+          retention-days: 7
+
+  deploy:
+    name: Deploy World Clean to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
