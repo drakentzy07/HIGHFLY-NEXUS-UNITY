@@ -174,7 +174,8 @@ jobs:
           set -euxo pipefail
           test -f "Assets/Highfly/Scenes/WorldLab.unity"
           grep -q "HIGHFLY_RG_POLY_CITY01" "Assets/Highfly/Scenes/WorldLab.unity"
-          grep -q "HIGHFLY_PLAYER" "Assets/Highfly/Scenes/WorldLab.unity"
+          grep -q "HIGHFLY_Hunter" "Assets/Highfly/Scenes/WorldLab.unity"
+          grep -q "HIGHFLY_MobileHUD" "Assets/Highfly/Scenes/WorldLab.unity"
           du -sh Library || true
           du -sh Assets/Highfly/Scenes/WorldLab.unity || true
 
