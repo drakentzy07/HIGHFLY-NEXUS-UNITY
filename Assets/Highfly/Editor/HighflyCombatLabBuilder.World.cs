@@ -22,6 +22,12 @@ namespace Highfly.Editor
         [MenuItem("HIGHFLY/Build World Lab Scene")]
         public static void BuildOrRefreshWorldLabShell()
         {
+            if (CanBuildRgPolyWorld())
+            {
+                BuildOrRefreshRgPolyWorld();
+                return;
+            }
+
             Directory.CreateDirectory("Assets/Highfly/Scenes");
             Directory.CreateDirectory(GeneratedRoot);
             Directory.CreateDirectory(GeneratedUiRoot);
