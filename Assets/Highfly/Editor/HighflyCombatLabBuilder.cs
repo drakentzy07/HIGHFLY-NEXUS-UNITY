@@ -1870,7 +1870,11 @@ namespace Highfly.Editor
 
             Text text = go.GetComponent<Text>();
             text.text = initial;
+#if UNITY_6000_0_OR_NEWER
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+#else
             text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+#endif
             text.fontSize = fontSize;
             text.alignment = alignment;
             text.color = Color.white;
