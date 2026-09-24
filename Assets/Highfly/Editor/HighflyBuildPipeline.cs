@@ -103,7 +103,7 @@ namespace Highfly.Editor
         {
             Directory.CreateDirectory(DiagnosticsDirectory);
             WriteDiagnostic("10-webgl-pipeline-started.txt",
-                "HIGHFLY World Clean WebGL pipeline started\n" +
+                "HIGHFLY World Final FREE WebGL pipeline started\n" +
                 "Unity: " + Application.unityVersion + "\n" +
                 "Initial active target: " + EditorUserBuildSettings.activeBuildTarget + "\n");
 
@@ -125,7 +125,7 @@ namespace Highfly.Editor
                 AssetDatabase.Refresh();
 
                 PlayerSettings.companyName = "HIGHFLY";
-                PlayerSettings.productName = "HIGHFLY WORLD CLEAN";
+                PlayerSettings.productName = "HIGHFLY WORLD FINAL FREE";
                 PlayerSettings.runInBackground = true;
 
                 // Project uses Linear color space. Unity 2021 WebGL can only use
@@ -161,7 +161,7 @@ namespace Highfly.Editor
 
                 WriteDiagnostic("12-webgl-build-started.txt",
                     "Output: " + outputPath + "\n" +
-                    "World mode: CLEAN KAYKIT VILLAGE\n");
+                    "World mode: WORLD FINAL FREE / QUATERNIUS CC0\n");
 
                 BuildReport report = BuildPipeline.BuildPlayer(options);
                 BuildSummary summary = report.summary;
@@ -174,9 +174,9 @@ namespace Highfly.Editor
                     "Size: " + summary.totalSize + "\n");
 
                 if (summary.result != BuildResult.Succeeded)
-                    throw new Exception("HIGHFLY World Clean WebGL build failed: " + summary.result + " / " + summary.totalErrors + " errors");
+                    throw new Exception("HIGHFLY World Final FREE WebGL build failed: " + summary.result + " / " + summary.totalErrors + " errors");
 
-                WriteDiagnostic("19-webgl-success.txt", "HIGHFLY World Clean WebGL built successfully: " + outputPath + "\n");
+                WriteDiagnostic("19-webgl-success.txt", "HIGHFLY World Final FREE WebGL built successfully: " + outputPath + "\n");
             }
             catch (Exception exception)
             {
