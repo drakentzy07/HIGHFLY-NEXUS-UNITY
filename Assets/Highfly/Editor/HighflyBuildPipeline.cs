@@ -120,7 +120,7 @@ namespace Highfly.Editor
                 if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.WebGL)
                     throw new Exception("HIGHFLY could not activate WebGL. Active target is " + EditorUserBuildSettings.activeBuildTarget);
 
-                HighflyCombatLabBuilder.BuildOrRefreshCombatLab();
+                HighflyCombatLabBuilder.BuildOrRefreshWorldLabShell();
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
 
@@ -152,7 +152,7 @@ namespace Highfly.Editor
 
                 BuildPlayerOptions options = new BuildPlayerOptions
                 {
-                    scenes = new[] { HighflyCombatLabBuilder.ScenePath },
+                    scenes = new[] { HighflyCombatLabBuilder.WorldScenePath },
                     locationPathName = outputPath,
                     target = BuildTarget.WebGL,
                     targetGroup = BuildTargetGroup.WebGL,
