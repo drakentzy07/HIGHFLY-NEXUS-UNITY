@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.IO;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -206,17 +207,31 @@ namespace Highfly.Editor
                 UniversalRenderPipelineAsset urp = pipeline as UniversalRenderPipelineAsset;
                 if (urp != null)
                 {
-                    urp.EnsureGlobalSettings();
-                    EditorUtility.SetDirty(urp);
+                    Type globalSettingsType = typeof(UniversalRenderPipelineAsset).Assembly.GetType(
+                        "UnityEngine.Rendering.Universal.UniversalRenderPipelineGlobalSettings");
+
+                    if (globalSettingsType == null)
+                        throw new Exception("HIGHFLY RG Poly: URP Global Settings type was not found.");
+
+                    MethodInfo ensureMethod = globalSettingsType.GetMethod(
+                        "Ensure",
+                        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+
+                    if (ensureMethod == null)
+                        throw new Exception("HIGHFLY RG Poly: URP Global Settings Ensure method was not found.");
+
+                    object ensured = ensureMethod.Invoke(null, new object[] { true });
+                    if (ensured == null)
+                        throw new Exception("HIGHFLY RG Poly: URP Global Settings could not be created.");
+
+                    UnityEngine.Object ensuredObject = ensured as UnityEngine.Object;
+                    if (ensuredObject != null)
+                        EditorUtility.SetDirty(ensuredObject);
+
                     AssetDatabase.SaveAssets();
-
-                    RenderPipelineGlobalSettings global =
-                        GraphicsSettings.GetSettingsForRenderPipeline(typeof(UniversalRenderPipeline));
-
-                    if (global == null)
-                        throw new Exception("HIGHFLY RG Poly: URP Global Settings were not registered.");
-
-                    Debug.Log("HIGHFLY RG Poly URP Global Settings ready: " + global.name);
+                    Debug.Log(
+                        "HIGHFLY RG Poly URP Global Settings ready: " +
+                        (ensuredObject != null ? ensuredObject.name : globalSettingsType.Name));
                 }
 #endif
 
