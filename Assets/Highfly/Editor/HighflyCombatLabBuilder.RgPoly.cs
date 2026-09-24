@@ -7,6 +7,9 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.Rendering;
+#if UNITY_6000_0_OR_NEWER
+using UnityEngine.Rendering.Universal;
+#endif
 using Highfly.Combat;
 using Highfly.Core;
 using Highfly.Mobile;
@@ -198,6 +201,25 @@ namespace Highfly.Editor
 
                 GraphicsSettings.renderPipelineAsset = pipeline;
                 QualitySettings.renderPipeline = pipeline;
+
+#if UNITY_6000_0_OR_NEWER
+                UniversalRenderPipelineAsset urp = pipeline as UniversalRenderPipelineAsset;
+                if (urp != null)
+                {
+                    urp.EnsureGlobalSettings();
+                    EditorUtility.SetDirty(urp);
+                    AssetDatabase.SaveAssets();
+
+                    RenderPipelineGlobalSettings global =
+                        GraphicsSettings.GetSettingsForRenderPipeline(typeof(UniversalRenderPipeline));
+
+                    if (global == null)
+                        throw new Exception("HIGHFLY RG Poly: URP Global Settings were not registered.");
+
+                    Debug.Log("HIGHFLY RG Poly URP Global Settings ready: " + global.name);
+                }
+#endif
+
                 Debug.Log("HIGHFLY RG Poly render pipeline: " + path);
                 return;
             }
