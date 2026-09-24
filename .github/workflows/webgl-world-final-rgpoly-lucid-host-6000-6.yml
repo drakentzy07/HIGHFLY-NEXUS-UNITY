@@ -55,7 +55,7 @@ jobs:
           test -f LucidHost/3D_game/ProjectSettings/ProjectVersion.txt
           cat LucidHost/3D_game/ProjectSettings/ProjectVersion.txt
 
-      - name: Remove incompatible Unity AI Assistant from 6000.6 host
+      - name: Prune unused editor packages from 6000.6 host
         shell: bash
         run: |
           set -euxo pipefail
@@ -63,22 +63,39 @@ jobs:
           import json
           from pathlib import Path
 
+          remove = {
+              "com.unity.ai.assistant",
+              "com.unity.multiplayer.center",
+              "com.unity.collab-proxy",
+              "com.unity.performance.profile-analyzer",
+              "com.unity.ide.rider",
+              "com.unity.ide.visualstudio",
+              "com.unity.test-framework",
+          }
+
           manifest = Path("LucidHost/3D_game/Packages/manifest.json")
           data = json.loads(manifest.read_text())
           deps = data.setdefault("dependencies", {})
-          removed = deps.pop("com.unity.ai.assistant", None)
+          for package in sorted(remove):
+              old = deps.pop(package, None)
+              if old is not None:
+                  print("Removed from manifest:", package, old)
           manifest.write_text(json.dumps(data, indent=2) + "\n")
-          print("Removed com.unity.ai.assistant from manifest:", removed)
 
           lock = Path("LucidHost/3D_game/Packages/packages-lock.json")
           if lock.exists():
               ldata = json.loads(lock.read_text())
               ldeps = ldata.get("dependencies", {})
-              removed_lock = ldeps.pop("com.unity.ai.assistant", None)
+              for package in sorted(remove):
+                  if package in ldeps:
+                      ldeps.pop(package, None)
+                      print("Removed from packages-lock:", package)
               lock.write_text(json.dumps(ldata, indent=2) + "\n")
-              print("Removed com.unity.ai.assistant from packages-lock:", removed_lock is not None)
           PY
-          ! grep -q '"com.unity.ai.assistant"' LucidHost/3D_game/Packages/manifest.json
+
+          for pkg in             com.unity.ai.assistant             com.unity.multiplayer.center             com.unity.collab-proxy             com.unity.performance.profile-analyzer             com.unity.ide.rider             com.unity.ide.visualstudio             com.unity.test-framework; do
+            ! grep -q "\"$pkg\"" LucidHost/3D_game/Packages/manifest.json
+          done
 
       - name: Install current HIGHFLY core into Unity6 host
         shell: bash
@@ -161,6 +178,17 @@ jobs:
           restore-keys: |
             rgpoly-goldenhost-6000.6-v1-
             highfly-world-city01-v04-living-6000.4.0f1-
+
+      - name: Drop stale cached editor packages before Unity
+        shell: bash
+        run: |
+          set -euxo pipefail
+          for pattern in             'com.unity.ai.assistant@*'             'com.unity.multiplayer.center@*'             'com.unity.collab-proxy@*'             'com.unity.performance.profile-analyzer@*'             'com.unity.ide.rider@*'             'com.unity.ide.visualstudio@*'             'com.unity.test-framework@*'; do
+            find LucidHost/3D_game/Library/PackageCache -maxdepth 1 -type d -name "$pattern" -print -exec rm -rf {} + 2>/dev/null || true
+          done
+          rm -rf LucidHost/3D_game/Library/Bee/2400b0aE.dag* || true
+          rm -rf LucidHost/3D_game/Library/ScriptAssemblies/Unity.Multiplayer.Center* || true
+          du -sh LucidHost/3D_game/Library || true
 
       - name: Prepare CITY01 on native Unity6 host
         uses: game-ci/unity-builder@v4
