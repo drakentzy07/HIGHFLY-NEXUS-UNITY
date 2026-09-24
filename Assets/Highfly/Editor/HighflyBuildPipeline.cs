@@ -103,7 +103,7 @@ namespace Highfly.Editor
         {
             Directory.CreateDirectory(DiagnosticsDirectory);
             WriteDiagnostic("10-webgl-pipeline-started.txt",
-                "HIGHFLY ClaudeCraft WebGL pipeline started\n" +
+                "HIGHFLY World Clean WebGL pipeline started\n" +
                 "Unity: " + Application.unityVersion + "\n" +
                 "Initial active target: " + EditorUserBuildSettings.activeBuildTarget + "\n");
 
@@ -120,16 +120,12 @@ namespace Highfly.Editor
                 if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.WebGL)
                     throw new Exception("HIGHFLY could not activate WebGL. Active target is " + EditorUserBuildSettings.activeBuildTarget);
 
-                string worldJson = "Assets/Highfly/Resources/ClaudeCraft/world.json";
-                if (!File.Exists(worldJson))
-                    throw new FileNotFoundException("ClaudeCraft Unity world data missing", worldJson);
-
                 HighflyCombatLabBuilder.BuildOrRefreshCombatLab();
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
 
                 PlayerSettings.companyName = "HIGHFLY";
-                PlayerSettings.productName = "HIGHFLY WORLD LAB";
+                PlayerSettings.productName = "HIGHFLY WORLD CLEAN";
                 PlayerSettings.runInBackground = true;
 
                 // Project uses Linear color space. Unity 2021 WebGL can only use
@@ -165,7 +161,7 @@ namespace Highfly.Editor
 
                 WriteDiagnostic("12-webgl-build-started.txt",
                     "Output: " + outputPath + "\n" +
-                    "World JSON: " + worldJson + "\n");
+                    "World mode: CLEAN KAYKIT VILLAGE\n");
 
                 BuildReport report = BuildPipeline.BuildPlayer(options);
                 BuildSummary summary = report.summary;
@@ -178,9 +174,9 @@ namespace Highfly.Editor
                     "Size: " + summary.totalSize + "\n");
 
                 if (summary.result != BuildResult.Succeeded)
-                    throw new Exception("HIGHFLY ClaudeCraft WebGL build failed: " + summary.result + " / " + summary.totalErrors + " errors");
+                    throw new Exception("HIGHFLY World Clean WebGL build failed: " + summary.result + " / " + summary.totalErrors + " errors");
 
-                WriteDiagnostic("19-webgl-success.txt", "HIGHFLY ClaudeCraft WebGL built successfully: " + outputPath + "\n");
+                WriteDiagnostic("19-webgl-success.txt", "HIGHFLY World Clean WebGL built successfully: " + outputPath + "\n");
             }
             catch (Exception exception)
             {
