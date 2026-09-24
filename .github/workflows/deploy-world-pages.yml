@@ -3,7 +3,7 @@ name: Deploy HIGHFLY World Pages
 on:
   workflow_run:
     workflows:
-      - "Build HIGHFLY World Clean WebGL"
+      - "Build HIGHFLY World Final FREE WebGL"
     types:
       - completed
   workflow_dispatch:
@@ -50,8 +50,8 @@ jobs:
               curl -fsSL \
                 -H "Authorization: Bearer $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=highfly%2Fworld-village-clean-v01&status=success&per_page=30" \
-              | jq -r '.workflow_runs[] | select(.name=="Build HIGHFLY World Clean WebGL") | .id' \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=highfly%2Fworld-final-free-v01&status=success&per_page=30" \
+              | jq -r '.workflow_runs[] | select(.name=="Build HIGHFLY World Final FREE WebGL") | .id' \
               | head -1
             )"
           fi
@@ -63,7 +63,7 @@ jobs:
       - name: Download exact successful WebGL artifact
         uses: actions/download-artifact@v4
         with:
-          name: HIGHFLY-WORLD-CLEAN-WEBGL-v0.1
+          name: HIGHFLY-WORLD-FINAL-FREE-WEBGL-v0.1
           path: site
           repository: drakentzy07/HIGHFLY-NEXUS-UNITY
           run-id: ${{ steps.source.outputs.run_id }}
@@ -73,10 +73,10 @@ jobs:
         run: |
           set -euo pipefail
           test -s site/index.html
-          test -s site/Build/HIGHFLY-WORLD-LAB.loader.js
-          test -s site/Build/HIGHFLY-WORLD-LAB.framework.js
-          test -s site/Build/HIGHFLY-WORLD-LAB.wasm
-          test -s site/Build/HIGHFLY-WORLD-LAB.data
+          test -s site/Build/HIGHFLY-WORLD-FINAL.loader.js
+          test -s site/Build/HIGHFLY-WORLD-FINAL.framework.js
+          test -s site/Build/HIGHFLY-WORLD-FINAL.wasm
+          test -s site/Build/HIGHFLY-WORLD-FINAL.data
           echo "HIGHFLY WebGL payload verified"
           du -sh site
 
@@ -96,4 +96,4 @@ jobs:
         run: |
           echo "HIGHFLY WORLD LIVE: ${{ steps.deployment.outputs.page_url }}"
 
-# World Clean publish trigger v3
+# World Final FREE publish trigger v1
