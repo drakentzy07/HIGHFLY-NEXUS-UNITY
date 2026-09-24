@@ -214,14 +214,14 @@ jobs:
         if: always()
         shell: bash
         run: |
-          find LucidHost/3D_game/build -maxdepth 5 -type f -printf "%p %k KB\n" | sort | head -300 || true
+          find build -maxdepth 5 -type f -printf "%p %k KB\n" | sort | head -300 || true
           find LucidHost/3D_game/build/diagnostics -maxdepth 2 -type f -print -exec cat {} \; || true
 
       - name: Upload WebGL
         uses: actions/upload-artifact@v4
         with:
           name: HIGHFLY-RGPOLY-CITY01-GOLDENHOST-6000-6-WEBGL-v0.1
-          path: LucidHost/3D_game/build/WebGL/**
+          path: build/WebGL/**
           if-no-files-found: error
           retention-days: 14
 
