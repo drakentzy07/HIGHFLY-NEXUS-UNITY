@@ -95,3 +95,5 @@ jobs:
       - name: Publish URL
         run: |
           echo "HIGHFLY WORLD LIVE: ${{ steps.deployment.outputs.page_url }}"
+
+# World Clean publish trigger
