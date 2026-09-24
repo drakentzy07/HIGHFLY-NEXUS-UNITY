@@ -44,8 +44,6 @@ namespace Highfly.Editor
             OptimizeRgPolyTextures();
 
             Scene scene = EditorSceneManager.OpenScene(RgPolySourceScene, OpenSceneMode.Single);
-            scene.name = "HIGHFLY_WORLD_FINAL_RG_POLY";
-
             ConfigureRgPolyRenderPipeline();
             RemoveRgPolyDemoCameras(scene);
             RemoveRgPolyDemoRuntime(scene);
