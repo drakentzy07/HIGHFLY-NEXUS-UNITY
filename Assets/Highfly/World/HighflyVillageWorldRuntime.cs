@@ -22,6 +22,11 @@ namespace Highfly.World
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoBoot()
         {
+            // WORLD FINAL branches carry this marker. In that mode the clean
+            // KayKit village is only a historical baseline and must not boot.
+            if (Resources.Load<TextAsset>("WorldFinal/world_final_enabled") != null)
+                return;
+
             if (FindObjectOfType<HighflyVillageWorldRuntime>() != null)
                 return;
 
@@ -32,6 +37,12 @@ namespace Highfly.World
 
         private void Start()
         {
+            if (Resources.Load<TextAsset>("WorldFinal/world_final_enabled") != null)
+            {
+                gameObject.SetActive(false);
+                return;
+            }
+
             DisableLegacyWorld();
 
             GameObject root = new GameObject("HIGHFLY_VILLAGE_CLEAN_V01");
