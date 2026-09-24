@@ -2,13 +2,6 @@ name: Build HIGHFLY RG Poly City01 on Unity6 Golden Host
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - highfly/world-final-rgpoly-city01-v01
-    paths:
-      - "Assets/Highfly/**"
-      - "ci/world/**"
-      - ".github/workflows/webgl-world-final-rgpoly-lucid-host.yml"
 
 permissions:
   contents: read
