@@ -1834,10 +1834,45 @@ namespace Highfly.Editor
 
         private static void EnsureEventSystem()
         {
-            if (UnityEngine.Object.FindObjectOfType<EventSystem>() != null)
-                return;
+            EventSystem eventSystem = UnityEngine.Object.FindObjectOfType<EventSystem>();
+            if (eventSystem == null)
+            {
+                GameObject go = new GameObject("EventSystem", typeof(EventSystem));
+                eventSystem = go.GetComponent<EventSystem>();
+            }
 
-            new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            eventSystem.gameObject.SetActive(true);
+            eventSystem.enabled = true;
+
+            // The Unity 6 Golden Host uses the new Input System exclusively.
+            // A legacy StandaloneInputModule can render the UI correctly while
+            // starving touch-driven IPointer/IDrag handlers on WebGL/mobile.
+            // Resolve the package type dynamically so this builder still compiles
+            // in projects where com.unity.inputsystem is not installed.
+            Type inputSystemModuleType = Type.GetType(
+                "UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
+
+            if (inputSystemModuleType != null)
+            {
+                StandaloneInputModule[] legacyModules =
+                    eventSystem.GetComponents<StandaloneInputModule>();
+                for (int i = 0; i < legacyModules.Length; i++)
+                    UnityEngine.Object.DestroyImmediate(legacyModules[i]);
+
+                Component modernModule = eventSystem.GetComponent(inputSystemModuleType);
+                if (modernModule == null)
+                    modernModule = eventSystem.gameObject.AddComponent(inputSystemModuleType);
+
+                Debug.Log(
+                    "HIGHFLY EventSystem ready with InputSystemUIInputModule: " +
+                    (modernModule != null));
+                return;
+            }
+
+            if (eventSystem.GetComponent<StandaloneInputModule>() == null)
+                eventSystem.gameObject.AddComponent<StandaloneInputModule>();
+
+            Debug.Log("HIGHFLY EventSystem ready with legacy StandaloneInputModule fallback.");
         }
 
         private static GameObject CreateImage(string name, Transform parent, Color color, Sprite sprite)
