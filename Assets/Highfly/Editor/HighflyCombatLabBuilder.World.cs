@@ -1,15 +1,88 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Highfly.World;
+using Highfly.UI;
+using Highfly.Combat;
+using Highfly.Mobile;
+using Highfly.Core;
 
 namespace Highfly.Editor
 {
     public static partial class HighflyCombatLabBuilder
     {
+        public const string WorldScenePath = "Assets/Highfly/Scenes/WorldLab.unity";
+
+        [MenuItem("HIGHFLY/Build World Lab Scene")]
+        public static void BuildOrRefreshWorldLabShell()
+        {
+            Directory.CreateDirectory("Assets/Highfly/Scenes");
+            Directory.CreateDirectory(GeneratedRoot);
+            Directory.CreateDirectory(GeneratedUiRoot);
+            Directory.CreateDirectory(GeneratedControllersRoot);
+
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            scene.name = "HIGHFLY_WORLD_LAB";
+
+            ConfigureEnvironment();
+            EnsureEventSystem();
+
+            GameObject player = CreatePlayer(
+                out HighflyThirdPersonMotor motor,
+                out HighflyTargetingSystem targeting,
+                out HighflyCombatController combat,
+                out HighflyPlayerResources resources,
+                out Transform attackOrigin,
+                out Animator playerAnimator);
+
+            Camera camera = CreateCamera(player.transform, targeting, out HighflyThirdPersonCamera cameraRig);
+            Sprite circleSprite = CreateCircleSprite();
+
+            GameObject canvas = CreateMobileHUD(
+                motor, targeting, combat, resources, cameraRig, circleSprite,
+                out HighflyVirtualJoystick joystick, out HighflyCameraLookArea lookArea);
+
+            HighflyInteractionController interaction = player.GetComponent<HighflyInteractionController>();
+            CreateInteractionUI(interaction, canvas.GetComponent<RectTransform>(), circleSprite);
+
+            SetObjectReference(motor, "cameraTransform", camera.transform);
+            SetObjectReference(motor, "movementJoystick", joystick);
+            SetObjectReference(motor, "animator", playerAnimator);
+            SetObjectReference(cameraRig, "lookArea", lookArea);
+            SetObjectReference(cameraRig, "targeting", targeting);
+
+            // Keep only the movement shell. The runtime hides combat presentation,
+            // but the motor and Dash remain available for world traversal.
+            GameObject hunterSword = GameObject.Find("Hunter_Sword");
+            if (hunterSword != null)
+                hunterSword.SetActive(false);
+
+            HighflyWorldSafety safety = player.GetComponent<HighflyWorldSafety>();
+            if (safety == null)
+                safety = player.AddComponent<HighflyWorldSafety>();
+            safety.Configure(Vector3.zero, -100f, true, true);
+
+            GameObject runtime = new GameObject("HIGHFLY_CLAUDECRAFT_WORLD_RUNTIME");
+            runtime.AddComponent<HighflyClaudeWorldRuntime>();
+
+            EditorSceneManager.SaveScene(scene, WorldScenePath);
+            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(WorldScenePath, true) };
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Debug.Log("HIGHFLY WORLD LAB shell generated at " + WorldScenePath +
+                      " | no legacy city/dungeon/enemy/portal objects baked into the scene.");
+        }
+
         private static void CreateInteractionUI(
             HighflyInteractionController interaction,
             RectTransform canvasRect,
