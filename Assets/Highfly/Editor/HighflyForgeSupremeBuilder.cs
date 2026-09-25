@@ -90,146 +90,123 @@ namespace Highfly.Editor
 
         private static void BuildShell(Transform parent, AssetLog log)
         {
-            string floor = FindModel(
-                VillageRoot,
-                new[] { "floor" },
-                new[] { "roof", "stair" },
-                true);
-            log.Add("shell.floor", floor);
+            Material floorMat = GetOrCreateHighflyMaterial(
+                "HF_ForgeFloor",
+                new Color(0.16f, 0.11f, 0.075f, 1f));
 
-            string wall = FindModel(
-                VillageRoot,
-                new[] { "wall" },
-                new[] { "door", "window", "roof", "stair", "corner" },
-                true);
-            log.Add("shell.wall", wall);
+            Material wallMat = GetOrCreateHighflyMaterial(
+                "HF_ForgeWall",
+                new Color(0.34f, 0.28f, 0.20f, 1f));
 
-            string door = FindModel(
-                VillageRoot,
-                new[] { "door" },
-                new string[0],
-                true);
-            log.Add("shell.door", door);
+            Material beamMat = GetOrCreateHighflyMaterial(
+                "HF_ForgeBeam",
+                new Color(0.11f, 0.07f, 0.045f, 1f));
 
-            string window = FindModel(
-                VillageRoot,
-                new[] { "window" },
-                new string[0],
-                true);
-            log.Add("shell.window", window);
+            Material roofMat = GetOrCreateHighflyMaterial(
+                "HF_ForgeRoof",
+                new Color(0.095f, 0.085f, 0.075f, 1f));
 
-            string roof = FindModel(
-                VillageRoot,
-                new[] { "roof" },
-                new string[0],
-                false);
-            log.Add("shell.roof", roof);
-
-            PlaceFitted(
-                floor,
-                parent,
-                "FORGE_FLOOR",
+            CreateBox(
+                parent, "FORGE_FLOOR",
                 new Vector3(0f, -0.14f, 0f),
-                Vector3.zero,
                 new Vector3(15f, 0.28f, 11.5f),
-                true);
+                floorMat, true);
 
-            // South wall: intentional 4 m entrance opening.
-            PlaceFitted(
-                wall,
-                parent,
-                "FORGE_WALL_SOUTH_L",
+            CreateBox(
+                parent, "FORGE_WALL_SOUTH_L",
                 new Vector3(-5f, 2.25f, -5.6f),
-                Vector3.zero,
                 new Vector3(5f, 4.5f, 0.35f),
-                true);
+                wallMat, true);
 
-            PlaceFitted(
-                wall,
-                parent,
-                "FORGE_WALL_SOUTH_R",
+            CreateBox(
+                parent, "FORGE_WALL_SOUTH_R",
                 new Vector3(5f, 2.25f, -5.6f),
-                Vector3.zero,
                 new Vector3(5f, 4.5f, 0.35f),
-                true);
+                wallMat, true);
 
-            PlaceFitted(
-                wall,
-                parent,
-                "FORGE_WALL_NORTH",
+            CreateBox(
+                parent, "FORGE_WALL_NORTH",
                 new Vector3(0f, 2.25f, 5.6f),
-                Vector3.zero,
                 new Vector3(15f, 4.5f, 0.35f),
-                true);
+                wallMat, true);
 
-            PlaceFitted(
-                wall,
-                parent,
-                "FORGE_WALL_WEST",
+            CreateBox(
+                parent, "FORGE_WALL_WEST",
                 new Vector3(-7.35f, 2.25f, 0f),
-                new Vector3(0f, 90f, 0f),
-                new Vector3(11.5f, 4.5f, 0.35f),
-                true);
+                new Vector3(0.35f, 4.5f, 11.5f),
+                wallMat, true);
 
-            PlaceFitted(
-                wall,
-                parent,
-                "FORGE_WALL_EAST",
+            CreateBox(
+                parent, "FORGE_WALL_EAST",
                 new Vector3(7.35f, 2.25f, 0f),
-                new Vector3(0f, 90f, 0f),
-                new Vector3(11.5f, 4.5f, 0.35f),
-                true);
+                new Vector3(0.35f, 4.5f, 11.5f),
+                wallMat, true);
 
-            PlaceDecor(
-                door,
-                parent,
-                "FORGE_ENTRY_DOOR_VISUAL",
-                new Vector3(0f, 0f, -5.5f),
-                new Vector3(0f, 180f, 0f),
-                2.8f,
-                false);
-
-            PlaceDecor(
-                window,
-                parent,
-                "FORGE_WINDOW_NORTH_A",
-                new Vector3(-4.1f, 1.4f, 5.42f),
-                Vector3.zero,
-                2.0f,
-                false);
-
-            PlaceDecor(
-                window,
-                parent,
-                "FORGE_WINDOW_NORTH_B",
-                new Vector3(4.1f, 1.4f, 5.42f),
-                Vector3.zero,
-                2.0f,
-                false);
-
-            if (!string.IsNullOrEmpty(roof))
+            // Heavy timber frame keeps the room visually medieval and avoids
+            // importing another full structural pack.
+            for (int i = -2; i <= 2; i++)
             {
-                PlaceFitted(
-                    roof,
+                CreateBox(
                     parent,
-                    "FORGE_ROOF",
-                    new Vector3(0f, 4.7f, 0f),
+                    "FORGE_BEAM_" + i,
+                    new Vector3(i * 3.4f, 3.7f, 0f),
+                    new Vector3(0.25f, 0.25f, 11.2f),
+                    beamMat,
+                    false);
+            }
+
+            CreateBox(
+                parent, "FORGE_CEILING",
+                new Vector3(0f, 4.55f, 0f),
+                new Vector3(15f, 0.22f, 11.5f),
+                roofMat, false);
+
+            string door = FindAnyModel(
+                RgPolyRoot,
+                new[] { "door" },
+                false);
+            log.Add("shell.rgpoly_door", door);
+
+            string window = FindAnyModel(
+                RgPolyRoot,
+                new[] { "window" },
+                false);
+            log.Add("shell.rgpoly_window", window);
+
+            if (!string.IsNullOrEmpty(door))
+            {
+                PlaceDecor(
+                    door,
+                    parent,
+                    "FORGE_ENTRY_DOOR_VISUAL",
+                    new Vector3(0f, 0f, -5.45f),
+                    new Vector3(0f, 180f, 0f),
+                    2.8f,
+                    false);
+            }
+
+            if (!string.IsNullOrEmpty(window))
+            {
+                PlaceDecor(
+                    window,
+                    parent,
+                    "FORGE_WINDOW_NORTH_A",
+                    new Vector3(-4.1f, 1.35f, 5.4f),
                     Vector3.zero,
-                    new Vector3(15.4f, 0.6f, 11.9f),
+                    1.9f,
                     false);
-            }
-            else
-            {
-                // Never allow the old black-void failure mode.
-                PlaceFitted(
-                    floor,
+
+                PlaceDecor(
+                    window,
                     parent,
-                    "FORGE_CEILING",
-                    new Vector3(0f, 4.55f, 0f),
-                    new Vector3(180f, 0f, 0f),
-                    new Vector3(15f, 0.25f, 11.5f),
+                    "FORGE_WINDOW_NORTH_B",
+                    new Vector3(4.1f, 1.35f, 5.4f),
+                    Vector3.zero,
+                    1.9f,
                     false);
             }
+
+            log.Add("shell.structure", "HIGHFLY generated + RG Poly donor detail");
         }
 
         private static void BuildForgeSet(Transform parent, AssetLog log)
@@ -281,25 +258,21 @@ namespace Highfly.Editor
             log.Add("forge.weapon_display", rack);
 
             string chest = FindAnyModel(
-                PropsRoot,
+                RgPolyRoot,
                 new[] { "chest" },
                 false);
             log.Add("forge.storage_chest", chest);
 
             string barrel = FindAnyModel(
-                PropsRoot,
+                RgPolyRoot,
                 new[] { "barrel" },
                 false);
-            if (string.IsNullOrEmpty(barrel))
-                barrel = FindAnyModel(RgPolyRoot, new[] { "barrel_1" }, false);
             log.Add("forge.barrel", barrel);
 
             string crate = FindAnyModel(
-                PropsRoot,
+                RgPolyRoot,
                 new[] { "crate" },
                 false);
-            if (string.IsNullOrEmpty(crate))
-                crate = FindAnyModel(RgPolyRoot, new[] { "crate_1" }, false);
             log.Add("forge.crate", crate);
 
             string sword = FindAnyModel(
@@ -322,6 +295,11 @@ namespace Highfly.Editor
                 new Vector3(0f, -12f, 0f),
                 1.05f,
                 true);
+            ApplyMaterial(
+                anvilGo,
+                GetOrCreateHighflyMaterial(
+                    "HF_ForgeMetal",
+                    new Color(0.12f, 0.13f, 0.15f, 1f)));
 
             AddInteraction(
                 parent,
@@ -358,6 +336,11 @@ namespace Highfly.Editor
                 new Vector3(0f, -145f, 0f),
                 1.5f,
                 true);
+            ApplyMaterial(
+                benchGo,
+                GetOrCreateHighflyMaterial(
+                    "HF_ForgeWood",
+                    new Color(0.20f, 0.12f, 0.07f, 1f)));
 
             AddInteraction(
                 parent,
@@ -636,6 +619,91 @@ namespace Highfly.Editor
                 go.AddComponent<HighflyForgeInteractable>();
 
             interactable.Configure(kind, label, prompt);
+        }
+
+        private static GameObject CreateBox(
+            Transform parent,
+            string name,
+            Vector3 localPosition,
+            Vector3 localScale,
+            Material material,
+            bool colliderEnabled)
+        {
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPosition;
+            go.transform.localScale = localScale;
+
+            Renderer renderer = go.GetComponent<Renderer>();
+            if (renderer != null)
+                renderer.sharedMaterial = material;
+
+            Collider collider = go.GetComponent<Collider>();
+            if (collider != null)
+                collider.enabled = colliderEnabled;
+
+            return go;
+        }
+
+        private static Material GetOrCreateHighflyMaterial(
+            string name,
+            Color color)
+        {
+            string path =
+                "Assets/Highfly/Generated/" + name + ".mat";
+
+            Material material =
+                AssetDatabase.LoadAssetAtPath<Material>(path);
+
+            if (material != null)
+                return material;
+
+            Shader shader =
+                Shader.Find("Universal Render Pipeline/Lit");
+
+            if (shader == null)
+                shader = Shader.Find("Universal Render Pipeline/Simple Lit");
+
+            if (shader == null)
+                shader = Shader.Find("Standard");
+
+            material = new Material(shader);
+            material.name = name;
+
+            if (material.HasProperty("_BaseColor"))
+                material.SetColor("_BaseColor", color);
+            if (material.HasProperty("_Color"))
+                material.SetColor("_Color", color);
+            if (material.HasProperty("_Smoothness"))
+                material.SetFloat("_Smoothness", 0.2f);
+
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
+        private static void ApplyMaterial(
+            GameObject root,
+            Material material)
+        {
+            if (root == null || material == null)
+                return;
+
+            Renderer[] renderers =
+                root.GetComponentsInChildren<Renderer>(true);
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null)
+                    continue;
+
+                Material[] materials = renderer.sharedMaterials;
+                for (int m = 0; m < materials.Length; m++)
+                    materials[m] = material;
+
+                renderer.sharedMaterials = materials;
+            }
         }
 
         private static GameObject PlaceFitted(
