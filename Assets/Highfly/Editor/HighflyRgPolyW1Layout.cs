@@ -43,15 +43,55 @@ namespace Highfly.Editor
                 "interior.capital.forge", "anchor.capital.forge.door",
                 "FORJA", "ENTRAR");
 
-            BindDoor(
+            BindExteriorService(
                 scene, root.transform,
                 "Market Stall 3", "Market_Table_2 Variant",
-                "interior.capital.market", "anchor.capital.market.door",
-                "MERCADO", "ENTRAR");
+                "service.market",
+                "MERCADER DEL MERCADO", "COMERCIAR");
 
             Debug.Log(
-                "HIGHFLY W1 RG POLY exterior bindings ready | " +
-                "Guild=House 7 | Inn=Inn | Forge=Smithy | Market=Market Stall 3");
+                "HIGHFLY W1.1 RG POLY exterior bindings ready | " +
+                "Guild=House 7 | Inn=Inn | Forge=Smithy | " +
+                "Market=exterior service at Market Stall 3");
+        }
+
+
+        private static void BindExteriorService(
+            Scene scene,
+            Transform parent,
+            string rootName,
+            string childName,
+            string serviceId,
+            string displayName,
+            string prompt)
+        {
+            GameObject sourceRoot = FindRoot(scene, rootName);
+            if (sourceRoot == null)
+                throw new InvalidOperationException(
+                    "HIGHFLY W1.1 missing audited service root: " + rootName);
+
+            Transform target = FindDescendant(sourceRoot.transform, childName);
+            if (target == null)
+                throw new InvalidOperationException(
+                    "HIGHFLY W1.1 missing audited service target: " +
+                    rootName + " / " + childName);
+
+            GameObject marker = new GameObject(
+                "W1_SERVICE_" + displayName.Replace(" ", "_"));
+
+            marker.transform.SetParent(parent, false);
+            marker.transform.position = target.position;
+            marker.transform.rotation = target.rotation;
+
+            BoxCollider trigger = marker.AddComponent<BoxCollider>();
+            trigger.isTrigger = true;
+            trigger.center = new Vector3(0f, 1.0f, 0f);
+            trigger.size = new Vector3(3.5f, 2.3f, 3.5f);
+
+            HighflyW1ServiceStation service =
+                marker.AddComponent<HighflyW1ServiceStation>();
+
+            service.Configure(serviceId, displayName, prompt);
         }
 
         private static void BindDoor(
