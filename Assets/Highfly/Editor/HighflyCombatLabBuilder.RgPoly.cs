@@ -131,6 +131,7 @@ namespace Highfly.Editor
             safety.Configure(RgPolySpawn, -30f, true, true);
 
             AddRgPolySemanticAnchors(scene);
+            HighflyRgPolyCityAudit.Write(scene);
 
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene, WorldScenePath, true))
