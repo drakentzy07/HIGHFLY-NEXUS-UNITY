@@ -32,6 +32,7 @@ namespace Highfly.Editor
 
             WriteAll(rows);
             WriteCandidates(rows);
+            WriteWaterReport(scene);
 
             Debug.Log(
                 "HIGHFLY RG POLY CITY AUDIT | objects=" + rows.Count +
@@ -119,6 +120,96 @@ namespace Highfly.Editor
 
             for (int i = 0; i < transform.childCount; i++)
                 Visit(transform.GetChild(i), rows, depth + 1);
+        }
+
+        private static void WriteWaterReport(Scene scene)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine(
+                "name\tpath\tpos_x\tpos_y\tpos_z\tbounds_x\tbounds_y\tbounds_z" +
+                "\tmin_y\tmax_y\tmaterial\tcolliders\ttriggers");
+
+            Renderer[] renderers =
+                UnityEngine.Object.FindObjectsOfType<Renderer>(true);
+
+            CultureInfo ci = CultureInfo.InvariantCulture;
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || renderer.gameObject.scene != scene)
+                    continue;
+
+                string rendererName = renderer.name ?? string.Empty;
+                string lowerName = rendererName.ToLowerInvariant();
+                Material[] materials = renderer.sharedMaterials;
+
+                bool looksLikeWater =
+                    lowerName.Contains("water") ||
+                    lowerName.Contains("river") ||
+                    lowerName.Contains("lake");
+
+                string materialNames = string.Empty;
+
+                if (materials != null)
+                {
+                    List<string> names = new List<string>();
+                    for (int m = 0; m < materials.Length; m++)
+                    {
+                        Material mat = materials[m];
+                        if (mat == null)
+                            continue;
+
+                        string matName = mat.name ?? string.Empty;
+                        names.Add(matName);
+
+                        string lowerMat = matName.ToLowerInvariant();
+                        if (lowerMat.Contains("water") ||
+                            lowerMat.Contains("river") ||
+                            lowerMat.Contains("lake"))
+                            looksLikeWater = true;
+                    }
+
+                    materialNames = string.Join("|", names);
+                }
+
+                if (!looksLikeWater)
+                    continue;
+
+                Collider[] colliders =
+                    renderer.GetComponents<Collider>();
+
+                int triggers = 0;
+                for (int k = 0; k < colliders.Length; k++)
+                {
+                    Collider collider = colliders[k];
+                    if (collider != null && collider.isTrigger)
+                        triggers++;
+                }
+
+                Bounds b = renderer.bounds;
+                Vector3 p = renderer.transform.position;
+
+                sb.Append(Sanitize(rendererName)).Append('\t')
+                  .Append(Sanitize(GetPath(renderer.transform))).Append('\t')
+                  .Append(p.x.ToString("0.###", ci)).Append('\t')
+                  .Append(p.y.ToString("0.###", ci)).Append('\t')
+                  .Append(p.z.ToString("0.###", ci)).Append('\t')
+                  .Append(b.size.x.ToString("0.###", ci)).Append('\t')
+                  .Append(b.size.y.ToString("0.###", ci)).Append('\t')
+                  .Append(b.size.z.ToString("0.###", ci)).Append('\t')
+                  .Append(b.min.y.ToString("0.###", ci)).Append('\t')
+                  .Append(b.max.y.ToString("0.###", ci)).Append('\t')
+                  .Append(Sanitize(materialNames)).Append('\t')
+                  .Append(colliders.Length).Append('\t')
+                  .Append(triggers).AppendLine();
+            }
+
+            File.WriteAllText(
+                Path.Combine(
+                    DiagnosticsDirectory,
+                    "rgpoly-water-report.tsv"),
+                sb.ToString());
         }
 
         private static void WriteAll(List<Row> rows)
