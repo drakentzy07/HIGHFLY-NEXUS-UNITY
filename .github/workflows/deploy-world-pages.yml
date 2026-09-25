@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows:
       - "Build HIGHFLY World Final FREE WebGL"
+      - "Build HIGHFLY World W0-W1 WebGL"
     types:
       - completed
   workflow_dispatch:
@@ -34,7 +35,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Resolve successful WebGL run
+      - name: Resolve successful WebGL run + artifact
         id: source
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,20 +51,39 @@ jobs:
               curl -fsSL \
                 -H "Authorization: Bearer $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=highfly%2Fworld-final-free-v01&status=success&per_page=30" \
-              | jq -r '.workflow_runs[] | select(.name=="Build HIGHFLY World Final FREE WebGL") | .id' \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=highfly%2Fworld-isekai-w0-w1-v01&status=success&per_page=50" \
+              | jq -r '.workflow_runs[]
+                  | select(.path==".github/workflows/webgl-world-final-free.yml")
+                  | .id' \
               | head -1
             )"
           fi
 
           test -n "$RUN_ID"
+
+          ARTIFACT_NAME="$(
+            curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" \
+            | jq -r '.artifacts[]
+                | select(.expired==false)
+                | select(.name | contains("WEBGL"))
+                | select(.name | contains("DIAGNOSTICS") | not)
+                | .name' \
+            | head -1
+          )"
+
+          test -n "$ARTIFACT_NAME"
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "Publishing WebGL from successful run $RUN_ID"
+          echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          echo "Publishing WebGL from run $RUN_ID"
+          echo "Artifact: $ARTIFACT_NAME"
 
       - name: Download exact successful WebGL artifact
         uses: actions/download-artifact@v4
         with:
-          name: HIGHFLY-WORLD-FINAL-FREE-WEBGL-v0.1
+          name: ${{ steps.source.outputs.artifact_name }}
           path: site-download
           repository: drakentzy07/HIGHFLY-NEXUS-UNITY
           run-id: ${{ steps.source.outputs.run_id }}
@@ -72,6 +92,7 @@ jobs:
       - name: Normalize + verify playable payload
         run: |
           set -euo pipefail
+
           INDEX="$(find site-download -type f -name index.html | head -1)"
           test -n "$INDEX"
           ROOT="$(dirname "$INDEX")"
@@ -81,11 +102,13 @@ jobs:
           cp -a "$ROOT"/. site-publish/
 
           test -s site-publish/index.html
-          test -s site-publish/Build/HIGHFLY-WORLD-FINAL.loader.js
-          test -s site-publish/Build/HIGHFLY-WORLD-FINAL.framework.js
-          test -s site-publish/Build/HIGHFLY-WORLD-FINAL.wasm
-          test -s site-publish/Build/HIGHFLY-WORLD-FINAL.data
-          echo "HIGHFLY World Final WebGL payload verified"
+          test -n "$(find site-publish/Build -maxdepth 1 -type f -name '*.loader.js' -print -quit)"
+          test -n "$(find site-publish/Build -maxdepth 1 -type f -name '*.framework.js' -print -quit)"
+          test -n "$(find site-publish/Build -maxdepth 1 -type f -name '*.wasm' -print -quit)"
+          test -n "$(find site-publish/Build -maxdepth 1 -type f -name '*.data' -print -quit)"
+
+          echo "HIGHFLY World WebGL payload verified"
+          find site-publish/Build -maxdepth 1 -type f -printf "%f %k KB\n" | sort
           du -sh site-publish
 
       - name: Configure Pages
@@ -103,5 +126,3 @@ jobs:
       - name: Publish URL
         run: |
           echo "HIGHFLY WORLD LIVE: ${{ steps.deployment.outputs.page_url }}"
-
-# World Final FREE publish trigger v4
