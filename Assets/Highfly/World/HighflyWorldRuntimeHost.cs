@@ -10,8 +10,6 @@ namespace Highfly.World
     /// </summary>
     public sealed class HighflyWorldRuntimeHost : MonoBehaviour
     {
-        private const string EnableMarker = "WorldFinal/world_final_enabled";
-
         public static HighflyWorldRuntimeHost Current { get; private set; }
 
         public HighflyWorldRegistry Registry { get; private set; }
@@ -20,7 +18,10 @@ namespace Highfly.World
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoBoot()
         {
-            if (Resources.Load<TextAsset>(EnableMarker) == null)
+            // W1.1 RG Poly gate: boot only on the active HIGHFLY capital scene.
+            // This replaces the legacy WorldFinal Resources marker so additive
+            // interiors can use the current World Core without reviving old world code.
+            if (GameObject.Find("HIGHFLY_RG_POLY_CITY01") == null)
                 return;
 
             if (Current != null)
