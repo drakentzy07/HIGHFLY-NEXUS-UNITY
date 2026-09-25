@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - highfly/world-final-rgpoly-city01-v01
+      - highfly/world-isekai-w0-w1-rgpoly-v01
     paths:
       - "Assets/Highfly/**"
       - "ci/world/**"
