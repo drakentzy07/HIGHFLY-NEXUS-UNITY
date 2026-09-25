@@ -114,6 +114,19 @@ jobs:
           echo "=== Lean HIGHFLY CI package manifest ==="
           cat LucidHost/3D_game/Packages/manifest.json
 
+      - name: Remove unused legacy host assets before Unity import
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          rm -rf "LucidHost/3D_game/Assets/UnityTechnologies/ParticlePack"
+          rm -rf "LucidHost/3D_game/Assets/TextMesh Pro"
+
+          # These legacy assets are not referenced by HIGHFLY WORLD and have
+          # repeatedly entered Unity's Linux texture-compression crash path.
+          test ! -d "LucidHost/3D_game/Assets/UnityTechnologies/ParticlePack"
+          test ! -d "LucidHost/3D_game/Assets/TextMesh Pro"
+
       - name: Install current HIGHFLY core into Unity6 host
         shell: bash
         run: |
@@ -253,7 +266,9 @@ jobs:
           restore-keys: |
             rgpoly-goldenhost-6000.6-v3-lean-
 
-      - name: Prepare CITY01 on native Unity6 host
+      - name: Prepare CITY01 on native Unity6 host — attempt 1
+        id: prepare1
+        continue-on-error: true
         uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -266,7 +281,24 @@ jobs:
           buildsPath: build/prepare
           buildName: HIGHFLY-RGPOLY-PREPARE
           buildMethod: Highfly.Editor.HighflyBuildPipeline.PrepareWebGLRgPolyWorld
-          customParameters: -job-worker-count 1 -nographics -disableManagedDebugger
+          customParameters: -job-worker-count 1 -disableManagedDebugger
+          allowDirtyBuild: true
+
+      - name: Prepare CITY01 retry after transient Unity crash
+        if: steps.prepare1.outcome == 'failure'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: LucidHost/3D_game
+          unityVersion: 6000.6.2f1
+          targetPlatform: WebGL
+          buildsPath: build/prepare
+          buildName: HIGHFLY-RGPOLY-PREPARE
+          buildMethod: Highfly.Editor.HighflyBuildPipeline.PrepareWebGLRgPolyWorld
+          customParameters: -job-worker-count 1 -disableManagedDebugger
           allowDirtyBuild: true
 
       - name: Verify prepared CITY01
@@ -300,7 +332,7 @@ jobs:
           buildsPath: build
           buildName: HIGHFLY-WORLD-RGPOLY
           buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildPreparedWebGLRgPolyWorld
-          customParameters: -job-worker-count 1 -nographics -disableManagedDebugger
+          customParameters: -job-worker-count 1 -disableManagedDebugger
           allowDirtyBuild: true
 
       - name: Inspect output
