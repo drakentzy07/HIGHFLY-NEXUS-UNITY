@@ -1,10 +1,11 @@
-name: Build HIGHFLY World Final FREE WebGL
+name: Build HIGHFLY World W0-W1 WebGL
 
 on:
   workflow_dispatch:
   push:
     branches:
       - highfly/world-final-free-v01
+      - highfly/world-isekai-w0-w1-v01
     paths:
       - "Assets/Highfly/**"
       - ".github/workflows/webgl-world-final-free.yml"
@@ -239,7 +240,7 @@ jobs:
       - name: Upload World Final WebGL
         uses: actions/upload-artifact@v4
         with:
-          name: HIGHFLY-WORLD-FINAL-FREE-WEBGL-v0.1
+          name: HIGHFLY-WORLD-W0-W1-WEBGL-v0.1
           path: build/WebGL/**
           if-no-files-found: error
           retention-days: 14
@@ -248,7 +249,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HIGHFLY-WORLD-FINAL-FREE-DIAGNOSTICS-v0.1
+          name: HIGHFLY-WORLD-W0-W1-DIAGNOSTICS-v0.1
           path: build/diagnostics/**
           if-no-files-found: warn
           retention-days: 7
