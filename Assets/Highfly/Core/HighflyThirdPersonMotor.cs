@@ -83,7 +83,7 @@ namespace Highfly.Core
 
             Vector2 input = movementJoystick != null ? movementJoystick.Value : Vector2.zero;
 
-#if UNITY_EDITOR || UNITY_STANDALONE
+#if UNITY_EDITOR || UNITY_STANDALONE || UNITY_WEBGL
             if (input.sqrMagnitude < 0.001f)
                 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 #endif

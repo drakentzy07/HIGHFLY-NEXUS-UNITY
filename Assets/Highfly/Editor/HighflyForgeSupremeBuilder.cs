@@ -34,7 +34,7 @@ namespace Highfly.Editor
         private const string DiagnosticsDirectory = "build/diagnostics";
 
         private static readonly Vector3 RemoteOrigin =
-            new Vector3(1000f, 0f, 1000f);
+            new Vector3(1000f, 30f, 1000f);
 
         private sealed class AssetLog
         {
@@ -108,58 +108,58 @@ namespace Highfly.Editor
 
             CreateBox(
                 parent, "FORGE_FLOOR",
-                new Vector3(0f, -0.14f, 0f),
-                new Vector3(15f, 0.28f, 11.5f),
+                new Vector3(0f, -0.16f, 0f),
+                new Vector3(22f, 0.32f, 16f),
                 floorMat, true);
 
             CreateBox(
                 parent, "FORGE_WALL_SOUTH_L",
-                new Vector3(-5f, 2.25f, -5.6f),
-                new Vector3(5f, 4.5f, 0.35f),
+                new Vector3(-6.7f, 2.9f, -7.8f),
+                new Vector3(8.6f, 5.8f, 0.4f),
                 wallMat, true);
 
             CreateBox(
                 parent, "FORGE_WALL_SOUTH_R",
-                new Vector3(5f, 2.25f, -5.6f),
-                new Vector3(5f, 4.5f, 0.35f),
+                new Vector3(6.7f, 2.9f, -7.8f),
+                new Vector3(8.6f, 5.8f, 0.4f),
                 wallMat, true);
 
             CreateBox(
                 parent, "FORGE_WALL_NORTH",
-                new Vector3(0f, 2.25f, 5.6f),
-                new Vector3(15f, 4.5f, 0.35f),
+                new Vector3(0f, 2.9f, 7.8f),
+                new Vector3(22f, 5.8f, 0.4f),
                 wallMat, true);
 
             CreateBox(
                 parent, "FORGE_WALL_WEST",
-                new Vector3(-7.35f, 2.25f, 0f),
-                new Vector3(0.35f, 4.5f, 11.5f),
+                new Vector3(-10.8f, 2.9f, 0f),
+                new Vector3(0.4f, 5.8f, 16f),
                 wallMat, true);
 
             CreateBox(
                 parent, "FORGE_WALL_EAST",
-                new Vector3(7.35f, 2.25f, 0f),
-                new Vector3(0.35f, 4.5f, 11.5f),
+                new Vector3(10.8f, 2.9f, 0f),
+                new Vector3(0.4f, 5.8f, 16f),
                 wallMat, true);
 
             // Heavy timber frame keeps the room visually medieval and avoids
             // importing another full structural pack.
-            for (int i = -2; i <= 2; i++)
+            for (int i = -3; i <= 3; i++)
             {
                 CreateBox(
                     parent,
                     "FORGE_BEAM_" + i,
-                    new Vector3(i * 3.4f, 3.7f, 0f),
-                    new Vector3(0.25f, 0.25f, 11.2f),
+                    new Vector3(i * 3.2f, 4.8f, 0f),
+                    new Vector3(0.28f, 0.28f, 15.6f),
                     beamMat,
                     false);
             }
 
             CreateBox(
                 parent, "FORGE_CEILING",
-                new Vector3(0f, 4.55f, 0f),
-                new Vector3(15f, 0.22f, 11.5f),
-                roofMat, false);
+                new Vector3(0f, 5.85f, 0f),
+                new Vector3(22f, 0.30f, 16f),
+                roofMat, true);
 
             string door = FindAnyModel(
                 RgPolyRoot,
@@ -179,9 +179,9 @@ namespace Highfly.Editor
                     door,
                     parent,
                     "FORGE_ENTRY_DOOR_VISUAL",
-                    new Vector3(0f, 0f, -5.45f),
+                    new Vector3(0f, 0f, -7.65f),
                     new Vector3(0f, 180f, 0f),
-                    2.8f,
+                    3.2f,
                     false);
             }
 
@@ -191,7 +191,7 @@ namespace Highfly.Editor
                     window,
                     parent,
                     "FORGE_WINDOW_NORTH_A",
-                    new Vector3(-4.1f, 1.35f, 5.4f),
+                    new Vector3(-6.2f, 1.75f, 7.6f),
                     Vector3.zero,
                     1.9f,
                     false);
@@ -200,7 +200,7 @@ namespace Highfly.Editor
                     window,
                     parent,
                     "FORGE_WINDOW_NORTH_B",
-                    new Vector3(4.1f, 1.35f, 5.4f),
+                    new Vector3(6.2f, 1.75f, 7.6f),
                     Vector3.zero,
                     1.9f,
                     false);
@@ -291,7 +291,7 @@ namespace Highfly.Editor
                 anvil,
                 parent,
                 "FORGE_ANVIL",
-                new Vector3(-1.8f, 0f, 0.1f),
+                new Vector3(-2.6f, 0f, 0.4f),
                 new Vector3(0f, -12f, 0f),
                 1.05f,
                 true);
@@ -314,7 +314,7 @@ namespace Highfly.Editor
                 furnace,
                 parent,
                 "FORGE_FURNACE",
-                new Vector3(-5.4f, 0f, 3.4f),
+                new Vector3(-7.5f, 0f, 4.9f),
                 new Vector3(0f, 135f, 0f),
                 2.5f,
                 true);
@@ -332,7 +332,7 @@ namespace Highfly.Editor
                 workbench,
                 parent,
                 "FORGE_WORKBENCH",
-                new Vector3(4.3f, 0f, 3.1f),
+                new Vector3(6.3f, 0f, 4.7f),
                 new Vector3(0f, -145f, 0f),
                 1.5f,
                 true);
@@ -369,7 +369,7 @@ namespace Highfly.Editor
                     rack,
                     parent,
                     "FORGE_WEAPON_RACK",
-                    new Vector3(5.6f, 0f, -2.8f),
+                    new Vector3(7.6f, 0f, -4.2f),
                     new Vector3(0f, -90f, 0f),
                     2.0f,
                     true);
@@ -387,7 +387,7 @@ namespace Highfly.Editor
             {
                 GameObject display = new GameObject("FORGE_WEAPON_DISPLAY");
                 display.transform.SetParent(parent, false);
-                display.transform.localPosition = new Vector3(5.6f, 0.9f, -2.8f);
+                display.transform.localPosition = new Vector3(7.6f, 0.9f, -4.2f);
 
                 if (!string.IsNullOrEmpty(sword))
                 {
@@ -416,14 +416,14 @@ namespace Highfly.Editor
                 AddInteraction(
                     parent,
                     "STATION_WEAPON_DISPLAY",
-                    parent.TransformPoint(new Vector3(5.6f, 1f, -2.8f)),
+                    parent.TransformPoint(new Vector3(7.6f, 1f, -4.2f)),
                     new Vector3(3.2f, 2.4f, 2.4f),
                     HighflyForgeActionKind.WeaponDisplay,
                     "EXHIBIDOR DE ARMAS",
                     "INSPECCIONAR");
             }
 
-            Vector3 storagePosition = new Vector3(-5.3f, 0f, -2.6f);
+            Vector3 storagePosition = new Vector3(-7.4f, 0f, -4.1f);
 
             if (!string.IsNullOrEmpty(chest))
             {
@@ -486,7 +486,7 @@ namespace Highfly.Editor
 
             npc.name = "HERRERO_KAYKIT";
             npc.transform.SetParent(parent, false);
-            npc.transform.localPosition = new Vector3(0.8f, 0f, 3.7f);
+            npc.transform.localPosition = new Vector3(1.4f, 0f, 5.4f);
             npc.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
 
             NormalizeHeight(npc, 1.82f);
@@ -515,7 +515,7 @@ namespace Highfly.Editor
         {
             GameObject entry = new GameObject("ENTRY_ANCHOR");
             entry.transform.SetParent(parent, false);
-            entry.transform.localPosition = new Vector3(0f, 0.1f, -3.8f);
+            entry.transform.localPosition = new Vector3(0f, 0.15f, -5.9f);
             entry.transform.localRotation = Quaternion.identity;
 
             HighflyWorldAnchor entryAnchor =
@@ -528,7 +528,7 @@ namespace Highfly.Editor
 
             GameObject exit = new GameObject("EXIT_TO_CAPITAL");
             exit.transform.SetParent(parent, false);
-            exit.transform.localPosition = new Vector3(0f, 0f, -5.15f);
+            exit.transform.localPosition = new Vector3(0f, 0f, -7.15f);
             exit.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
 
             BoxCollider exitCollider = exit.AddComponent<BoxCollider>();
@@ -555,15 +555,15 @@ namespace Highfly.Editor
             CreateLight(
                 parent,
                 "FORGE_LIGHT_MAIN",
-                new Vector3(0f, 3.8f, 0f),
+                new Vector3(0f, 4.9f, 0f),
                 new Color(1f, 0.77f, 0.54f, 1f),
                 2.0f,
-                12f);
+                17f);
 
             CreateLight(
                 parent,
                 "FORGE_LIGHT_FURNACE",
-                new Vector3(-5.0f, 1.6f, 3.0f),
+                new Vector3(-7.0f, 1.8f, 4.6f),
                 new Color(1f, 0.30f, 0.08f, 1f),
                 3.0f,
                 7f);
@@ -571,7 +571,7 @@ namespace Highfly.Editor
             CreateLight(
                 parent,
                 "FORGE_LIGHT_ENTRY",
-                new Vector3(0f, 2.8f, -3.8f),
+                new Vector3(0f, 3.1f, -6.2f),
                 new Color(1f, 0.62f, 0.32f, 1f),
                 1.35f,
                 6f);
