@@ -273,60 +273,160 @@ namespace Highfly.Editor
             Renderer renderer,
             Scene scene)
         {
-            float surfaceY = renderer.bounds.max.y;
-            Collider[] colliders = renderer.GetComponents<Collider>();
+            Bounds bounds = renderer.bounds;
+            float surfaceY = bounds.max.y;
 
-            if (colliders.Length > 0)
+            // The RG Poly Water object is an enormous visual plane only a few
+            // millimetres thick. It must never be used as the swim volume.
+            Collider[] sourceColliders = renderer.GetComponents<Collider>();
+            for (int i = 0; i < sourceColliders.Length; i++)
             {
-                for (int i = 0; i < colliders.Length; i++)
-                {
-                    Collider collider = colliders[i];
-                    if (collider == null)
-                        continue;
+                Collider sourceCollider = sourceColliders[i];
+                if (sourceCollider != null)
+                    sourceCollider.enabled = false;
+            }
 
-                    collider.enabled = true;
-                    collider.isTrigger = true;
+            string volumeName = "HIGHFLY_WATER_VOLUME_" + renderer.name;
+            GameObject oldVolume = GameObject.Find(volumeName);
+            if (oldVolume != null)
+                UnityEngine.Object.DestroyImmediate(oldVolume);
 
-                    HighflyWaterZone zone =
-                        collider.GetComponent<HighflyWaterZone>();
-                    if (zone == null)
-                        zone = collider.gameObject.AddComponent<HighflyWaterZone>();
+            const float volumeDepth = 14f;
 
-                    zone.Configure(surfaceY);
-                }
+            GameObject volume = new GameObject(volumeName);
+            SceneManager.MoveGameObjectToScene(volume, scene);
 
-                Debug.Log(
-                    "HIGHFLY swimmable water: converted " +
-                    colliders.Length + " collider(s) to trigger on " + renderer.name);
+            volume.transform.position = new Vector3(
+                bounds.center.x,
+                surfaceY - volumeDepth * 0.5f,
+                bounds.center.z);
+
+            BoxCollider trigger = volume.AddComponent<BoxCollider>();
+            trigger.isTrigger = true;
+            trigger.center = Vector3.zero;
+            trigger.size = new Vector3(
+                Mathf.Max(1f, bounds.size.x),
+                volumeDepth,
+                Mathf.Max(1f, bounds.size.z));
+
+            HighflyWaterZone zone =
+                volume.AddComponent<HighflyWaterZone>();
+            zone.Configure(surfaceY);
+
+            CreateRgPolyWaterDepthLayer(renderer, scene, surfaceY);
+
+            Debug.Log(
+                "HIGHFLY water foundation | renderer=" + renderer.name +
+                " | surfaceY=" + surfaceY +
+                " | volumeDepth=" + volumeDepth +
+                " | disabledThinColliders=" + sourceColliders.Length);
+        }
+
+        private static void CreateRgPolyWaterDepthLayer(
+            Renderer sourceRenderer,
+            Scene scene,
+            float surfaceY)
+        {
+            MeshFilter sourceFilter =
+                sourceRenderer.GetComponent<MeshFilter>();
+
+            if (sourceFilter == null || sourceFilter.sharedMesh == null)
+            {
+                Debug.LogWarning(
+                    "HIGHFLY water depth layer skipped: no MeshFilter on " +
+                    sourceRenderer.name);
                 return;
             }
 
-            Bounds bounds = renderer.bounds;
-            float depth = Mathf.Max(2.6f, bounds.size.y + 2.6f);
+            const string materialPath =
+                "Assets/Highfly/Generated/HIGHFLY_Water_Depth_WebGL.mat";
 
-            GameObject triggerObject =
-                new GameObject("HIGHFLY_SWIM_TRIGGER_" + renderer.name);
-            SceneManager.MoveGameObjectToScene(triggerObject, scene);
+            Material depthMaterial =
+                AssetDatabase.LoadAssetAtPath<Material>(materialPath);
 
-            triggerObject.transform.position = new Vector3(
-                bounds.center.x,
-                surfaceY - depth * 0.5f + 0.25f,
-                bounds.center.z);
+            if (depthMaterial == null)
+            {
+                Shader shader =
+                    Shader.Find("Universal Render Pipeline/Lit");
 
-            BoxCollider trigger = triggerObject.AddComponent<BoxCollider>();
-            trigger.isTrigger = true;
-            trigger.size = new Vector3(
-                Mathf.Max(0.5f, bounds.size.x),
-                depth,
-                Mathf.Max(0.5f, bounds.size.z));
+                if (shader == null)
+                    shader =
+                        Shader.Find("Universal Render Pipeline/Simple Lit");
 
-            HighflyWaterZone fallbackZone =
-                triggerObject.AddComponent<HighflyWaterZone>();
-            fallbackZone.Configure(surfaceY);
+                if (shader == null)
+                    return;
+
+                depthMaterial = new Material(shader);
+                depthMaterial.name = "HIGHFLY_Water_Depth_WebGL";
+
+                Color depthColor =
+                    new Color(0.006f, 0.075f, 0.16f, 0.52f);
+
+                if (depthMaterial.HasProperty("_BaseColor"))
+                    depthMaterial.SetColor("_BaseColor", depthColor);
+                if (depthMaterial.HasProperty("_Color"))
+                    depthMaterial.SetColor("_Color", depthColor);
+                if (depthMaterial.HasProperty("_Smoothness"))
+                    depthMaterial.SetFloat("_Smoothness", 0.45f);
+                if (depthMaterial.HasProperty("_Metallic"))
+                    depthMaterial.SetFloat("_Metallic", 0f);
+                if (depthMaterial.HasProperty("_Surface"))
+                    depthMaterial.SetFloat("_Surface", 1f);
+                if (depthMaterial.HasProperty("_SrcBlend"))
+                    depthMaterial.SetFloat(
+                        "_SrcBlend",
+                        (float)BlendMode.SrcAlpha);
+                if (depthMaterial.HasProperty("_DstBlend"))
+                    depthMaterial.SetFloat(
+                        "_DstBlend",
+                        (float)BlendMode.OneMinusSrcAlpha);
+                if (depthMaterial.HasProperty("_ZWrite"))
+                    depthMaterial.SetFloat("_ZWrite", 0f);
+
+                depthMaterial.SetOverrideTag(
+                    "RenderType",
+                    "Transparent");
+                depthMaterial.EnableKeyword(
+                    "_SURFACE_TYPE_TRANSPARENT");
+                depthMaterial.renderQueue =
+                    (int)RenderQueue.Transparent;
+
+                AssetDatabase.CreateAsset(
+                    depthMaterial,
+                    materialPath);
+            }
+
+            string depthName =
+                "HIGHFLY_WATER_DEPTH_VISUAL_" + sourceRenderer.name;
+
+            GameObject existing = GameObject.Find(depthName);
+            if (existing != null)
+                UnityEngine.Object.DestroyImmediate(existing);
+
+            GameObject depth = new GameObject(depthName);
+            SceneManager.MoveGameObjectToScene(depth, scene);
+
+            depth.transform.position =
+                sourceRenderer.transform.position + Vector3.down * 1.65f;
+            depth.transform.rotation =
+                sourceRenderer.transform.rotation;
+            depth.transform.localScale =
+                sourceRenderer.transform.lossyScale;
+
+            MeshFilter meshFilter =
+                depth.AddComponent<MeshFilter>();
+            meshFilter.sharedMesh = sourceFilter.sharedMesh;
+
+            MeshRenderer meshRenderer =
+                depth.AddComponent<MeshRenderer>();
+            meshRenderer.sharedMaterial = depthMaterial;
+            meshRenderer.shadowCastingMode =
+                ShadowCastingMode.Off;
+            meshRenderer.receiveShadows = false;
 
             Debug.Log(
-                "HIGHFLY swimmable water: fallback trigger created for " +
-                renderer.name + " | surfaceY=" + surfaceY);
+                "HIGHFLY water depth visual created | surfaceY=" +
+                surfaceY + " | offset=1.65");
         }
 
         private static void OptimizeRgPolyTextures()
