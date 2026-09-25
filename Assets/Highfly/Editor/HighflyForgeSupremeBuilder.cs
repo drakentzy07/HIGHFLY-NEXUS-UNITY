@@ -778,9 +778,9 @@ namespace Highfly.Editor
                 BoxCollider collider = wrapper.AddComponent<BoxCollider>();
 
                 Vector3 localCenter =
-                    wrapper.InverseTransformPoint(worldBounds.center);
+                    wrapper.transform.InverseTransformPoint(worldBounds.center);
 
-                Vector3 lossy = wrapper.lossyScale;
+                Vector3 lossy = wrapper.transform.lossyScale;
                 collider.center = localCenter;
                 collider.size = new Vector3(
                     worldBounds.size.x / Mathf.Max(0.001f, Mathf.Abs(lossy.x)),
