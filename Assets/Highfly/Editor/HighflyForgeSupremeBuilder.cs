@@ -243,13 +243,21 @@ namespace Highfly.Editor
             string furnace = FindAnyModel(
                 PropsRoot,
                 new[] { "furnace", "smelter", "forge", "kiln" },
-                true);
+                false);
+
+            if (string.IsNullOrEmpty(furnace))
+            {
+                furnace = FindAnyModel(
+                    RgPolyRoot,
+                    new[] { "smithy", "cimey", "chimney" },
+                    true);
+            }
             log.Add("forge.furnace", furnace);
 
             string hammer = FindAnyModel(
                 PropsRoot,
-                new[] { "hammer" },
-                true);
+                new[] { "hammer", "mallet" },
+                false);
             log.Add("forge.hammer", hammer);
 
             string workbench = FindAnyModel(
@@ -360,14 +368,17 @@ namespace Highfly.Editor
                 "BANCO DE TRABAJO",
                 "CRAFT");
 
-            PlaceDecor(
-                hammer,
-                parent,
-                "FORGE_HAMMER",
-                new Vector3(-0.7f, 1.0f, 0.1f),
-                new Vector3(8f, 20f, 72f),
-                0.6f,
-                false);
+            if (!string.IsNullOrEmpty(hammer))
+            {
+                PlaceDecor(
+                    hammer,
+                    parent,
+                    "FORGE_HAMMER",
+                    new Vector3(-0.7f, 1.0f, 0.1f),
+                    new Vector3(8f, 20f, 72f),
+                    0.6f,
+                    false);
+            }
 
             if (!string.IsNullOrEmpty(rack))
             {
