@@ -156,40 +156,26 @@ jobs:
           test -f "LucidHost/3D_game/Assets/Stylized Medieval Kingdom URP/Scenes/Demo Stylized Medieval.unity"
           test -f "LucidHost/3D_game/Assets/Stylized Medieval Kingdom URP/Prefabs/Wall/Wall_Gate Variant.prefab"
 
-      - name: Download approved Quaternius W1.1 interior donors
+      - name: Download minimal Quaternius Forge donor
         shell: bash
         run: |
           set -euxo pipefail
           rm -rf q-download q-stage
-          mkdir -p q-download/props q-download/village q-stage/props q-stage/village
+          mkdir -p q-download/props q-stage/props
 
           node <<'NODE'
           const path = require('path');
           const { downloadGame } = require(path.join(process.cwd(), '.hf-itch/node_modules/itchio-downloader'));
 
-          async function get(url, dir, desiredFileName) {
+          (async () => {
             const result = await downloadGame({
-              itchGameUrl: url,
-              downloadDirectory: path.join(process.cwd(), dir),
-              desiredFileName,
+              itchGameUrl: 'https://quaternius.itch.io/fantasy-props-megakit',
+              downloadDirectory: path.join(process.cwd(), 'q-download/props'),
+              desiredFileName: 'Fantasy Props MegaKit[Standard]',
               resume: true,
               noCookieCache: true,
             });
             console.log(JSON.stringify(result, null, 2));
-          }
-
-          (async () => {
-            await get(
-              'https://quaternius.itch.io/fantasy-props-megakit',
-              'q-download/props',
-              'Fantasy Props MegaKit[Standard]'
-            );
-
-            await get(
-              'https://quaternius.itch.io/medieval-village-megakit',
-              'q-download/village',
-              'Medieval Village MegaKit[Standard]'
-            );
           })().catch(err => {
             console.error(err);
             process.exit(1);
@@ -197,50 +183,25 @@ jobs:
           NODE
 
           PROP_PACKAGE="$(find q-download/props -type f -name '*.zip' | head -n 1)"
-          VILLAGE_PACKAGE="$(find q-download/village -type f -name '*.zip' | head -n 1)"
           test -f "$PROP_PACKAGE"
-          test -f "$VILLAGE_PACKAGE"
-
           unzip -q "$PROP_PACKAGE" -d q-stage/props
-          unzip -q "$VILLAGE_PACKAGE" -d q-stage/village
 
           PROPS_DST="LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit"
-          VILLAGE_DST="LucidHost/3D_game/Assets/External/Quaternius/MedievalVillageMegaKit"
-          rm -rf "$PROPS_DST" "$VILLAGE_DST"
-          mkdir -p "$PROPS_DST/Models" "$PROPS_DST/Textures"
-          mkdir -p "$VILLAGE_DST/Models" "$VILLAGE_DST/Textures"
+          rm -rf "LucidHost/3D_game/Assets/External/Quaternius"
+          mkdir -p "$PROPS_DST/Models"
 
-          copy_named_fbx () {
-            ROOT="$1"
-            DST="$2"
-            shift 2
-            for NAME in "$@"; do
-              SRC="$(find "$ROOT" -type f -iname "$NAME.fbx" | head -n 1)"
-              if [ -n "$SRC" ]; then
-                cp "$SRC" "$DST/Models/"
-                echo "selected donor: $SRC"
-              fi
-            done
-          }
+          for NAME in Anvil Workbench; do
+            SRC="$(find q-stage/props -type f -iname "$NAME.fbx" | head -n 1)"
+            test -n "$SRC"
+            cp "$SRC" "$PROPS_DST/Models/"
+          done
 
-          copy_named_fbx q-stage/props "$PROPS_DST"             Anvil Workbench Workbench_Drawers Chest_Wood Barrel Crate_Wooden Crate_Metal             Sword_A Sword_B Axe_A Axe_B WeaponRack Weapon_Rack
-
-          copy_named_fbx q-stage/village "$VILLAGE_DST"             Floor_WoodDark Wall_Plaster_Straight Door_1_Flat Window_Wide_Flat1             Roof_Wooden_2x1 Wall_UnevenBrick_Straight Floor_UnevenBrick
-
-          # Copy texture atlases only. Do not expose hundreds of unused models
-          # to Unity's importer: this keeps the W1.1 runner inside memory budget.
-          find q-stage/props -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \)             -exec cp -n {} "$PROPS_DST/Textures/" \; || true
-          find q-stage/village -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \)             -exec cp -n {} "$VILLAGE_DST/Textures/" \; || true
-
-          echo "=== W1.1 selective donor payload ==="
-          find "$PROPS_DST" "$VILLAGE_DST" -type f -printf '%p %k KB\n' | sort
-          echo "FBX count: $(find "$PROPS_DST" "$VILLAGE_DST" -type f -iname '*.fbx' | wc -l)"
-          du -sh "$PROPS_DST" "$VILLAGE_DST"
-
+          echo "=== HIGHFLY W1.1 minimal donor payload ==="
+          find "$PROPS_DST" -type f -printf '%p %k KB\n' | sort
+          du -sh "$PROPS_DST"
+          test "$(find "$PROPS_DST" -type f -iname '*.fbx' | wc -l)" -eq 2
           test -f "$PROPS_DST/Models/Anvil.fbx"
           test -f "$PROPS_DST/Models/Workbench.fbx"
-          test -f "$VILLAGE_DST/Models/Floor_WoodDark.fbx"
-          test -f "$VILLAGE_DST/Models/Wall_Plaster_Straight.fbx"
 
       - name: Audit W1.1 reusable interior donors
         shell: bash
