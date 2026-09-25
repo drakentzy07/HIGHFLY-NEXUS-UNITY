@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "scenes": [
+    {
+      "id": "scene.capital",
+      "sceneName": "WorldLab",
+      "kind": "HubWorld",
+      "zoneIds": ["zone.capital"],
+      "streamingPolicy": "PERSISTENT_HOST",
+      "savePolicy": "WORLD_SNAPSHOT",
+      "provenance": {
+        "source": "HIGHFLY_WORLD_FINAL_FREE",
+        "sourceVersion": "v0.1",
+        "shippingPolicy": "CC0_QUATERNIUS_PLUS_HIGHFLY",
+        "notes": "Existing approved capital reused as W1 host."
+      }
+    },
+    {
+      "id": "scene.interior.guild",
+      "sceneName": "HF_INT_CAPITAL_GUILD",
+      "kind": "Interior",
+      "zoneIds": [],
+      "streamingPolicy": "ADDITIVE_ON_DEMAND",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "HIGHFLY_W0_W1",
+        "sourceVersion": "v0.1",
+        "shippingPolicy": "HIGHFLY_OWNED_OR_APPROVED",
+        "notes": "Generated W1 functional interior."
+      }
+    },
+    {
+      "id": "scene.interior.inn",
+      "sceneName": "HF_INT_CAPITAL_INN",
+      "kind": "Interior",
+      "zoneIds": [],
+      "streamingPolicy": "ADDITIVE_ON_DEMAND",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "HIGHFLY_W0_W1",
+        "sourceVersion": "v0.1",
+        "shippingPolicy": "HIGHFLY_OWNED_OR_APPROVED",
+        "notes": "Generated W1 functional interior."
+      }
+    },
+    {
+      "id": "scene.interior.forge",
+      "sceneName": "HF_INT_CAPITAL_FORGE",
+      "kind": "Interior",
+      "zoneIds": [],
+      "streamingPolicy": "ADDITIVE_ON_DEMAND",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "HIGHFLY_W0_W1",
+        "sourceVersion": "v0.1",
+        "shippingPolicy": "HIGHFLY_OWNED_OR_APPROVED",
+        "notes": "Generated W1 functional interior."
+      }
+    },
+    {
+      "id": "scene.interior.market",
+      "sceneName": "HF_INT_CAPITAL_MARKET",
+      "kind": "Interior",
+      "zoneIds": [],
+      "streamingPolicy": "ADDITIVE_ON_DEMAND",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "HIGHFLY_W0_W1",
+        "sourceVersion": "v0.1",
+        "shippingPolicy": "HIGHFLY_OWNED_OR_APPROVED",
+        "notes": "Generated W1 functional interior."
+      }
+    }
+  ],
+  "zones": [
+    {
+      "id": "zone.capital",
+      "sceneRef": "scene.capital",
+      "displayName": "Capital HIGHFLY",
+      "biomeTags": ["medieval", "isekai", "safe_city"],
+      "entryPoints": ["anchor.capital.spawn"],
+      "exits": ["anchor.capital.south_gate"],
+      "serviceRefs": ["service.guild", "service.inn", "service.forge", "service.market"],
+      "portalRefs": [],
+      "savePolicy": "WORLD_SNAPSHOT",
+      "streamingPolicy": "PERSISTENT_HOST",
+      "provenance": {
+        "source": "HIGHFLY_WORLD_FINAL_FREE",
+        "sourceVersion": "v0.1",
+        "shippingPolicy": "CC0_QUATERNIUS_PLUS_HIGHFLY",
+        "notes": "W1 functional city seed. Exterior production remains W3."
+      }
+    }
+  ],
+  "interiors": [
+    {
+      "id": "interior.capital.guild",
+      "displayName": "Gremio",
+      "sceneName": "HF_INT_CAPITAL_GUILD",
+      "layoutProfile": "guild",
+      "entryAnchorId": "anchor.int.guild.entry",
+      "exitAnchorId": "anchor.int.guild.exit",
+      "serviceRef": "service.guild",
+      "returnAnchorId": "anchor.capital.guild.door",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "HIGHFLY_W0_W1",
+        "sourceVersion": "v0.1",
+        "shippingPolicy": "HIGHFLY_OWNED_OR_APPROVED",
+        "notes": "Quest board and forecast adapters arrive in W2."
+      }
+    },
+    {
+      "id": "interior.capital.inn",
+      "displayName": "Posada / Taberna",
+      "sceneName": "HF_INT_CAPITAL_INN",
+      "layoutProfile": "inn",
+      "entryAnchorId": "anchor.int.inn.entry",
+      "exitAnchorId": "anchor.int.inn.exit",
+      "serviceRef": "service.inn",
+      "returnAnchorId": "anchor.capital.inn.door",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "HIGHFLY_W0_W1",
+        "sourceVersion": "v0.1",
+        "shippingPolicy": "HIGHFLY_OWNED_OR_APPROVED",
+        "notes": "Rest endpoint functional in W1."
+      }
+    },
+    {
+      "id": "interior.capital.forge",
+      "displayName": "Forja",
+      "sceneName": "HF_INT_CAPITAL_FORGE",
+      "layoutProfile": "forge",
+      "entryAnchorId": "anchor.int.forge.entry",
+      "exitAnchorId": "anchor.int.forge.exit",
+      "serviceRef": "service.forge",
+      "returnAnchorId": "anchor.capital.forge.door",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "HIGHFLY_W0_W1",
+        "sourceVersion": "v0.1",
+        "shippingPolicy": "HIGHFLY_OWNED_OR_APPROVED",
+        "notes": "HIGHFLY recipe/inventory bridge remains downstream."
+      }
+    },
+    {
+      "id": "interior.capital.market",
+      "displayName": "Mercado",
+      "sceneName": "HF_INT_CAPITAL_MARKET",
+      "layoutProfile": "market",
+      "entryAnchorId": "anchor.int.market.entry",
+      "exitAnchorId": "anchor.int.market.exit",
+      "serviceRef": "service.market",
+      "returnAnchorId": "anchor.capital.market.door",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "HIGHFLY_W0_W1",
+        "sourceVersion": "v0.1",
+        "shippingPolicy": "HIGHFLY_OWNED_OR_APPROVED",
+        "notes": "Vendor/economy adapters arrive in W2."
+      }
+    }
+  ],
+  "portals": []
+}
