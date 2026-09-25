@@ -28,6 +28,9 @@ namespace Highfly.Core
         [SerializeField] private float swimSurfaceOffset = 1.05f;
         [SerializeField] private float swimBuoyancy = 6.5f;
         [SerializeField] private float maxSwimVerticalSpeed = 2.4f;
+        [SerializeField] private float wadeStartDepth = 0.28f;
+        [SerializeField] private float swimStartDepth = 0.92f;
+        [SerializeField] private float wadeSpeed = 3.15f;
 
         [Header("Dash")]
         [SerializeField] private float defaultDashDistance = 4.2f;
@@ -43,7 +46,28 @@ namespace Highfly.Core
         public Vector3 LastMoveDirection { get; private set; } = Vector3.forward;
         public bool IsMoving { get; private set; }
         public bool IsDashing => _isDashing;
-        public bool IsSwimming => _waterContacts > 0;
+        public bool IsInWater => _waterContacts > 0;
+        public float WaterDepth
+        {
+            get
+            {
+                if (_waterContacts <= 0 || _controller == null)
+                    return 0f;
+
+                return Mathf.Max(
+                    0f,
+                    _swimSurfaceY - _controller.bounds.min.y);
+            }
+        }
+
+        public bool IsWading =>
+            _waterContacts > 0 &&
+            WaterDepth >= wadeStartDepth &&
+            WaterDepth < swimStartDepth;
+
+        public bool IsSwimming =>
+            _waterContacts > 0 &&
+            WaterDepth >= swimStartDepth;
 
         private void Awake()
         {
@@ -81,7 +105,12 @@ namespace Highfly.Core
                     1f - Mathf.Exp(-rotationSharpness * Time.deltaTime));
             }
 
-            float targetSpeed = (IsSwimming ? swimSpeed : moveSpeed) * input.magnitude;
+            float movementSpeed =
+                IsSwimming ? swimSpeed :
+                IsWading ? wadeSpeed :
+                moveSpeed;
+
+            float targetSpeed = movementSpeed * input.magnitude;
             Vector3 desiredVelocity =
                 IsMoving ? desiredDirection.normalized * targetSpeed : Vector3.zero;
 
@@ -126,6 +155,7 @@ namespace Highfly.Core
                 animator.SetFloat("MoveSpeed", locomotion, 0.06f, Time.deltaTime);
                 animator.SetBool("IsMoving", IsMoving && !IsSwimming);
                 SetAnimatorBoolIfPresent("IsSwimming", IsSwimming);
+                SetAnimatorBoolIfPresent("IsWading", IsWading);
             }
         }
 
@@ -133,9 +163,12 @@ namespace Highfly.Core
         {
             _waterContacts++;
             _swimSurfaceY = Mathf.Max(_swimSurfaceY, surfaceY);
-            _verticalVelocity = 0f;
-            _planarVelocity *= 0.55f;
-            SetAnimatorBoolIfPresent("IsSwimming", true);
+            if (IsSwimming)
+                _verticalVelocity = 0f;
+
+            _planarVelocity *= IsSwimming ? 0.55f : 0.82f;
+            SetAnimatorBoolIfPresent("IsSwimming", IsSwimming);
+            SetAnimatorBoolIfPresent("IsWading", IsWading);
         }
 
         public void ExitWater(float surfaceY)
@@ -146,6 +179,7 @@ namespace Highfly.Core
                 _swimSurfaceY = 0f;
                 _verticalVelocity = -1f;
                 SetAnimatorBoolIfPresent("IsSwimming", false);
+                SetAnimatorBoolIfPresent("IsWading", false);
             }
         }
 
@@ -196,7 +230,7 @@ namespace Highfly.Core
 
         public void Dash(Vector3 direction, float distance, float duration)
         {
-            if (_isDashing || IsSwimming || !isActiveAndEnabled)
+            if (_isDashing || IsSwimming || IsWading || !isActiveAndEnabled)
                 return;
 
             if (direction.sqrMagnitude < 0.001f)
