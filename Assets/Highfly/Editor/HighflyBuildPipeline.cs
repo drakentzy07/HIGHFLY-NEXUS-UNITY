@@ -35,9 +35,12 @@ namespace Highfly.Editor
                     throw new Exception("HIGHFLY could not activate the Android build target. Active target is " + EditorUserBuildSettings.activeBuildTarget);
 
                 HighflyCombatLabBuilder.BuildOrRefreshWorldLabShell();
+                HighflyWorldW0W1Builder.BuildOrRefresh();
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
-                WriteDiagnostic("02-scene-generated.txt", "Combat Lab scene generated: " + HighflyCombatLabBuilder.ScenePath + "\n");
+                WriteDiagnostic("02-scene-generated.txt",
+                    "WORLD W0/W1 scenes generated. Host: " + HighflyCombatLabBuilder.WorldScenePath + "\n" +
+                    "Combat/LUCID runtime preserved; interiors are independent additive scenes.\n");
 
                 PlayerSettings.companyName = "HIGHFLY";
                 PlayerSettings.productName = "HIGHFLY NEXUS";
@@ -67,7 +70,7 @@ namespace Highfly.Editor
 
                 BuildPlayerOptions options = new BuildPlayerOptions
                 {
-                    scenes = new[] { HighflyCombatLabBuilder.WorldScenePath },
+                    scenes = HighflyWorldW0W1Builder.GetBuildScenes(HighflyCombatLabBuilder.WorldScenePath),
                     locationPathName = outputPath,
                     target = BuildTarget.Android,
                     targetGroup = BuildTargetGroup.Android,
@@ -121,6 +124,7 @@ namespace Highfly.Editor
                     throw new Exception("HIGHFLY could not activate WebGL. Active target is " + EditorUserBuildSettings.activeBuildTarget);
 
                 HighflyCombatLabBuilder.BuildOrRefreshWorldLabShell();
+                HighflyWorldW0W1Builder.BuildOrRefresh();
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
 
@@ -152,7 +156,7 @@ namespace Highfly.Editor
 
                 BuildPlayerOptions options = new BuildPlayerOptions
                 {
-                    scenes = new[] { HighflyCombatLabBuilder.WorldScenePath },
+                    scenes = HighflyWorldW0W1Builder.GetBuildScenes(HighflyCombatLabBuilder.WorldScenePath),
                     locationPathName = outputPath,
                     target = BuildTarget.WebGL,
                     targetGroup = BuildTargetGroup.WebGL,
@@ -161,7 +165,8 @@ namespace Highfly.Editor
 
                 WriteDiagnostic("12-webgl-build-started.txt",
                     "Output: " + outputPath + "\n" +
-                    "World mode: WORLD FINAL FREE / QUATERNIUS CC0\n");
+                    "World mode: WORLD / ISEKAI W0-W1 / QUATERNIUS CC0\n" +
+                    "Architecture: registry + additive interiors + exact return state\n");
 
                 BuildReport report = BuildPipeline.BuildPlayer(options);
                 BuildSummary summary = report.summary;
