@@ -96,6 +96,8 @@ jobs:
           mkdir -p "$AROOT/Characters/fbx" "$AROOT/Assets/fbx"
           cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/RogueHooded.fbx "$AROOT/Characters/fbx/"
           cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/rogue_texture.png "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/Barbarian.fbx "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/barbarian_texture.png "$AROOT/Characters/fbx/"
           cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/sword_1handed.fbx "$AROOT/Assets/fbx/"
           cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/rogue_texture.png "$AROOT/Assets/fbx/" || true
 
@@ -153,6 +155,72 @@ jobs:
           python3 ci/world/extract_unitypackage.py --package "$WORLD_PACKAGE" --project LucidHost/3D_game
           test -f "LucidHost/3D_game/Assets/Stylized Medieval Kingdom URP/Scenes/Demo Stylized Medieval.unity"
           test -f "LucidHost/3D_game/Assets/Stylized Medieval Kingdom URP/Prefabs/Wall/Wall_Gate Variant.prefab"
+
+      - name: Download approved Quaternius W1.1 interior donors
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p q-download/props q-download/village
+
+          node <<'NODE'
+          const path = require('path');
+          const { downloadGame } = require(path.join(process.cwd(), '.hf-itch/node_modules/itchio-downloader'));
+
+          async function get(url, dir, desiredFileName) {
+            const result = await downloadGame({
+              itchGameUrl: url,
+              downloadDirectory: path.join(process.cwd(), dir),
+              desiredFileName,
+              resume: true,
+              noCookieCache: true,
+            });
+            console.log(JSON.stringify(result, null, 2));
+          }
+
+          (async () => {
+            await get(
+              'https://quaternius.itch.io/fantasy-props-megakit',
+              'q-download/props',
+              'Fantasy Props MegaKit[Standard]'
+            );
+
+            await get(
+              'https://quaternius.itch.io/medieval-village-megakit',
+              'q-download/village',
+              'Medieval Village MegaKit[Standard]'
+            );
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
+
+          PROP_PACKAGE="$(find q-download/props -type f -name '*.zip' | head -n 1)"
+          VILLAGE_PACKAGE="$(find q-download/village -type f -name '*.zip' | head -n 1)"
+
+          test -n "$PROP_PACKAGE"
+          test -n "$VILLAGE_PACKAGE"
+          test -f "$PROP_PACKAGE"
+          test -f "$VILLAGE_PACKAGE"
+
+          mkdir -p "LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit"
+          mkdir -p "LucidHost/3D_game/Assets/External/Quaternius/MedievalVillageMegaKit"
+
+          unzip -q "$PROP_PACKAGE" -d "LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit"
+          unzip -q "$VILLAGE_PACKAGE" -d "LucidHost/3D_game/Assets/External/Quaternius/MedievalVillageMegaKit"
+
+          echo "=== Quaternius forge candidates ==="
+          find "LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit" -type f \
+            | grep -Ei 'anvil|furnace|smelt|forge|kiln|hammer|work.?bench|weapon.?rack|chest|barrel|crate' \
+            | head -200 || true
+
+          echo "=== Quaternius structure candidates ==="
+          find "LucidHost/3D_game/Assets/External/Quaternius/MedievalVillageMegaKit" -type f \
+            | grep -Ei 'wall|floor|door|window|roof' \
+            | head -200 || true
+
+          test "$(find "LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit" -type f -iname '*.fbx' | wc -l)" -gt 20
+          test "$(find "LucidHost/3D_game/Assets/External/Quaternius/MedievalVillageMegaKit" -type f -iname '*.fbx' | wc -l)" -gt 20
 
       - name: Audit W1.1 reusable interior donors
         shell: bash
