@@ -114,6 +114,7 @@ namespace Highfly.Editor
                 throw new Exception("HIGHFLY could not activate WebGL for RG Poly preparation.");
 
             HighflyCombatLabBuilder.BuildOrRefreshWorldLabShell();
+            HighflyWorldW0W1Builder.BuildOrRefreshRgPoly(HighflyCombatLabBuilder.WorldScenePath);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
@@ -162,7 +163,7 @@ namespace Highfly.Editor
 
             BuildPlayerOptions options = new BuildPlayerOptions
             {
-                scenes = new[] { HighflyCombatLabBuilder.WorldScenePath },
+                scenes = HighflyWorldW0W1Builder.GetBuildScenes(HighflyCombatLabBuilder.WorldScenePath),
                 locationPathName = outputPath,
                 target = BuildTarget.WebGL,
                 targetGroup = BuildTargetGroup.WebGL,
