@@ -26,13 +26,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download CURRENT world WebGL artifact
+      - name: Download CURRENT W0-W1 world WebGL artifact
         uses: actions/download-artifact@v4
         with:
-          name: HIGHFLY-CLAUDECRAFT-WORLD-WEBGL-v0.1
+          name: HIGHFLY-WORLD-W0-W1-WEBGL-v0.1
           path: site
           repository: drakentzy07/HIGHFLY-NEXUS-UNITY
-          run-id: 35936540999
+          run-id: 36143994616
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify WebGL payload
@@ -42,7 +42,7 @@ jobs:
           test -s site/Build/HIGHFLY-WORLD-LAB.framework.js
           test -s site/Build/HIGHFLY-WORLD-LAB.wasm
           test -s site/Build/HIGHFLY-WORLD-LAB.data
-          echo "Deploying exact world build run 35936540999"
+          echo "Deploying exact W0/W1 world build run 36143994616"
           find site -maxdepth 2 -type f -printf "%p %k KB\n" | sort
 
       - name: Configure Pages
