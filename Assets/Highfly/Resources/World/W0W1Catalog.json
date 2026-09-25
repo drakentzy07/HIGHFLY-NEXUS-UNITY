@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "scenes": [
+    {
+      "id": "scene.capital",
+      "sceneName": "WorldLab",
+      "kind": "HubWorld",
+      "zoneIds": ["zone.capital"],
+      "streamingPolicy": "PERSISTENT_HOST",
+      "savePolicy": "WORLD_SNAPSHOT",
+      "provenance": {
+        "source": "RG_POLY_CITY01_PLUS_HIGHFLY",
+        "sourceVersion": "945b813",
+        "shippingPolicy": "APPROVED_FREE_PACK_PLUS_HIGHFLY",
+        "notes": "Current approved RG Poly City01 Unity 6000.6 host."
+      }
+    },
+    {
+      "id": "scene.interior.guild",
+      "sceneName": "HF_INT_RGPOLY_GUILD",
+      "kind": "Interior",
+      "zoneIds": [],
+      "streamingPolicy": "ADDITIVE_ON_DEMAND",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "RG_POLY_HOUSE7_INSTANCE",
+        "sourceVersion": "W1",
+        "shippingPolicy": "APPROVED_FREE_PACK_PLUS_HIGHFLY",
+        "notes": "Instance generated from the audited House 7 structure."
+      }
+    },
+    {
+      "id": "scene.interior.inn",
+      "sceneName": "HF_INT_RGPOLY_INN",
+      "kind": "Interior",
+      "zoneIds": [],
+      "streamingPolicy": "ADDITIVE_ON_DEMAND",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "RG_POLY_INN_INSTANCE",
+        "sourceVersion": "W1",
+        "shippingPolicy": "APPROVED_FREE_PACK_PLUS_HIGHFLY",
+        "notes": "Instance generated from the audited Inn structure."
+      }
+    },
+    {
+      "id": "scene.interior.forge",
+      "sceneName": "HF_INT_RGPOLY_FORGE",
+      "kind": "Interior",
+      "zoneIds": [],
+      "streamingPolicy": "ADDITIVE_ON_DEMAND",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "RG_POLY_SMITHY_INSTANCE",
+        "sourceVersion": "W1",
+        "shippingPolicy": "APPROVED_FREE_PACK_PLUS_HIGHFLY",
+        "notes": "Instance generated from the audited Smithy structure."
+      }
+    },
+    {
+      "id": "scene.interior.market",
+      "sceneName": "HF_INT_RGPOLY_MARKET",
+      "kind": "Interior",
+      "zoneIds": [],
+      "streamingPolicy": "ADDITIVE_ON_DEMAND",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "RG_POLY_MARKET_STALLS_INSTANCE",
+        "sourceVersion": "W1",
+        "shippingPolicy": "APPROVED_FREE_PACK_PLUS_HIGHFLY",
+        "notes": "Instance generated from the audited Market Stall roots."
+      }
+    }
+  ],
+  "zones": [
+    {
+      "id": "zone.capital",
+      "sceneRef": "scene.capital",
+      "displayName": "Capital HIGHFLY — RG Poly",
+      "biomeTags": ["medieval", "isekai", "safe_city", "rgpoly"],
+      "entryPoints": ["anchor.capital.spawn"],
+      "exits": [],
+      "serviceRefs": ["service.guild", "service.inn", "service.forge", "service.market"],
+      "portalRefs": [],
+      "savePolicy": "WORLD_SNAPSHOT",
+      "streamingPolicy": "PERSISTENT_HOST",
+      "provenance": {
+        "source": "RG_POLY_CITY01_PLUS_HIGHFLY",
+        "sourceVersion": "945b813",
+        "shippingPolicy": "APPROVED_FREE_PACK_PLUS_HIGHFLY",
+        "notes": "W1 overlays interaction only; exterior geometry remains unchanged."
+      }
+    }
+  ],
+  "interiors": [
+    {
+      "id": "interior.capital.guild",
+      "displayName": "Gremio",
+      "sceneName": "HF_INT_RGPOLY_GUILD",
+      "layoutProfile": "guild",
+      "entryAnchorId": "anchor.int.guild.entry",
+      "exitAnchorId": "anchor.int.guild.exit",
+      "serviceRef": "service.guild",
+      "returnAnchorId": "anchor.capital.guild.door",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "RG_POLY_HOUSE7_INSTANCE",
+        "sourceVersion": "W1",
+        "shippingPolicy": "APPROVED_FREE_PACK_PLUS_HIGHFLY",
+        "notes": "Exterior target: House 7 / Door_1 Variant (3)."
+      }
+    },
+    {
+      "id": "interior.capital.inn",
+      "displayName": "Posada / Taberna",
+      "sceneName": "HF_INT_RGPOLY_INN",
+      "layoutProfile": "inn",
+      "entryAnchorId": "anchor.int.inn.entry",
+      "exitAnchorId": "anchor.int.inn.exit",
+      "serviceRef": "service.inn",
+      "returnAnchorId": "anchor.capital.inn.door",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "RG_POLY_INN_INSTANCE",
+        "sourceVersion": "W1",
+        "shippingPolicy": "APPROVED_FREE_PACK_PLUS_HIGHFLY",
+        "notes": "Exterior target: Inn / Door_1 Variant."
+      }
+    },
+    {
+      "id": "interior.capital.forge",
+      "displayName": "Forja",
+      "sceneName": "HF_INT_RGPOLY_FORGE",
+      "layoutProfile": "forge",
+      "entryAnchorId": "anchor.int.forge.entry",
+      "exitAnchorId": "anchor.int.forge.exit",
+      "serviceRef": "service.forge",
+      "returnAnchorId": "anchor.capital.forge.door",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "RG_POLY_SMITHY_INSTANCE",
+        "sourceVersion": "W1",
+        "shippingPolicy": "APPROVED_FREE_PACK_PLUS_HIGHFLY",
+        "notes": "Exterior target: Smithy workshop zone."
+      }
+    },
+    {
+      "id": "interior.capital.market",
+      "displayName": "Mercado",
+      "sceneName": "HF_INT_RGPOLY_MARKET",
+      "layoutProfile": "market",
+      "entryAnchorId": "anchor.int.market.entry",
+      "exitAnchorId": "anchor.int.market.exit",
+      "serviceRef": "service.market",
+      "returnAnchorId": "anchor.capital.market.door",
+      "savePolicy": "SERVICE_STATE",
+      "provenance": {
+        "source": "RG_POLY_MARKET_STALLS_INSTANCE",
+        "sourceVersion": "W1",
+        "shippingPolicy": "APPROVED_FREE_PACK_PLUS_HIGHFLY",
+        "notes": "Exterior target: Market Stall 3 / table cluster."
+      }
+    }
+  ],
+  "portals": []
+}
