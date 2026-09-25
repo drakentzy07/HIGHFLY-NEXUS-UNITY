@@ -43,6 +43,19 @@ jobs:
           docker-images: false
           swap-storage: false
 
+      - name: Add swap for Unity import
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo swapoff -a || true
+          sudo rm -f /swapfile
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+          swapon --show
+
       - name: Download pinned Unity6 Lucid Golden Host
         shell: bash
         run: |
@@ -234,6 +247,7 @@ jobs:
           buildsPath: build/prepare
           buildName: HIGHFLY-RGPOLY-PREPARE
           buildMethod: Highfly.Editor.HighflyBuildPipeline.PrepareWebGLRgPolyWorld
+          customParameters: -job-worker-count 2
           allowDirtyBuild: true
 
       - name: Verify prepared CITY01
@@ -267,6 +281,7 @@ jobs:
           buildsPath: build
           buildName: HIGHFLY-WORLD-RGPOLY
           buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildPreparedWebGLRgPolyWorld
+          customParameters: -job-worker-count 2
           allowDirtyBuild: true
 
       - name: Inspect output
