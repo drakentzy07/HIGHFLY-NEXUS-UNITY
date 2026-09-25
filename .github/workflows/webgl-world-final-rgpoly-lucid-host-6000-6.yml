@@ -6,6 +6,7 @@ on:
     branches:
       - highfly/world-final-rgpoly-city01-v01
       - highfly/world-isekai-w0-w1-rgpoly-v01
+      - highfly/world-w1-1-real-interiors-water-v01
     paths:
       - "Assets/Highfly/**"
       - "ci/world/**"
@@ -152,6 +153,15 @@ jobs:
           python3 ci/world/extract_unitypackage.py --package "$WORLD_PACKAGE" --project LucidHost/3D_game
           test -f "LucidHost/3D_game/Assets/Stylized Medieval Kingdom URP/Scenes/Demo Stylized Medieval.unity"
           test -f "LucidHost/3D_game/Assets/Stylized Medieval Kingdom URP/Prefabs/Wall/Wall_Gate Variant.prefab"
+
+      - name: Audit W1.1 reusable interior donors
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 ci/world/audit_w1_1_donors.py \
+            "LucidHost/3D_game/Assets/Stylized Medieval Kingdom URP" \
+            "LucidHost/3D_game/build/diagnostics"
+          cat LucidHost/3D_game/build/diagnostics/w1-1-rgpoly-donor-summary.txt
 
       - name: Restore Unity6 host Library cache
         id: host-cache
