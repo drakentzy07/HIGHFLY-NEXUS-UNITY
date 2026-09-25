@@ -70,7 +70,7 @@ jobs:
           test -f LucidHost/3D_game/ProjectSettings/ProjectVersion.txt
           cat LucidHost/3D_game/ProjectSettings/ProjectVersion.txt
 
-      - name: Remove incompatible Unity AI Assistant from 6000.6 host
+      - name: Prune optional Unity editor packages for lean CI
         shell: bash
         run: |
           set -euxo pipefail
@@ -78,22 +78,41 @@ jobs:
           import json
           from pathlib import Path
 
+          removable = [
+              "com.unity.ai.assistant",
+              "com.unity.collab-proxy",
+              "com.unity.ide.rider",
+              "com.unity.ide.visualstudio",
+              "com.unity.multiplayer.center",
+              "com.unity.performance.profile-analyzer",
+              "com.unity.test-framework",
+          ]
+
           manifest = Path("LucidHost/3D_game/Packages/manifest.json")
           data = json.loads(manifest.read_text())
           deps = data.setdefault("dependencies", {})
-          removed = deps.pop("com.unity.ai.assistant", None)
+          for package in removable:
+              removed = deps.pop(package, None)
+              print("manifest", package, "removed=", removed is not None)
           manifest.write_text(json.dumps(data, indent=2) + "\n")
-          print("Removed com.unity.ai.assistant from manifest:", removed)
 
           lock = Path("LucidHost/3D_game/Packages/packages-lock.json")
           if lock.exists():
               ldata = json.loads(lock.read_text())
               ldeps = ldata.get("dependencies", {})
-              removed_lock = ldeps.pop("com.unity.ai.assistant", None)
+              for package in removable:
+                  removed = ldeps.pop(package, None)
+                  print("lock", package, "removed=", removed is not None)
               lock.write_text(json.dumps(ldata, indent=2) + "\n")
-              print("Removed com.unity.ai.assistant from packages-lock:", removed_lock is not None)
           PY
-          ! grep -q '"com.unity.ai.assistant"' LucidHost/3D_game/Packages/manifest.json
+
+          for P in             com.unity.ai.assistant             com.unity.collab-proxy             com.unity.ide.rider             com.unity.ide.visualstudio             com.unity.multiplayer.center             com.unity.performance.profile-analyzer             com.unity.test-framework
+          do
+            ! grep -q "\"$P\"" LucidHost/3D_game/Packages/manifest.json
+          done
+
+          echo "=== Lean HIGHFLY CI package manifest ==="
+          cat LucidHost/3D_game/Packages/manifest.json
 
       - name: Install current HIGHFLY core into Unity6 host
         shell: bash
@@ -230,9 +249,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: LucidHost/3D_game/Library
-          key: rgpoly-goldenhost-6000.6-v2-clean-${{ hashFiles('Assets/Highfly/**', 'ci/world/**') }}
+          key: rgpoly-goldenhost-6000.6-v3-lean-${{ hashFiles('Assets/Highfly/**', 'ci/world/**') }}
           restore-keys: |
-            rgpoly-goldenhost-6000.6-v2-clean-
+            rgpoly-goldenhost-6000.6-v3-lean-
 
       - name: Prepare CITY01 on native Unity6 host
         uses: game-ci/unity-builder@v4
@@ -247,7 +266,7 @@ jobs:
           buildsPath: build/prepare
           buildName: HIGHFLY-RGPOLY-PREPARE
           buildMethod: Highfly.Editor.HighflyBuildPipeline.PrepareWebGLRgPolyWorld
-          customParameters: -job-worker-count 1
+          customParameters: -job-worker-count 1 -nographics -disableManagedDebugger
           allowDirtyBuild: true
 
       - name: Verify prepared CITY01
@@ -266,7 +285,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: LucidHost/3D_game/Library
-          key: rgpoly-goldenhost-6000.6-v2-clean-${{ hashFiles('Assets/Highfly/**', 'ci/world/**') }}
+          key: rgpoly-goldenhost-6000.6-v3-lean-${{ hashFiles('Assets/Highfly/**', 'ci/world/**') }}
 
       - name: Build prepared CITY01 WebGL on native Unity6 host
         uses: game-ci/unity-builder@v4
@@ -281,7 +300,7 @@ jobs:
           buildsPath: build
           buildName: HIGHFLY-WORLD-RGPOLY
           buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildPreparedWebGLRgPolyWorld
-          customParameters: -job-worker-count 1
+          customParameters: -job-worker-count 1 -nographics -disableManagedDebugger
           allowDirtyBuild: true
 
       - name: Inspect output
