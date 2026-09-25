@@ -49,7 +49,7 @@ jobs:
           set -euxo pipefail
           sudo swapoff -a || true
           sudo rm -f /swapfile
-          sudo fallocate -l 8G /swapfile
+          sudo fallocate -l 12G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
@@ -247,7 +247,7 @@ jobs:
           buildsPath: build/prepare
           buildName: HIGHFLY-RGPOLY-PREPARE
           buildMethod: Highfly.Editor.HighflyBuildPipeline.PrepareWebGLRgPolyWorld
-          customParameters: -job-worker-count 2
+          customParameters: -job-worker-count 1
           allowDirtyBuild: true
 
       - name: Verify prepared CITY01
@@ -281,7 +281,7 @@ jobs:
           buildsPath: build
           buildName: HIGHFLY-WORLD-RGPOLY
           buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildPreparedWebGLRgPolyWorld
-          customParameters: -job-worker-count 2
+          customParameters: -job-worker-count 1
           allowDirtyBuild: true
 
       - name: Inspect output
