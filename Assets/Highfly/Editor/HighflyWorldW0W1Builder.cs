@@ -60,17 +60,12 @@ namespace Highfly.Editor
                 "Door_1 Variant",
                 "Table_1 Variant");
 
-            BuildOne(
-                host, FindInterior(catalog, "interior.capital.forge"),
-                new[] { "Smithy" },
-                "Building_Addon_6 Variant (1)",
-                "Grinder Variant");
+            HighflyForgeSupremeBuilder.Build(
+                FindInterior(catalog, "interior.capital.forge"));
 
-            BuildOne(
-                host, FindInterior(catalog, "interior.capital.market"),
-                new[] { "Market Stall 1", "Market Stall 2", "Market Stall 3" },
-                "Market_Table_2 Variant",
-                "Market_Table_2 Variant");
+            // W1.1 correction: the open-air market is an exterior service.
+            // It no longer loads a fake interior scene. Closed specialty shops
+            // may opt into independent interiors later.
 
             SceneManager.SetActiveScene(host);
             EditorBuildSettings.scenes = GetBuildSceneSettings(hostScenePath);
@@ -79,8 +74,8 @@ namespace Highfly.Editor
             AssetDatabase.Refresh();
 
             Debug.Log(
-                "HIGHFLY W0/W1 RG POLY | 4 additive interiors generated " +
-                "from audited CITY01 structures.");
+                "HIGHFLY W1.1 RG POLY | Guild/Inn technical scenes + " +
+                "Forge Supreme real interior generated; Market stays exterior.");
         }
 
         public static string[] GetBuildScenes(string hostScenePath)
