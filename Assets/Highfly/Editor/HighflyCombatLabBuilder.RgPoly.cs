@@ -168,7 +168,7 @@ namespace Highfly.Editor
                 water = new Material(shader);
                 water.name = "HIGHFLY_Water_WebGL";
 
-                Color waterColor = new Color(0.035f, 0.30f, 0.52f, 1f);
+                Color waterColor = new Color(0.025f, 0.28f, 0.52f, 0.68f);
                 if (water.HasProperty("_BaseColor"))
                     water.SetColor("_BaseColor", waterColor);
                 if (water.HasProperty("_Color"))
@@ -177,6 +177,21 @@ namespace Highfly.Editor
                     water.SetFloat("_Smoothness", 0.90f);
                 if (water.HasProperty("_Metallic"))
                     water.SetFloat("_Metallic", 0.03f);
+                if (water.HasProperty("_Surface"))
+                    water.SetFloat("_Surface", 1f);
+                if (water.HasProperty("_Blend"))
+                    water.SetFloat("_Blend", 0f);
+                if (water.HasProperty("_SrcBlend"))
+                    water.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                if (water.HasProperty("_DstBlend"))
+                    water.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+                if (water.HasProperty("_ZWrite"))
+                    water.SetFloat("_ZWrite", 0f);
+
+                water.SetOverrideTag("RenderType", "Transparent");
+                water.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                water.DisableKeyword("_ALPHATEST_ON");
+                water.renderQueue = (int)RenderQueue.Transparent;
 
                 AssetDatabase.CreateAsset(water, materialPath);
                 AssetDatabase.SaveAssets();
@@ -241,12 +256,75 @@ namespace Highfly.Editor
                 }
 
                 if (changed)
+                {
                     renderer.sharedMaterials = materials;
+                    ConfigureRgPolySwimmableWater(renderer, scene);
+                }
             }
 
             Debug.Log(
                 "HIGHFLY RG Poly WebGL water fallback applied: replacements=" +
                 replacements + " | unsupportedMaterialSlotsSeen=" + unsupported);
+        }
+
+        private static void ConfigureRgPolySwimmableWater(
+            Renderer renderer,
+            Scene scene)
+        {
+            float surfaceY = renderer.bounds.max.y;
+            Collider[] colliders = renderer.GetComponents<Collider>();
+
+            if (colliders.Length > 0)
+            {
+                for (int i = 0; i < colliders.Length; i++)
+                {
+                    Collider collider = colliders[i];
+                    if (collider == null)
+                        continue;
+
+                    collider.enabled = true;
+                    collider.isTrigger = true;
+
+                    HighflyWaterZone zone =
+                        collider.GetComponent<HighflyWaterZone>();
+                    if (zone == null)
+                        zone = collider.gameObject.AddComponent<HighflyWaterZone>();
+
+                    zone.Configure(surfaceY);
+                }
+
+                Debug.Log(
+                    "HIGHFLY swimmable water: converted " +
+                    colliders.Length + " collider(s) to trigger on " + renderer.name);
+                return;
+            }
+
+            Bounds bounds = renderer.bounds;
+            float depth = Mathf.Max(2.6f, bounds.size.y + 2.6f);
+
+            GameObject triggerObject =
+                new GameObject("HIGHFLY_SWIM_TRIGGER_" + renderer.name);
+            SceneManager.MoveGameObjectToScene(triggerObject, scene);
+
+            triggerObject.transform.position = new Vector3(
+                bounds.center.x,
+                surfaceY - depth * 0.5f + 0.25f,
+                bounds.center.z);
+
+            BoxCollider trigger = triggerObject.AddComponent<BoxCollider>();
+            trigger.isTrigger = true;
+            trigger.size = new Vector3(
+                Mathf.Max(0.5f, bounds.size.x),
+                depth,
+                Mathf.Max(0.5f, bounds.size.z));
+
+            HighflyWaterZone fallbackZone =
+                triggerObject.AddComponent<HighflyWaterZone>();
+            fallbackZone.Configure(surfaceY);
+
+            Debug.Log(
+                "HIGHFLY swimmable water: fallback trigger created for " +
+                renderer.name + " | surfaceY=" + surfaceY);
         }
 
         private static void OptimizeRgPolyTextures()
