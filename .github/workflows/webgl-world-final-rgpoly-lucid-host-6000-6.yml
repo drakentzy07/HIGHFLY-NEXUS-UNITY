@@ -160,7 +160,8 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p q-download/props q-download/village
+          rm -rf q-download q-stage
+          mkdir -p q-download/props q-download/village q-stage/props q-stage/village
 
           node <<'NODE'
           const path = require('path');
@@ -197,30 +198,49 @@ jobs:
 
           PROP_PACKAGE="$(find q-download/props -type f -name '*.zip' | head -n 1)"
           VILLAGE_PACKAGE="$(find q-download/village -type f -name '*.zip' | head -n 1)"
-
-          test -n "$PROP_PACKAGE"
-          test -n "$VILLAGE_PACKAGE"
           test -f "$PROP_PACKAGE"
           test -f "$VILLAGE_PACKAGE"
 
-          mkdir -p "LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit"
-          mkdir -p "LucidHost/3D_game/Assets/External/Quaternius/MedievalVillageMegaKit"
+          unzip -q "$PROP_PACKAGE" -d q-stage/props
+          unzip -q "$VILLAGE_PACKAGE" -d q-stage/village
 
-          unzip -q "$PROP_PACKAGE" -d "LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit"
-          unzip -q "$VILLAGE_PACKAGE" -d "LucidHost/3D_game/Assets/External/Quaternius/MedievalVillageMegaKit"
+          PROPS_DST="LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit"
+          VILLAGE_DST="LucidHost/3D_game/Assets/External/Quaternius/MedievalVillageMegaKit"
+          rm -rf "$PROPS_DST" "$VILLAGE_DST"
+          mkdir -p "$PROPS_DST/Models" "$PROPS_DST/Textures"
+          mkdir -p "$VILLAGE_DST/Models" "$VILLAGE_DST/Textures"
 
-          echo "=== Quaternius forge candidates ==="
-          find "LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit" -type f \
-            | grep -Ei 'anvil|furnace|smelt|forge|kiln|hammer|work.?bench|weapon.?rack|chest|barrel|crate' \
-            | head -200 || true
+          copy_named_fbx () {
+            ROOT="$1"
+            DST="$2"
+            shift 2
+            for NAME in "$@"; do
+              SRC="$(find "$ROOT" -type f -iname "$NAME.fbx" | head -n 1)"
+              if [ -n "$SRC" ]; then
+                cp "$SRC" "$DST/Models/"
+                echo "selected donor: $SRC"
+              fi
+            done
+          }
 
-          echo "=== Quaternius structure candidates ==="
-          find "LucidHost/3D_game/Assets/External/Quaternius/MedievalVillageMegaKit" -type f \
-            | grep -Ei 'wall|floor|door|window|roof' \
-            | head -200 || true
+          copy_named_fbx q-stage/props "$PROPS_DST"             Anvil Workbench Workbench_Drawers Chest_Wood Barrel Crate_Wooden Crate_Metal             Sword_A Sword_B Axe_A Axe_B WeaponRack Weapon_Rack
 
-          test "$(find "LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit" -type f -iname '*.fbx' | wc -l)" -gt 20
-          test "$(find "LucidHost/3D_game/Assets/External/Quaternius/MedievalVillageMegaKit" -type f -iname '*.fbx' | wc -l)" -gt 20
+          copy_named_fbx q-stage/village "$VILLAGE_DST"             Floor_WoodDark Wall_Plaster_Straight Door_1_Flat Window_Wide_Flat1             Roof_Wooden_2x1 Wall_UnevenBrick_Straight Floor_UnevenBrick
+
+          # Copy texture atlases only. Do not expose hundreds of unused models
+          # to Unity's importer: this keeps the W1.1 runner inside memory budget.
+          find q-stage/props -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \)             -exec cp -n {} "$PROPS_DST/Textures/" \; || true
+          find q-stage/village -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \)             -exec cp -n {} "$VILLAGE_DST/Textures/" \; || true
+
+          echo "=== W1.1 selective donor payload ==="
+          find "$PROPS_DST" "$VILLAGE_DST" -type f -printf '%p %k KB\n' | sort
+          echo "FBX count: $(find "$PROPS_DST" "$VILLAGE_DST" -type f -iname '*.fbx' | wc -l)"
+          du -sh "$PROPS_DST" "$VILLAGE_DST"
+
+          test -f "$PROPS_DST/Models/Anvil.fbx"
+          test -f "$PROPS_DST/Models/Workbench.fbx"
+          test -f "$VILLAGE_DST/Models/Floor_WoodDark.fbx"
+          test -f "$VILLAGE_DST/Models/Wall_Plaster_Straight.fbx"
 
       - name: Audit W1.1 reusable interior donors
         shell: bash
