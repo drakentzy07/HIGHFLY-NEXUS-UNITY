@@ -102,14 +102,48 @@ jobs:
           EOF
           )"
 
+          WATCH_TITLE="HIGHFLY WORLD AUTO-BUILD WATCH"
+          WATCH="$(
+            gh issue list               --repo "$GITHUB_REPOSITORY"               --state open               --search "$WATCH_TITLE in:title"               --json number               --jq '.[0].number // empty'
+          )"
+
+          if [ -z "$WATCH" ]; then
+            WATCH="$(
+              gh issue create                 --repo "$GITHUB_REPOSITORY"                 --title "$WATCH_TITLE"                 --body "Estado automático del pipeline WORLD. El watchdog publica aquí sólo estados finales GREEN o NEEDS ATTENTION."                 --json number                 --jq '.number'
+            )"
+          fi
+
+          gh issue comment "$WATCH"             --repo "$GITHUB_REPOSITORY"             --body "🔴 WORLD NEEDS ATTENTION — run ${RUN_ID} — ${RUN_URL} — commit ${HEAD_SHA} — clasificación ${ACTION_KIND}"
+
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
           else
             gh issue create               --repo "$GITHUB_REPOSITORY"               --title "$TITLE"               --body "$BODY"
           fi
 
-      - name: Report green
+      - name: Publish final GREEN status
         if: steps.classify.outputs.action == 'green'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.classify.outputs.run_id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         shell: bash
         run: |
-          echo "WORLD build is green. No recovery action required."
+          set -euo pipefail
+
+          TITLE="HIGHFLY WORLD AUTO-BUILD WATCH"
+
+          ISSUE="$(
+            gh issue list               --repo "$GITHUB_REPOSITORY"               --state open               --search "$TITLE in:title"               --json number               --jq '.[0].number // empty'
+          )"
+
+          if [ -z "$ISSUE" ]; then
+            ISSUE="$(
+              gh issue create                 --repo "$GITHUB_REPOSITORY"                 --title "$TITLE"                 --body "Estado automático del pipeline WORLD. El watchdog publica aquí sólo estados finales GREEN o NEEDS ATTENTION."                 --json number                 --jq '.number'
+            )"
+          fi
+
+          gh issue comment "$ISSUE"             --repo "$GITHUB_REPOSITORY"             --body "🟢 WORLD GREEN — run ${RUN_ID} — ${RUN_URL} — commit ${HEAD_SHA}"
+
+          echo "WORLD build is green. Final status published to issue #$ISSUE."
