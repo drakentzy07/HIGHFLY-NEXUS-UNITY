@@ -310,6 +310,20 @@ jobs:
           grep -q "HIGHFLY_RG_POLY_CITY01" "$SCENE"
           grep -q "HIGHFLY_Hunter" "$SCENE"
           grep -q "HIGHFLY_MobileHUD" "$SCENE"
+
+          FORGE_SCENE="LucidHost/3D_game/Assets/Highfly/Scenes/Interiors/HF_INT_RGPOLY_FORGE.unity"
+          test -f "$FORGE_SCENE"
+          grep -q "FORGE_SHOP_LEVEL" "$FORGE_SCENE"
+          grep -q "SHOP_COUNTER_BODY" "$FORGE_SCENE"
+          grep -q "SHOP_VITRINE_WEAPONS_BASE" "$FORGE_SCENE"
+          grep -q "FORGE_STAIR_STEP_0" "$FORGE_SCENE"
+          grep -q "FORGE_BASEMENT_LEVEL" "$FORGE_SCENE"
+          grep -q "BASEMENT_FURNACE" "$FORGE_SCENE"
+          grep -q "BASEMENT_ANVIL" "$FORGE_SCENE"
+          grep -q "BASEMENT_WORKBENCH" "$FORGE_SCENE"
+          grep -q "HERRERO_KAYKIT" "$FORGE_SCENE"
+          grep -q "EXIT_TO_CAPITAL" "$FORGE_SCENE"
+
           du -sh LucidHost/3D_game/Library || true
 
       - name: Save Unity6 host Library before build

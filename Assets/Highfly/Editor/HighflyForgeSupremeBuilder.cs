@@ -12,7 +12,7 @@ using Highfly.World;
 namespace Highfly.Editor
 {
     /// <summary>
-    /// W1.1 purpose-built forge interior.
+    /// W1.3 definitive two-level forge interior.
     /// Uses approved CC0 art donors for the shell/props while HIGHFLY owns
     /// scene topology, interaction, services and all runtime authority.
     /// </summary>
@@ -30,6 +30,10 @@ namespace Highfly.Editor
         private const string KayKitBarbarian =
             "Assets/External/KayKit/Adventurers/addons/" +
             "kaykit_character_pack_adventures/Characters/fbx/Barbarian.fbx";
+
+        private const string KayKitSword =
+            "Assets/External/KayKit/Adventurers/addons/" +
+            "kaykit_character_pack_adventures/Assets/fbx/sword_1handed.fbx";
 
         private const string DiagnosticsDirectory = "build/diagnostics";
 
@@ -80,11 +84,11 @@ namespace Highfly.Editor
             File.WriteAllLines(
                 Path.Combine(
                     DiagnosticsDirectory,
-                    "w1-1-forge-supreme-assets.tsv"),
+                    "w1-3-forge-definitive-assets.tsv"),
                 new[] { "role\tasset_path" }.Concat(log.Lines).ToArray());
 
             Debug.Log(
-                "HIGHFLY W1.1 FORGE SUPREME built | scene=" + scenePath +
+                "HIGHFLY W1.3 FORGE DEFINITIVE built | scene=" + scenePath +
                 " | donor assets=" + log.Lines.Count);
         }
 
@@ -92,385 +96,409 @@ namespace Highfly.Editor
         {
             Material floorMat = GetOrCreateHighflyMaterial(
                 "HF_ForgeFloor",
-                new Color(0.16f, 0.11f, 0.075f, 1f));
+                new Color(0.15f, 0.105f, 0.075f, 1f));
 
             Material wallMat = GetOrCreateHighflyMaterial(
                 "HF_ForgeWall",
-                new Color(0.34f, 0.28f, 0.20f, 1f));
+                new Color(0.34f, 0.275f, 0.19f, 1f));
 
             Material beamMat = GetOrCreateHighflyMaterial(
                 "HF_ForgeBeam",
-                new Color(0.11f, 0.07f, 0.045f, 1f));
+                new Color(0.105f, 0.065f, 0.04f, 1f));
 
             Material roofMat = GetOrCreateHighflyMaterial(
                 "HF_ForgeRoof",
-                new Color(0.095f, 0.085f, 0.075f, 1f));
+                new Color(0.07f, 0.075f, 0.085f, 1f));
 
-            CreateBox(
-                parent, "FORGE_FLOOR",
-                new Vector3(0f, -0.16f, 0f),
-                new Vector3(22f, 0.32f, 16f),
-                floorMat, true);
+            Material stoneMat = GetOrCreateHighflyMaterial(
+                "HF_ForgeBasementStone",
+                new Color(0.16f, 0.16f, 0.17f, 1f));
 
-            CreateBox(
-                parent, "FORGE_WALL_SOUTH_L",
-                new Vector3(-6.7f, 2.9f, -7.8f),
-                new Vector3(8.6f, 5.8f, 0.4f),
-                wallMat, true);
+            Material stairMat = GetOrCreateHighflyMaterial(
+                "HF_ForgeStair",
+                new Color(0.20f, 0.13f, 0.08f, 1f));
 
-            CreateBox(
-                parent, "FORGE_WALL_SOUTH_R",
-                new Vector3(6.7f, 2.9f, -7.8f),
-                new Vector3(8.6f, 5.8f, 0.4f),
-                wallMat, true);
+            GameObject shopMarker = new GameObject("FORGE_SHOP_LEVEL");
+            shopMarker.transform.SetParent(parent, false);
 
-            CreateBox(
-                parent, "FORGE_WALL_NORTH",
-                new Vector3(0f, 2.9f, 7.8f),
-                new Vector3(22f, 5.8f, 0.4f),
-                wallMat, true);
+            GameObject basementMarker = new GameObject("FORGE_BASEMENT_LEVEL");
+            basementMarker.transform.SetParent(parent, false);
+            basementMarker.transform.localPosition = new Vector3(0f, -5.25f, 0f);
 
-            CreateBox(
-                parent, "FORGE_WALL_WEST",
-                new Vector3(-10.8f, 2.9f, 0f),
-                new Vector3(0.4f, 5.8f, 16f),
-                wallMat, true);
+            // Ground floor is built from slabs so the stairwell is a REAL hole,
+            // not a decorative staircase clipped through a solid floor.
+            CreateBox(parent, "SHOP_FLOOR_LEFT",
+                new Vector3(-3f, -0.16f, 0f),
+                new Vector3(20f, 0.32f, 18f), floorMat, true);
+            CreateBox(parent, "SHOP_FLOOR_RIGHT",
+                new Vector3(11.75f, -0.16f, 0f),
+                new Vector3(2.5f, 0.32f, 18f), floorMat, true);
+            CreateBox(parent, "SHOP_FLOOR_STAIR_FRONT",
+                new Vector3(8.75f, -0.16f, -3.9f),
+                new Vector3(3.5f, 0.32f, 10.2f), floorMat, true);
+            CreateBox(parent, "SHOP_FLOOR_STAIR_REAR",
+                new Vector3(8.75f, -0.16f, 8.2f),
+                new Vector3(3.5f, 0.32f, 1.6f), floorMat, true);
 
-            CreateBox(
-                parent, "FORGE_WALL_EAST",
-                new Vector3(10.8f, 2.9f, 0f),
-                new Vector3(0.4f, 5.8f, 16f),
-                wallMat, true);
+            // Basement floor and enclosing stone shell.
+            CreateBox(parent, "BASEMENT_FLOOR",
+                new Vector3(0f, -5.42f, 0f),
+                new Vector3(26f, 0.34f, 18f), stoneMat, true);
 
-            // Heavy timber frame keeps the room visually medieval and avoids
-            // importing another full structural pack.
-            for (int i = -3; i <= 3; i++)
+            CreateBox(parent, "BASEMENT_WALL_SOUTH",
+                new Vector3(0f, -2.72f, -8.82f),
+                new Vector3(26f, 5.4f, 0.36f), stoneMat, true);
+            CreateBox(parent, "BASEMENT_WALL_NORTH",
+                new Vector3(0f, -2.72f, 8.82f),
+                new Vector3(26f, 5.4f, 0.36f), stoneMat, true);
+            CreateBox(parent, "BASEMENT_WALL_WEST",
+                new Vector3(-12.82f, -2.72f, 0f),
+                new Vector3(0.36f, 5.4f, 18f), stoneMat, true);
+            CreateBox(parent, "BASEMENT_WALL_EAST",
+                new Vector3(12.82f, -2.72f, 0f),
+                new Vector3(0.36f, 5.4f, 18f), stoneMat, true);
+
+            // Main shop shell: broader and taller than W1.2 so it reads as a
+            // real fantasy blacksmith shop rather than a box with props.
+            CreateBox(parent, "SHOP_WALL_SOUTH_L",
+                new Vector3(-7.8f, 3.1f, -8.82f),
+                new Vector3(10.4f, 6.2f, 0.36f), wallMat, true);
+            CreateBox(parent, "SHOP_WALL_SOUTH_R",
+                new Vector3(7.8f, 3.1f, -8.82f),
+                new Vector3(10.4f, 6.2f, 0.36f), wallMat, true);
+            CreateBox(parent, "SHOP_WALL_NORTH",
+                new Vector3(0f, 3.1f, 8.82f),
+                new Vector3(26f, 6.2f, 0.36f), wallMat, true);
+            CreateBox(parent, "SHOP_WALL_WEST",
+                new Vector3(-12.82f, 3.1f, 0f),
+                new Vector3(0.36f, 6.2f, 18f), wallMat, true);
+            CreateBox(parent, "SHOP_WALL_EAST",
+                new Vector3(12.82f, 3.1f, 0f),
+                new Vector3(0.36f, 6.2f, 18f), wallMat, true);
+
+            CreateBox(parent, "SHOP_CEILING",
+                new Vector3(0f, 6.28f, 0f),
+                new Vector3(26f, 0.30f, 18f), roofMat, true);
+
+            // Timber framing.
+            for (int i = -4; i <= 4; i++)
             {
-                CreateBox(
-                    parent,
-                    "FORGE_BEAM_" + i,
-                    new Vector3(i * 3.2f, 4.8f, 0f),
-                    new Vector3(0.28f, 0.28f, 15.6f),
-                    beamMat,
-                    false);
+                CreateBox(parent, "SHOP_CEILING_BEAM_" + i,
+                    new Vector3(i * 2.85f, 5.15f, 0f),
+                    new Vector3(0.24f, 0.28f, 17.4f), beamMat, false);
             }
 
-            CreateBox(
-                parent, "FORGE_CEILING",
-                new Vector3(0f, 5.85f, 0f),
-                new Vector3(22f, 0.30f, 16f),
-                roofMat, true);
+            for (int z = -1; z <= 1; z++)
+            {
+                CreateBox(parent, "SHOP_CROSS_BEAM_" + z,
+                    new Vector3(0f, 4.85f, z * 5.4f),
+                    new Vector3(25.4f, 0.30f, 0.26f), beamMat, false);
+            }
 
-            string door = FindAnyModel(
-                RgPolyRoot,
-                new[] { "door" },
-                false);
-            log.Add("shell.rgpoly_door", door);
+            // Real descending stair from shop to basement.
+            const int stepCount = 12;
+            const float basementTop = -5.24f;
+            for (int i = 0; i < stepCount; i++)
+            {
+                float topY = -0.20f - i * 0.42f;
+                float height = Mathf.Max(0.22f, topY - basementTop);
+                float centerY = basementTop + height * 0.5f;
+                float z = 1.45f + i * 0.49f;
 
-            string window = FindAnyModel(
-                RgPolyRoot,
-                new[] { "window" },
-                false);
-            log.Add("shell.rgpoly_window", window);
+                CreateBox(parent, "FORGE_STAIR_STEP_" + i,
+                    new Vector3(8.75f, centerY, z),
+                    new Vector3(3.15f, height, 0.48f), stairMat, true);
+            }
+
+            // Stairwell rails and landing frame.
+            CreateBox(parent, "FORGE_STAIR_RAIL_LEFT",
+                new Vector3(6.95f, 0.62f, 4.25f),
+                new Vector3(0.16f, 1.20f, 5.9f), beamMat, true);
+            CreateBox(parent, "FORGE_STAIR_RAIL_RIGHT",
+                new Vector3(10.55f, 0.62f, 4.25f),
+                new Vector3(0.16f, 1.20f, 5.9f), beamMat, true);
+            CreateBox(parent, "FORGE_STAIR_RAIL_REAR",
+                new Vector3(8.75f, 0.62f, 7.35f),
+                new Vector3(3.65f, 1.20f, 0.16f), beamMat, true);
+
+            string door = FindAnyModel(RgPolyRoot, new[] { "door" }, false);
+            string window = FindAnyModel(RgPolyRoot, new[] { "window" }, false);
+            log.Add("shop.rgpoly_door", door);
+            log.Add("shop.rgpoly_window", window);
 
             if (!string.IsNullOrEmpty(door))
             {
-                PlaceDecor(
-                    door,
-                    parent,
-                    "FORGE_ENTRY_DOOR_VISUAL",
-                    new Vector3(0f, 0f, -7.65f),
-                    new Vector3(0f, 180f, 0f),
-                    3.2f,
-                    false);
+                PlaceDecor(door, parent, "SHOP_ENTRY_DOOR_VISUAL",
+                    new Vector3(0f, 0f, -8.66f),
+                    new Vector3(0f, 180f, 0f), 3.3f, false);
             }
 
             if (!string.IsNullOrEmpty(window))
             {
-                PlaceDecor(
-                    window,
-                    parent,
-                    "FORGE_WINDOW_NORTH_A",
-                    new Vector3(-6.2f, 1.75f, 7.6f),
-                    Vector3.zero,
-                    1.9f,
-                    false);
-
-                PlaceDecor(
-                    window,
-                    parent,
-                    "FORGE_WINDOW_NORTH_B",
-                    new Vector3(6.2f, 1.75f, 7.6f),
-                    Vector3.zero,
-                    1.9f,
-                    false);
+                PlaceDecor(window, parent, "SHOP_WINDOW_WEST",
+                    new Vector3(-12.62f, 1.65f, -2.8f),
+                    new Vector3(0f, 90f, 0f), 2.2f, false);
+                PlaceDecor(window, parent, "SHOP_WINDOW_EAST",
+                    new Vector3(12.62f, 1.65f, -2.8f),
+                    new Vector3(0f, -90f, 0f), 2.2f, false);
+                PlaceDecor(window, parent, "SHOP_WINDOW_NORTH",
+                    new Vector3(-7.0f, 1.65f, 8.62f),
+                    Vector3.zero, 2.2f, false);
             }
 
-            log.Add("shell.structure", "HIGHFLY generated + RG Poly donor detail");
+            log.Add("shell.structure",
+                "HIGHFLY two-level shop + real stairwell + RG Poly detail");
         }
-
         private static void BuildForgeSet(Transform parent, AssetLog log)
         {
-            string anvil = FindAnyModel(
-                PropsRoot,
-                new[] { "anvil" },
-                true);
-            log.Add("forge.anvil", anvil);
+            Material woodMat = GetOrCreateHighflyMaterial(
+                "HF_ForgeWood",
+                new Color(0.20f, 0.115f, 0.065f, 1f));
 
-            string furnace = FindAnyModel(
-                PropsRoot,
-                new[] { "furnace", "smelter", "forge", "kiln" },
-                false);
+            Material darkWoodMat = GetOrCreateHighflyMaterial(
+                "HF_ForgeDarkWood",
+                new Color(0.105f, 0.06f, 0.035f, 1f));
 
-            if (string.IsNullOrEmpty(furnace))
-            {
-                furnace = FindAnyModel(
-                    RgPolyRoot,
-                    new[] { "smithy", "cimey", "chimney" },
-                    true);
-            }
-            log.Add("forge.furnace", furnace);
+            Material metalMat = GetOrCreateHighflyMaterial(
+                "HF_ForgeMetal",
+                new Color(0.12f, 0.13f, 0.15f, 1f));
 
-            string hammer = FindAnyModel(
-                PropsRoot,
-                new[] { "hammer", "mallet" },
-                false);
-            log.Add("forge.hammer", hammer);
-
+            string anvil = FindAnyModel(PropsRoot, new[] { "anvil" }, true);
             string workbench = FindAnyModel(
                 PropsRoot,
                 new[] { "workbench", "work_bench", "work bench", "craftingtable", "crafting_table" },
-                false);
+                true);
 
-            if (string.IsNullOrEmpty(workbench))
+            string furnace = FindAnyModel(
+                RgPolyRoot,
+                new[] { "smithy", "cimey", "chimney" },
+                true);
+
+            string shelf = FindAnyModel(RgPolyRoot, new[] { "shelf" }, false);
+            string table = FindAnyModel(RgPolyRoot, new[] { "table" }, false);
+            string bench = FindAnyModel(RgPolyRoot, new[] { "bench" }, false);
+            string stool = FindAnyModel(RgPolyRoot, new[] { "stool" }, false);
+            string barrel = FindAnyModel(RgPolyRoot, new[] { "barrel" }, false);
+            string crate = FindAnyModel(RgPolyRoot, new[] { "crate" }, false);
+            string shield = FindAnyModel(RgPolyRoot, new[] { "shield" }, false);
+            string axe = FindAnyModel(RgPolyRoot, new[] { "axe" }, false);
+            string grinder = FindAnyModel(RgPolyRoot, new[] { "grinder" }, false);
+            string helmet = FindAnyModel(RgPolyRoot, new[] { "helmet" }, false);
+            string sword =
+                AssetDatabase.LoadAssetAtPath<GameObject>(KayKitSword) != null
+                    ? KayKitSword
+                    : FindAnyModel(RgPolyRoot, new[] { "sword" }, false);
+
+            log.Add("shop.shelf", shelf);
+            log.Add("shop.table", table);
+            log.Add("shop.bench", bench);
+            log.Add("shop.stool", stool);
+            log.Add("shop.weapon.sword", sword);
+            log.Add("shop.weapon.axe", axe);
+            log.Add("shop.armor.shield", shield);
+            log.Add("shop.armor.helmet", helmet);
+            log.Add("basement.anvil", anvil);
+            log.Add("basement.furnace", furnace);
+            log.Add("basement.workbench", workbench);
+            log.Add("basement.grinder", grinder);
+            log.Add("basement.storage.barrel", barrel);
+            log.Add("basement.storage.crate", crate);
+
+            // -----------------------------------------------------------------
+            // GROUND FLOOR — CUSTOMER SHOP
+            // -----------------------------------------------------------------
+            CreateBox(parent, "SHOP_COUNTER_BODY",
+                new Vector3(0f, 0.72f, 3.15f),
+                new Vector3(8.8f, 1.35f, 1.35f), darkWoodMat, true);
+            CreateBox(parent, "SHOP_COUNTER_TOP",
+                new Vector3(0f, 1.46f, 3.15f),
+                new Vector3(9.4f, 0.18f, 1.62f), woodMat, true);
+            CreateBox(parent, "SHOP_COUNTER_SIDE_L",
+                new Vector3(-4.55f, 0.82f, 3.15f),
+                new Vector3(0.22f, 1.65f, 1.75f), metalMat, false);
+            CreateBox(parent, "SHOP_COUNTER_SIDE_R",
+                new Vector3(4.55f, 0.82f, 3.15f),
+                new Vector3(0.22f, 1.65f, 1.75f), metalMat, false);
+
+            // Two ordered display plinths form the shop windows/showroom.
+            CreateBox(parent, "SHOP_VITRINE_WEAPONS_BASE",
+                new Vector3(-8.4f, 0.48f, -2.2f),
+                new Vector3(5.4f, 0.95f, 2.3f), woodMat, true);
+            CreateBox(parent, "SHOP_VITRINE_ARMOR_BASE",
+                new Vector3(-8.4f, 0.48f, 1.0f),
+                new Vector3(5.4f, 0.95f, 2.3f), woodMat, true);
+
+            if (!string.IsNullOrEmpty(sword))
             {
-                workbench = FindAnyModel(
-                    PropsRoot,
-                    new[] { "table" },
-                    true);
+                PlaceDecor(sword, parent, "SHOP_DISPLAY_SWORD",
+                    new Vector3(-9.3f, 1.0f, -2.2f),
+                    new Vector3(0f, 0f, 78f), 1.45f, false);
             }
-            log.Add("forge.workbench", workbench);
 
-            string rack = FindAnyModel(
-                PropsRoot,
-                new[] { "weaponrack", "weapon_rack", "rack", "display" },
-                false);
-            log.Add("forge.weapon_display", rack);
+            if (!string.IsNullOrEmpty(axe))
+            {
+                PlaceDecor(axe, parent, "SHOP_DISPLAY_AXE",
+                    new Vector3(-7.5f, 1.0f, -2.2f),
+                    new Vector3(0f, 0f, 82f), 1.45f, false);
+            }
 
-            string chest = FindAnyModel(
-                RgPolyRoot,
-                new[] { "chest" },
-                false);
-            log.Add("forge.storage_chest", chest);
+            if (!string.IsNullOrEmpty(shield))
+            {
+                PlaceDecor(shield, parent, "SHOP_DISPLAY_SHIELD",
+                    new Vector3(-8.6f, 1.0f, 1.0f),
+                    new Vector3(0f, 180f, 0f), 1.65f, false);
+            }
 
-            string barrel = FindAnyModel(
-                RgPolyRoot,
-                new[] { "barrel" },
-                false);
-            log.Add("forge.barrel", barrel);
+            if (!string.IsNullOrEmpty(helmet))
+            {
+                PlaceDecor(helmet, parent, "SHOP_DISPLAY_HELMET",
+                    new Vector3(-6.9f, 1.0f, 1.0f),
+                    Vector3.zero, 1.25f, false);
+            }
 
-            string crate = FindAnyModel(
-                RgPolyRoot,
-                new[] { "crate" },
-                false);
-            log.Add("forge.crate", crate);
+            AddInteraction(parent, "SHOP_WEAPON_SHOWCASE",
+                parent.TransformPoint(new Vector3(-8.4f, 1.0f, -2.2f)),
+                new Vector3(5.8f, 2.4f, 2.8f),
+                HighflyForgeActionKind.WeaponDisplay,
+                "VITRINA DE ARMAS", "INSPECCIONAR");
 
-            string sword = FindAnyModel(
-                PropsRoot,
-                new[] { "sword" },
-                false);
-            log.Add("forge.weapon.sword", sword);
+            AddInteraction(parent, "SHOP_ARMOR_SHOWCASE",
+                parent.TransformPoint(new Vector3(-8.4f, 1.0f, 1.0f)),
+                new Vector3(5.8f, 2.4f, 2.8f),
+                HighflyForgeActionKind.WeaponDisplay,
+                "EXHIBICIÓN DE EQUIPO", "INSPECCIONAR");
 
-            string axe = FindAnyModel(
-                PropsRoot,
-                new[] { "axe" },
-                false);
-            log.Add("forge.weapon.axe", axe);
+            if (!string.IsNullOrEmpty(shelf))
+            {
+                PlaceDecor(shelf, parent, "SHOP_SHELF_NORTH_A",
+                    new Vector3(-9.8f, 0f, 7.7f),
+                    Vector3.zero, 2.7f, true);
+                PlaceDecor(shelf, parent, "SHOP_SHELF_NORTH_B",
+                    new Vector3(-6.7f, 0f, 7.7f),
+                    Vector3.zero, 2.7f, true);
+                PlaceDecor(shelf, parent, "SHOP_SHELF_EAST",
+                    new Vector3(11.7f, 0f, -4.0f),
+                    new Vector3(0f, -90f, 0f), 2.7f, true);
+            }
+
+            if (!string.IsNullOrEmpty(bench))
+            {
+                PlaceDecor(bench, parent, "SHOP_CUSTOMER_BENCH",
+                    new Vector3(7.8f, 0f, -4.8f),
+                    new Vector3(0f, 180f, 0f), 1.0f, true);
+            }
+
+            if (!string.IsNullOrEmpty(stool))
+            {
+                PlaceDecor(stool, parent, "SHOP_HERRERO_STOOL",
+                    new Vector3(3.5f, 0f, 5.2f),
+                    new Vector3(0f, 15f, 0f), 0.75f, true);
+            }
+
+            // Sign/partition that visually leads the player toward the stair.
+            CreateBox(parent, "SHOP_STAIR_SIGN_POST",
+                new Vector3(6.2f, 1.15f, 0.2f),
+                new Vector3(0.22f, 2.3f, 0.22f), darkWoodMat, false);
+            CreateBox(parent, "SHOP_STAIR_SIGN_BOARD",
+                new Vector3(6.2f, 2.0f, 0.2f),
+                new Vector3(2.2f, 0.7f, 0.18f), woodMat, false);
+
+            // -----------------------------------------------------------------
+            // BASEMENT — WORKSHOP / PRODUCTION
+            // -----------------------------------------------------------------
+            GameObject furnaceGo = PlaceDecor(
+                furnace, parent, "BASEMENT_FURNACE",
+                new Vector3(-8.8f, -5.22f, 4.9f),
+                new Vector3(0f, 135f, 0f), 2.9f, true);
 
             GameObject anvilGo = PlaceDecor(
-                anvil,
-                parent,
-                "FORGE_ANVIL",
-                new Vector3(-2.6f, 0f, 0.4f),
-                new Vector3(0f, -12f, 0f),
-                1.05f,
-                true);
-            ApplyMaterial(
-                anvilGo,
-                GetOrCreateHighflyMaterial(
-                    "HF_ForgeMetal",
-                    new Color(0.12f, 0.13f, 0.15f, 1f)));
-
-            AddInteraction(
-                parent,
-                "STATION_ANVIL",
-                anvilGo.transform.position,
-                new Vector3(2.5f, 2.0f, 2.5f),
-                HighflyForgeActionKind.Anvil,
-                "YUNQUE",
-                "FORJAR");
-
-            GameObject furnaceGo = PlaceDecor(
-                furnace,
-                parent,
-                "FORGE_FURNACE",
-                new Vector3(-7.5f, 0f, 4.9f),
-                new Vector3(0f, 135f, 0f),
-                2.5f,
-                true);
-
-            AddInteraction(
-                parent,
-                "STATION_FURNACE",
-                furnaceGo.transform.position + Vector3.forward * 0.4f,
-                new Vector3(3.2f, 2.5f, 3.2f),
-                HighflyForgeActionKind.Furnace,
-                "HORNO DE FUNDICIÓN",
-                "FUNDIR");
+                anvil, parent, "BASEMENT_ANVIL",
+                new Vector3(-3.0f, -5.22f, 1.2f),
+                new Vector3(0f, -12f, 0f), 1.15f, true);
+            ApplyMaterial(anvilGo, metalMat);
 
             GameObject benchGo = PlaceDecor(
-                workbench,
-                parent,
-                "FORGE_WORKBENCH",
-                new Vector3(6.3f, 0f, 4.7f),
-                new Vector3(0f, -145f, 0f),
-                1.5f,
-                true);
-            ApplyMaterial(
-                benchGo,
-                GetOrCreateHighflyMaterial(
-                    "HF_ForgeWood",
-                    new Color(0.20f, 0.12f, 0.07f, 1f)));
+                workbench, parent, "BASEMENT_WORKBENCH",
+                new Vector3(4.4f, -5.22f, 4.6f),
+                new Vector3(0f, -145f, 0f), 1.6f, true);
+            ApplyMaterial(benchGo, woodMat);
 
-            AddInteraction(
-                parent,
-                "STATION_WORKBENCH",
+            AddInteraction(parent, "STATION_FURNACE",
+                furnaceGo.transform.position + Vector3.forward * 0.45f,
+                new Vector3(3.5f, 2.6f, 3.5f),
+                HighflyForgeActionKind.Furnace,
+                "HORNO DE FUNDICIÓN", "FUNDIR");
+
+            AddInteraction(parent, "STATION_ANVIL",
+                anvilGo.transform.position,
+                new Vector3(2.8f, 2.1f, 2.8f),
+                HighflyForgeActionKind.Anvil,
+                "YUNQUE PRINCIPAL", "FORJAR");
+
+            AddInteraction(parent, "STATION_WORKBENCH",
                 benchGo.transform.position,
-                new Vector3(3.1f, 2.0f, 2.5f),
+                new Vector3(3.4f, 2.1f, 2.8f),
                 HighflyForgeActionKind.Workbench,
-                "BANCO DE TRABAJO",
-                "CRAFT");
+                "BANCO DE TRABAJO", "CRAFT");
 
-            if (!string.IsNullOrEmpty(hammer))
-            {
-                PlaceDecor(
-                    hammer,
-                    parent,
-                    "FORGE_HAMMER",
-                    new Vector3(-0.7f, 1.0f, 0.1f),
-                    new Vector3(8f, 20f, 72f),
-                    0.6f,
-                    false);
-            }
-
-            if (!string.IsNullOrEmpty(rack))
-            {
-                GameObject rackGo = PlaceDecor(
-                    rack,
-                    parent,
-                    "FORGE_WEAPON_RACK",
-                    new Vector3(7.6f, 0f, -4.2f),
-                    new Vector3(0f, -90f, 0f),
-                    2.0f,
-                    true);
-
-                AddInteraction(
-                    parent,
-                    "STATION_WEAPON_DISPLAY",
-                    rackGo.transform.position,
-                    new Vector3(3.2f, 2.4f, 2.4f),
-                    HighflyForgeActionKind.WeaponDisplay,
-                    "EXHIBIDOR DE ARMAS",
-                    "INSPECCIONAR");
-            }
-            else
-            {
-                GameObject display = new GameObject("FORGE_WEAPON_DISPLAY");
-                display.transform.SetParent(parent, false);
-                display.transform.localPosition = new Vector3(7.6f, 0.9f, -4.2f);
-
-                if (!string.IsNullOrEmpty(sword))
-                {
-                    PlaceDecor(
-                        sword,
-                        display.transform,
-                        "DISPLAY_SWORD",
-                        Vector3.zero,
-                        new Vector3(0f, 0f, 88f),
-                        1.2f,
-                        false);
-                }
-
-                if (!string.IsNullOrEmpty(axe))
-                {
-                    PlaceDecor(
-                        axe,
-                        display.transform,
-                        "DISPLAY_AXE",
-                        new Vector3(0f, 0f, 1.0f),
-                        new Vector3(0f, 0f, 80f),
-                        1.2f,
-                        false);
-                }
-
-                AddInteraction(
-                    parent,
-                    "STATION_WEAPON_DISPLAY",
-                    parent.TransformPoint(new Vector3(7.6f, 1f, -4.2f)),
-                    new Vector3(3.2f, 2.4f, 2.4f),
-                    HighflyForgeActionKind.WeaponDisplay,
-                    "EXHIBIDOR DE ARMAS",
-                    "INSPECCIONAR");
-            }
-
-            Vector3 storagePosition = new Vector3(-7.4f, 0f, -4.1f);
-
-            if (!string.IsNullOrEmpty(chest))
-            {
-                PlaceDecor(
-                    chest,
-                    parent,
-                    "FORGE_STORAGE_CHEST",
-                    storagePosition,
-                    new Vector3(0f, 40f, 0f),
-                    1.2f,
-                    true);
-            }
-
+            // Materials occupy one dedicated corner instead of floating through
+            // the room: crates + barrels + optional grinder.
+            Vector3 storage = new Vector3(-8.9f, -5.22f, -4.8f);
             if (!string.IsNullOrEmpty(barrel))
             {
-                PlaceDecor(
-                    barrel,
-                    parent,
-                    "FORGE_BARREL_A",
-                    storagePosition + new Vector3(1.1f, 0f, 0.2f),
-                    Vector3.zero,
-                    1.2f,
-                    true);
+                PlaceDecor(barrel, parent, "BASEMENT_BARREL_A",
+                    storage, Vector3.zero, 1.35f, true);
+                PlaceDecor(barrel, parent, "BASEMENT_BARREL_B",
+                    storage + new Vector3(1.45f, 0f, 0.25f),
+                    new Vector3(0f, 18f, 0f), 1.20f, true);
             }
 
             if (!string.IsNullOrEmpty(crate))
             {
-                PlaceDecor(
-                    crate,
-                    parent,
-                    "FORGE_CRATE_A",
-                    storagePosition + new Vector3(0.4f, 0f, 1.2f),
-                    new Vector3(0f, 22f, 0f),
-                    1.0f,
-                    true);
+                PlaceDecor(crate, parent, "BASEMENT_CRATE_A",
+                    storage + new Vector3(0.4f, 0f, 1.55f),
+                    new Vector3(0f, 25f, 0f), 1.05f, true);
+                PlaceDecor(crate, parent, "BASEMENT_CRATE_B",
+                    storage + new Vector3(1.7f, 0f, 1.7f),
+                    new Vector3(0f, -12f, 0f), 0.9f, true);
             }
 
-            AddInteraction(
-                parent,
-                "STATION_MATERIAL_STORAGE",
-                parent.TransformPoint(storagePosition + new Vector3(0.5f, 1f, 0.7f)),
-                new Vector3(3.5f, 2.4f, 3.5f),
-                HighflyForgeActionKind.MaterialStorage,
-                "ALMACÉN DE MATERIALES",
-                "REVISAR");
-        }
+            if (!string.IsNullOrEmpty(grinder))
+            {
+                PlaceDecor(grinder, parent, "BASEMENT_GRINDER",
+                    new Vector3(6.8f, -5.22f, -4.2f),
+                    new Vector3(0f, -90f, 0f), 1.45f, true);
+            }
 
+            CreateBox(parent, "BASEMENT_MATERIAL_PLATFORM",
+                new Vector3(-8.6f, -5.05f, -4.5f),
+                new Vector3(6.5f, 0.22f, 5.2f), darkWoodMat, true);
+
+            AddInteraction(parent, "STATION_MATERIAL_STORAGE",
+                parent.TransformPoint(new Vector3(-8.5f, -4.5f, -4.4f)),
+                new Vector3(6.5f, 2.4f, 5.4f),
+                HighflyForgeActionKind.MaterialStorage,
+                "ALMACÉN DE MATERIALES", "REVISAR");
+
+            // Low dividers make workshop zones legible while retaining an open
+            // path from stair landing to every station.
+            CreateBox(parent, "BASEMENT_DIVIDER_FORGE",
+                new Vector3(-5.6f, -4.62f, -0.7f),
+                new Vector3(0.22f, 1.25f, 7.6f), darkWoodMat, false);
+            CreateBox(parent, "BASEMENT_DIVIDER_CRAFT",
+                new Vector3(1.0f, -4.62f, 5.9f),
+                new Vector3(7.6f, 1.25f, 0.22f), darkWoodMat, false);
+
+            if (!string.IsNullOrEmpty(table))
+            {
+                PlaceDecor(table, parent, "BASEMENT_REPAIR_TABLE",
+                    new Vector3(7.5f, -5.22f, 0.8f),
+                    new Vector3(0f, -90f, 0f), 1.15f, true);
+            }
+
+            log.Add("layout.shop", "counter + showcases + shelves + customer circulation");
+            log.Add("layout.basement", "furnace + anvil + crafting + materials + repair");
+        }
         private static void BuildBlacksmith(Transform parent, AssetLog log)
         {
             GameObject source =
@@ -478,15 +506,15 @@ namespace Highfly.Editor
 
             if (source == null)
                 throw new FileNotFoundException(
-                    "HIGHFLY W1.1 blacksmith visual missing",
+                    "HIGHFLY W1.3 blacksmith visual missing",
                     KayKitBarbarian);
 
-            GameObject npc =
-                UnityEngine.Object.Instantiate(source);
-
+            GameObject npc = UnityEngine.Object.Instantiate(source);
             npc.name = "HERRERO_KAYKIT";
             npc.transform.SetParent(parent, false);
-            npc.transform.localPosition = new Vector3(1.4f, 0f, 5.4f);
+
+            // Behind the retail counter, facing the customer entrance.
+            npc.transform.localPosition = new Vector3(0f, 0f, 4.9f);
             npc.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
 
             NormalizeHeight(npc, 1.82f);
@@ -496,26 +524,25 @@ namespace Highfly.Editor
             trigger.isTrigger = true;
             trigger.center = new Vector3(0f, 0.95f, 0f);
             trigger.height = 2.1f;
-            trigger.radius = 0.75f;
+            trigger.radius = 0.85f;
 
             HighflyForgeInteractable interactable =
                 npc.AddComponent<HighflyForgeInteractable>();
 
             interactable.Configure(
                 HighflyForgeActionKind.Blacksmith,
-                "HERRERO",
-                "HABLAR");
+                "HERRERO / VENDEDOR",
+                "COMERCIAR");
 
-            log.Add("forge.blacksmith_npc", KayKitBarbarian);
+            log.Add("shop.blacksmith_npc", KayKitBarbarian);
         }
-
         private static void BuildEntryExit(
             Transform parent,
             HighflyInteriorDefinition definition)
         {
             GameObject entry = new GameObject("ENTRY_ANCHOR");
             entry.transform.SetParent(parent, false);
-            entry.transform.localPosition = new Vector3(0f, 0.15f, -5.9f);
+            entry.transform.localPosition = new Vector3(0f, 0.15f, -7.25f);
             entry.transform.localRotation = Quaternion.identity;
 
             HighflyWorldAnchor entryAnchor =
@@ -528,13 +555,13 @@ namespace Highfly.Editor
 
             GameObject exit = new GameObject("EXIT_TO_CAPITAL");
             exit.transform.SetParent(parent, false);
-            exit.transform.localPosition = new Vector3(0f, 0f, -7.15f);
+            exit.transform.localPosition = new Vector3(0f, 0f, -8.35f);
             exit.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
 
             BoxCollider exitCollider = exit.AddComponent<BoxCollider>();
             exitCollider.isTrigger = true;
-            exitCollider.center = new Vector3(0f, 1.05f, 0f);
-            exitCollider.size = new Vector3(3.5f, 2.5f, 2.0f);
+            exitCollider.center = new Vector3(0f, 1.10f, 0f);
+            exitCollider.size = new Vector3(3.8f, 2.6f, 1.45f);
 
             HighflyWorldAnchor exitAnchor =
                 exit.AddComponent<HighflyWorldAnchor>();
@@ -549,34 +576,41 @@ namespace Highfly.Editor
 
             exitDoor.Configure("CAPITAL HIGHFLY");
         }
-
         private static void BuildLighting(Transform parent)
         {
-            CreateLight(
-                parent,
-                "FORGE_LIGHT_MAIN",
-                new Vector3(0f, 4.9f, 0f),
-                new Color(1f, 0.77f, 0.54f, 1f),
-                2.0f,
-                17f);
+            // Retail floor: warm but clean enough to read weapons/armor.
+            CreateLight(parent, "SHOP_LIGHT_MAIN",
+                new Vector3(0f, 4.75f, -1.0f),
+                new Color(1f, 0.79f, 0.58f, 1f),
+                2.15f, 18f);
 
-            CreateLight(
-                parent,
-                "FORGE_LIGHT_FURNACE",
-                new Vector3(-7.0f, 1.8f, 4.6f),
-                new Color(1f, 0.30f, 0.08f, 1f),
-                3.0f,
-                7f);
+            CreateLight(parent, "SHOP_LIGHT_SHOWCASE",
+                new Vector3(-8.4f, 3.0f, -0.7f),
+                new Color(1f, 0.72f, 0.45f, 1f),
+                1.65f, 8f);
 
-            CreateLight(
-                parent,
-                "FORGE_LIGHT_ENTRY",
-                new Vector3(0f, 3.1f, -6.2f),
-                new Color(1f, 0.62f, 0.32f, 1f),
-                1.35f,
-                6f);
+            CreateLight(parent, "SHOP_LIGHT_COUNTER",
+                new Vector3(0f, 3.2f, 4.0f),
+                new Color(1f, 0.68f, 0.40f, 1f),
+                1.55f, 8f);
+
+            // Basement: forge heat dominates, with a softer utility fill on the
+            // crafting/material side so the workshop never turns into a void.
+            CreateLight(parent, "BASEMENT_LIGHT_FORGE",
+                new Vector3(-7.8f, -2.8f, 4.2f),
+                new Color(1f, 0.25f, 0.055f, 1f),
+                3.4f, 9f);
+
+            CreateLight(parent, "BASEMENT_LIGHT_WORK",
+                new Vector3(3.8f, -2.7f, 2.6f),
+                new Color(1f, 0.58f, 0.28f, 1f),
+                2.0f, 11f);
+
+            CreateLight(parent, "BASEMENT_LIGHT_STORAGE",
+                new Vector3(-7.5f, -3.0f, -4.4f),
+                new Color(0.86f, 0.62f, 0.38f, 1f),
+                1.3f, 7f);
         }
-
         private static void CreateLight(
             Transform parent,
             string name,
