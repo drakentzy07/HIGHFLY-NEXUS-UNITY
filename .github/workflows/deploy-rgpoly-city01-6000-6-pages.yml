@@ -26,14 +26,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Pin W1.1 successful WebGL run
+      - name: Pin W1.2 successful WebGL run
         id: source
         shell: bash
         run: |
           set -euo pipefail
-          RUN_ID="36192114838"
+          RUN_ID="36198283648"
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "Publishing W1.1 Forge Supreme + Water Foundation from run $RUN_ID"
+          echo "Publishing W1.2 Forge Supreme + WebGL WASD from run $RUN_ID"
 
       - name: Download exact successful 6000.6 WebGL artifact
         uses: actions/download-artifact@v4
@@ -85,8 +85,10 @@ jobs:
           <meta name="screen-orientation" content="landscape">
           <style>
           html,body{margin:0!important;padding:0!important;width:100%!important;height:100%!important;overflow:hidden!important;background:#08121d!important}
-          #unity-container,#unity-container.unity-desktop,#unity-container.unity-mobile{position:fixed!important;inset:0!important;transform:none!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important}
-          #unity-canvas,#unity-canvas.unity-mobile{position:absolute!important;inset:0!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;display:block!important}
+          body{display:flex!important;align-items:center!important;justify-content:center!important}
+          #unity-container.unity-desktop{position:relative!important;inset:auto!important;transform:none!important;width:min(1180px,92vw)!important;height:auto!important;aspect-ratio:1180/560!important;max-height:86vh!important;background:#000!important;box-shadow:0 18px 70px rgba(0,0,0,.55)!important;border-radius:10px!important;overflow:hidden!important}
+          #unity-container.unity-mobile{position:fixed!important;inset:0!important;transform:none!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;border-radius:0!important}
+          #unity-canvas{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;display:block!important}
           #unity-footer,#unity-logo,#unity-webgl-logo{display:none!important}
           #highfly-enter{position:fixed;inset:0;z-index:99999;background:#08121d;display:none;align-items:center;justify-content:center;font-family:Arial,sans-serif}
           #highfly-enter button{font-size:22px;font-weight:700;padding:18px 28px;border-radius:12px;border:1px solid #5ee8ff;background:#102c42;color:white}
@@ -103,8 +105,16 @@ jobs:
             const fit=()=>{
               const c=document.getElementById("unity-container");
               const v=document.getElementById("unity-canvas");
-              if(c){c.className="unity-mobile";c.style.width="100vw";c.style.height="100dvh";}
-              if(v){v.className="unity-mobile";v.style.width="100vw";v.style.height="100dvh";}
+              if(c){
+                c.className=mobile?"unity-mobile":"unity-desktop";
+                c.style.width="";
+                c.style.height="";
+              }
+              if(v){
+                v.className=mobile?"unity-mobile":"unity-desktop";
+                v.style.width="100%";
+                v.style.height="100%";
+              }
             };
             const enter=async()=>{
               fit();
