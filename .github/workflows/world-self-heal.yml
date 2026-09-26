@@ -1,0 +1,115 @@
+name: HIGHFLY WORLD Self-Heal Watchdog
+
+on:
+  workflow_run:
+    workflows:
+      - "Build HIGHFLY RG Poly City01 on Unity 6000.6 Golden Host"
+    types:
+      - completed
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+jobs:
+  self-heal:
+    if: >
+      github.event.workflow_run.head_branch == 'highfly/world-w1-1-real-interiors-water-v01'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Classify completed WORLD run
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "attempt=$RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          echo "conclusion=$CONCLUSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$CONCLUSION" = "success" ]; then
+            echo "action=green" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mkdir -p run-logs
+          gh api             -H "Accept: application/vnd.github+json"             "/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/logs"             > run-logs/logs.zip
+
+          unzip -q run-logs/logs.zip -d run-logs/unpacked || true
+          cat run-logs/unpacked/* 2>/dev/null > run-logs/all.log || true
+
+          TRANSIENT=0
+
+          grep -Eiq             'exit code 137|Killed$|OutOfMemory|out of memory|exit code 139|Segmentation fault|UnityShaderCompiler.*(crash|timeout|failed)|Failed to get ipc connection|Shader compiler initialization error'             run-logs/all.log && TRANSIENT=1 || true
+
+          if [ "$TRANSIENT" -eq 1 ] && [ "$RUN_ATTEMPT" -lt 3 ]; then
+            echo "action=rerun" >> "$GITHUB_OUTPUT"
+          elif [ "$TRANSIENT" -eq 1 ]; then
+            echo "action=transient_exhausted" >> "$GITHUB_OUTPUT"
+          else
+            echo "action=functional_failure" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Auto-rerun transient Unity failure
+        if: steps.classify.outputs.action == 'rerun'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.classify.outputs.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Transient Unity failure detected. Re-running failed jobs for run $RUN_ID."
+          gh api             --method POST             -H "Accept: application/vnd.github+json"             "/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/rerun-failed-jobs"
+
+      - name: Open diagnostic issue after unrecoverable failure
+        if: >
+          steps.classify.outputs.action == 'functional_failure' ||
+          steps.classify.outputs.action == 'transient_exhausted'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.classify.outputs.run_id }}
+          ACTION_KIND: ${{ steps.classify.outputs.action }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TITLE="WORLD CI needs attention — run ${RUN_ID}"
+
+          EXISTING="$(
+            gh issue list               --repo "$GITHUB_REPOSITORY"               --state open               --search "$TITLE in:title"               --json number               --jq '.[0].number // empty'
+          )"
+
+          BODY="$(cat <<EOF
+          HIGHFLY WORLD watchdog stopped automatic retries.
+
+          - Run: ${RUN_URL}
+          - Run ID: ${RUN_ID}
+          - Commit: ${HEAD_SHA}
+          - Classification: ${ACTION_KIND}
+          - Automatic retry ceiling: 3 attempts
+
+          If this is a functional code/asset failure, inspect the exact Unity error before changing WORLD.
+          If this is a transient Unity runner failure, a new commit or manual rerun can be used after investigation.
+          EOF
+          )"
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            gh issue create               --repo "$GITHUB_REPOSITORY"               --title "$TITLE"               --body "$BODY"
+          fi
+
+      - name: Report green
+        if: steps.classify.outputs.action == 'green'
+        shell: bash
+        run: |
+          echo "WORLD build is green. No recovery action required."
