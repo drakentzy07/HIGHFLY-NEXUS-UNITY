@@ -59,14 +59,21 @@ jobs:
           const path=require('path');
           const {downloadGame}=require(path.join(process.cwd(),'.hf-itch/node_modules/itchio-downloader'));
           (async()=>{
-            const result=await downloadGame({
-              itchGameUrl:'https://rg-poly.itch.io/stylized-medieval-village-unity-urp',
-              downloadDirectory:path.join(process.cwd(),'world-download'),
-              desiredFileName:'Stylized_Medieval_Village',
-              resume:true,
-              noCookieCache:true,
-            });
-            console.log('[G1] source download:', JSON.stringify(result));
+            for (let attempt=1;attempt<=4;attempt++){
+              const result=await downloadGame({
+                itchGameUrl:'https://rg-poly.itch.io/stylized-medieval-village-unity-urp',
+                downloadDirectory:path.join(process.cwd(),'world-download'),
+                desiredFileName:'Stylized_Medieval_Village',
+                resume:true,
+                noCookieCache:true,
+              });
+              console.log('[G1] official source attempt '+attempt+':',JSON.stringify(result));
+              if(result && result.status!==false){
+                console.log('HIGHFLY_G1_ITCH_DOWNLOAD_REPORTED_OK=1');return;
+              }
+              if(attempt===4)throw new Error('Official itch.io RG Poly download unavailable after 4 bounded attempts; never substitute unverified map');
+              await new Promise(resolve=>setTimeout(resolve,20000*attempt));
+            }
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
           PACKAGE="$(find world-download -type f \( -name '*.unitypackage' -o -name 'Stylized_Medieval_Village.zip' \) | head -1)"
