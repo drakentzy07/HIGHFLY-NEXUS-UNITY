@@ -1,0 +1,151 @@
+name: HIGHFLY WORLD GENESIS G1 - Real RG Poly City to GLB (NO DEPLOY)
+on:
+  push:
+    branches: [highfly/world-genesis-g1-export-rgpoly-20261021]
+    paths:
+      - ".github/workflows/highfly-world-genesis-g1-export-rgpoly.yml"
+      - "Assets/Highfly/Editor/HighflyG01RgPolyGlbExporter.cs"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: highfly-genesis-g1-rgpoly-export
+  cancel-in-progress: true
+
+jobs:
+  export_city:
+    name: Extract licensed Unity city and export real GLB
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout NEXUS donor at pinned branch
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Install Unity 6000 URP and stable glTFast 6.20
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('Packages/manifest.json')
+          d=json.loads(p.read_text())
+          deps=d.setdefault('dependencies',{})
+          deps['com.unity.render-pipelines.core']='17.4.0'
+          deps['com.unity.render-pipelines.universal']='17.4.0'
+          deps['com.unity.render-pipelines.universal-config']='17.4.0'
+          deps['com.unity.shadergraph']='17.4.0'
+          deps['com.unity.cloud.gltfast']='6.20.0'
+          deps['com.unity.ugui']='2.0.0'
+          deps['com.unity.test-framework']='1.6.0'
+          deps['com.unity.modules.terrain']='1.0.0'
+          deps['com.unity.modules.terrainphysics']='1.0.0'
+          deps['com.unity.modules.wind']='1.0.0'
+          p.write_text(json.dumps(d,indent=2)+'\n')
+          print('[G1] pinned glTFast',deps['com.unity.cloud.gltfast'])
+          PY
+
+      - name: Download original official RG Poly CC0 scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .hf-itch world-download
+          npm --prefix .hf-itch init -y >/dev/null 2>&1
+          npm --prefix .hf-itch install --no-save itchio-downloader@latest
+          node <<'NODE'
+          const path=require('path');
+          const {downloadGame}=require(path.join(process.cwd(),'.hf-itch/node_modules/itchio-downloader'));
+          (async()=>{
+            const result=await downloadGame({
+              itchGameUrl:'https://rg-poly.itch.io/stylized-medieval-village-unity-urp',
+              downloadDirectory:path.join(process.cwd(),'world-download'),
+              desiredFileName:'Stylized_Medieval_Village',
+              resume:true,
+              noCookieCache:true,
+            });
+            console.log('[G1] source download:', JSON.stringify(result));
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+          PACKAGE="$(find world-download -type f \( -name '*.unitypackage' -o -name 'Stylized_Medieval_Village.zip' \) | head -1)"
+          test -n "$PACKAGE"
+          python3 - "$PACKAGE" <<'PY'
+          import sys,hashlib,tarfile
+          p=sys.argv[1]
+          assert tarfile.is_tarfile(p), 'Source must be Unity tar package'
+          h=hashlib.sha256()
+          with open(p,'rb') as f:
+            for b in iter(lambda:f.read(1024*1024),b''): h.update(b)
+          expected='34e2bf4ec08a7b9a1687a04b4e5c155648f3b1a31ff77ddb29812e821318a98d'
+          assert h.hexdigest()==expected,'Source digest changed; audit before importing'
+          print('[G1] source hash',h.hexdigest())
+          PY
+          python3 ci/world/extract_unitypackage.py --package "$PACKAGE" --project .
+          test -s 'Assets/Stylized Medieval Kingdom URP/Scenes/Demo Stylized Medieval.unity'
+
+      - name: Free disk before Unity asset import
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+
+      - name: Export mesh scene to GLB via Unity Editor without building game
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: 6000.4.0f1
+          targetPlatform: WebGL
+          buildsPath: build/unity-batch
+          buildName: HIGHFLY-GENESIS-G1-EXPORT
+          buildMethod: Highfly.Editor.HighflyG01RgPolyGlbExporter.ExportG01RgPolyCity
+          allowDirtyBuild: true
+
+      - name: Verify GLB headers, GLTF JSON meshes and real anchor manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import struct,json,pathlib
+          root=pathlib.Path('build/genesis')
+          p=root/'rgpoly-city01.glb'
+          m=root/'rgpoly-city01.manifest.json'
+          assert p.is_file() and m.is_file(), 'Real generated GLB/manifest missing'
+          with p.open('rb') as f:
+            magic,version,length=struct.unpack('<III',f.read(12))
+            assert magic==0x46546C67 and version==2,'Not a GLB v2 file'
+            assert length==p.stat().st_size,'GLB length mismatch'
+            size,kind=struct.unpack('<II',f.read(8))
+            assert kind==0x4E4F534A,'First GLB chunk must be JSON'
+            gltf=json.loads(f.read(size))
+          metadata=json.loads(m.read_text())
+          meshes=gltf.get('meshes',[])
+          assert len(meshes)>50,'GLB does not contain expected geometry'
+          assert metadata['renderMeshCount']>100,'Unity scene is empty'
+          assert len(metadata['anchors'])==4,'Missing NEXUS semantic anchor'
+          assert metadata['terrainCount']==0,'Terrain requires explicit mesh export'
+          print('HIGHFLY_GENESIS_G1_GLB_STRUCTURE_GREEN=1')
+          print('HIGHFLY_GENESIS_G1_MESHES=',len(meshes))
+          print('HIGHFLY_GENESIS_G1_BYTES=',p.stat().st_size)
+          print('HIGHFLY_GENESIS_G1_COLLIDERS_AUDIT=',metadata['colliderCount'])
+          PY
+
+      - name: Publish donor artifact to Actions only (NOT Pages)
+        uses: actions/upload-artifact@v4
+        with:
+          name: highfly-genesis-g1-rgpoly-city01-glb
+          path: |
+            build/genesis/rgpoly-city01.glb
+            build/genesis/rgpoly-city01.manifest.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
