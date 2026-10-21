@@ -49,6 +49,8 @@ namespace Highfly.Editor
             public int rootCount;
             public int renderMeshCount;
             public int terrainCount;
+            public int convertedTerrainCount;
+            public int terrainMeshResolution;
             public int colliderCount;
             public long glbBytes;
             public AnchorRecord[] anchors;
@@ -71,6 +73,8 @@ namespace Highfly.Editor
             var colliders = new List<ColliderRecord>();
             int meshCount = 0;
             int terrainCount = 0;
+            int terrainConverted = 0;
+            const int terrainResolution = 257; // 256 x 256 triangles grid, acceptable first Android LOD.
             foreach (var root in roots)
             {
                 if (!root.activeInHierarchy) continue;
@@ -82,7 +86,13 @@ namespace Highfly.Editor
                         meshCount++;
                 }
                 foreach (var terrain in root.GetComponentsInChildren<Terrain>(true))
-                    if (terrain != null && terrain.enabled) terrainCount++;
+                {
+                    if (terrain == null || !terrain.enabled) continue;
+                    terrainCount++;
+                    // glTFast exports MeshRenderers but NOT Unity's Terrain component.
+                    // Convert the source heightmap to actual vertices BEFORE GLB creation.
+                    if (AddG01TerrainMesh(terrain, terrainResolution)) terrainConverted++;
+                }
                 foreach (var collider in root.GetComponentsInChildren<Collider>(true))
                 {
                     if (collider == null || !collider.enabled || collider.isTrigger) continue;
@@ -97,12 +107,14 @@ namespace Highfly.Editor
             }
             if (meshCount < 100)
                 throw new InvalidOperationException("G1: imported scene has fewer than 100 render meshes");
-            if (terrainCount != 0)
+            if (terrainCount == 0 || terrainConverted != terrainCount)
                 throw new InvalidOperationException(
-                    "G1: Unity Terrain detected; glTFast omits terrain mesh. Export separately before GREEN.");
+                    "G1: original Unity Terrain was not successfully converted to GLB meshes.");
 
             manifest.renderMeshCount = meshCount;
             manifest.terrainCount = terrainCount;
+            manifest.convertedTerrainCount = terrainConverted;
+            manifest.terrainMeshResolution = terrainResolution;
             manifest.colliderCount = colliders.Count;
             manifest.colliders = colliders.ToArray();
             manifest.anchors = new[]
@@ -143,9 +155,94 @@ namespace Highfly.Editor
                 JsonUtility.ToJson(manifest, true));
             Debug.Log("HIGHFLY_GENESIS_G1_REAL_GLB_READY=1" +
                       " meshes=" + meshCount +
+                      " terrain=" + terrainConverted + "/" + terrainCount +
                       " roots=" + roots.Length +
                       " colliders=" + colliders.Count +
                       " glbBytes=" + manifest.glbBytes);
+        }
+
+
+        /// <summary>
+        /// Construct a real geometry surface from the authoritative Unity TerrainData
+        /// height field. Leave the original Terrain object untouched. glTFast will
+        /// see the generated child MeshRenderer when traversing scene roots.
+        ///
+        /// First-pass export is geometry+flat material; precise TerrainLayers,
+        /// splatmap blending, grass/detail vegetation and physics remain separate
+        /// requirements before Android world acceptance.
+        /// </summary>
+        private static bool AddG01TerrainMesh(Terrain terrain, int resolution)
+        {
+            TerrainData data = terrain.terrainData;
+            if (data == null || data.heightmapResolution < 2)
+                return false;
+            if (resolution < 3 || resolution > 513)
+                throw new ArgumentOutOfRangeException(nameof(resolution));
+            Vector3 size = data.size;
+            if (size.x <= 0 || size.z <= 0)
+                throw new InvalidOperationException("G1: terrain extents invalid");
+
+            var vertices = new Vector3[resolution * resolution];
+            var uv = new Vector2[vertices.Length];
+            int[] triangles = new int[(resolution - 1) * (resolution - 1) * 6];
+            for (int z = 0; z < resolution; z++)
+            {
+                float t = (float)z / (resolution - 1);
+                for (int x = 0; x < resolution; x++)
+                {
+                    float u = (float)x / (resolution - 1);
+                    int idx = z * resolution + x;
+                    float height = data.GetInterpolatedHeight(u, t);
+                    vertices[idx] = new Vector3(u * size.x, height, t * size.z);
+                    uv[idx] = new Vector2(u, t);
+                }
+            }
+            int ptr = 0;
+            for (int z = 0; z < resolution - 1; z++)
+                for (int x = 0; x < resolution - 1; x++)
+                {
+                    int a = z * resolution + x;
+                    int b = a + 1;
+                    int c = a + resolution;
+                    int d = c + 1;
+                    triangles[ptr++] = a;
+                    triangles[ptr++] = c;
+                    triangles[ptr++] = b;
+                    triangles[ptr++] = b;
+                    triangles[ptr++] = c;
+                    triangles[ptr++] = d;
+                }
+            var mesh = new Mesh();
+            mesh.name = "HIGHFLY_RG_POLY_REAL_TERRAIN_HEIGHTMAP";
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.vertices = vertices;
+            mesh.uv = uv;
+            mesh.triangles = triangles;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+
+            var visual = new GameObject("HIGHFLY_G1_TERRAIN_GLTF_VISUAL");
+            visual.transform.SetParent(terrain.transform, false);
+            visual.transform.localPosition = Vector3.zero;
+            visual.transform.localRotation = Quaternion.identity;
+            visual.transform.localScale = Vector3.one;
+            visual.AddComponent<MeshFilter>().sharedMesh = mesh;
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            if (shader == null)
+                throw new InvalidOperationException("G1: no Unity terrain compatible shader");
+            var material = new Material(shader);
+            material.name = "HIGHFLY_G1_TERRAIN_TEMPORARY_TINT";
+            var color = new Color(0.33f, 0.46f, 0.27f, 1f);
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+            if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+            visual.AddComponent<MeshRenderer>().sharedMaterial = material;
+
+            Debug.Log("HIGHFLY_G1_TERRAIN_HEIGHTMAP_EXPORTED=1" +
+                      " vertices=" + vertices.Length +
+                      " triangles=" + triangles.Length / 3 +
+                      " size=" + size + " origin=" + terrain.transform.position);
+            return true;
         }
 
         private static string HierarchyPath(Transform transform)
