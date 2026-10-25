@@ -20,6 +20,7 @@ namespace Highfly.Combat
         private bool _dragging;
         private Vector3 _direction;
         private LineRenderer _preview;
+        private Material _previewMaterial;
 
         public void Configure(HighflyVioletCombat controller, Camera camera, int slot, float range)
         {
@@ -78,7 +79,11 @@ namespace Highfly.Combat
                 _preview.startColor = new Color(.96f, .57f, 1f, .85f);
                 _preview.endColor = new Color(.62f, .40f, 1f, .45f);
                 Shader shader = Shader.Find("Sprites/Default");
-                if (shader != null) _preview.sharedMaterial = new Material(shader);
+                if (shader != null)
+                {
+                    _previewMaterial = new Material(shader);
+                    _preview.sharedMaterial = _previewMaterial;
+                }
             }
             _preview.SetPosition(0, violet.transform.position + Vector3.up * .12f);
             _preview.SetPosition(1, violet.transform.position + Vector3.up * .12f + _direction * aimRange);
@@ -104,9 +109,8 @@ namespace Highfly.Combat
         private void Cleanup()
         {
             if (_preview == null) return;
-            if (_preview.sharedMaterial != null &&
-                _preview.sharedMaterial.name.StartsWith("Sprites/Default (Instance)"))
-                Destroy(_preview.sharedMaterial);
+            if (_previewMaterial != null) Destroy(_previewMaterial);
+            _previewMaterial = null;
             Destroy(_preview.gameObject);
             _preview = null;
         }
