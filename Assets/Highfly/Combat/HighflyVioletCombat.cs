@@ -249,6 +249,7 @@ namespace Highfly.Combat
         private IEnumerator RupturaLeap(Vector3 direction)
         {
             _busy = true;
+            if (motor != null) motor.ExternalMovementLock = true;
             float distance = rupturaRange * .75f;
             if (targeting != null && targeting.HasTarget)
                 distance = Mathf.Min(rupturaRange, Vector3.Distance(transform.position, targeting.CurrentTarget.AimPoint.position));
@@ -279,6 +280,7 @@ namespace Highfly.Combat
                 }
             }
             _recastUntil = Time.time + 5f;
+            if (motor != null) motor.ExternalMovementLock = false;
             _busy = false;
             FlushBuffer();
         }
@@ -342,6 +344,11 @@ namespace Highfly.Combat
             }
             _busy = false;
             FlushBuffer();
+        }
+
+        private void OnDisable()
+        {
+            if (motor != null) motor.ExternalMovementLock = false;
         }
 
         private void FlushBuffer()
