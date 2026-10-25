@@ -23,6 +23,7 @@ namespace Highfly.Combat
         private float _slowFactor = 1f;
         private float _airborneUntil;
         private float _poise;
+        public bool IsBoss => boss;
 
         private CharacterController _controller;
         private float _nextAttackTime;
