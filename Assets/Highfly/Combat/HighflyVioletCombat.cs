@@ -382,10 +382,17 @@ namespace Highfly.Combat
         private void Lift(HighflyHealth target, float seconds)
         {
             if (target == null || !target.IsAlive) return;
+            HighflySimpleEnemyAI ai = target.GetComponent<HighflySimpleEnemyAI>();
+            // Bosses are never airborne: damage their poise, not their airborne state.
+            if (ai != null && ai.IsBoss)
+            {
+                ai.ApplyAirborne(seconds);
+                if (effects != null) effects.Impact(target.transform.position, .9f);
+                return;
+            }
             State st = Read(target);
             st.AirborneUntil = Mathf.Max(st.AirborneUntil, Time.time + seconds);
             _states[target] = st;
-            HighflySimpleEnemyAI ai = target.GetComponent<HighflySimpleEnemyAI>();
             if (ai != null) ai.ApplyAirborne(seconds);
             if (effects != null) effects.Lift(target.transform.position);
         }
