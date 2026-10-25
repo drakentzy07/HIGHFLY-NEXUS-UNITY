@@ -132,9 +132,18 @@ namespace Highfly.Editor
                 out Transform attackOrigin,
                 out Animator playerAnimator);
 
+            HighflyVioletVfx violetVfx = player.AddComponent<HighflyVioletVfx>();
+            HighflyVioletCombat violet = player.AddComponent<HighflyVioletCombat>();
+            SetObjectReference(violet, "resources", resources);
+            SetObjectReference(violet, "targeting", targeting);
+            SetObjectReference(violet, "motor", motor);
+            SetObjectReference(violet, "animator", playerAnimator);
+            SetObjectReference(violet, "effects", violetVfx);
+            SetInt(violet, "enemyMask", EnemyMask);
+
             Camera camera = CreateCamera(player.transform, targeting, out HighflyThirdPersonCamera cameraRig);
             GameObject canvas = CreateMobileHUD(
-                motor, targeting, combat, resources, cameraRig, circleSprite,
+                motor, targeting, combat, violet, resources, cameraRig, circleSprite,
                 out HighflyVirtualJoystick joystick, out HighflyCameraLookArea lookArea);
 
             HighflyInteractionController interaction = player.GetComponent<HighflyInteractionController>();
@@ -372,6 +381,7 @@ namespace Highfly.Editor
             HighflyThirdPersonMotor motor,
             HighflyTargetingSystem targeting,
             HighflyCombatController combat,
+            HighflyVioletCombat violet,
             HighflyPlayerResources resources,
             HighflyThirdPersonCamera cameraRig,
             Sprite circleSprite,
@@ -504,7 +514,7 @@ namespace Highfly.Editor
             CreateRoundButton(
                 "ATAQUE", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(260f, 260f), new Vector2(-205f, 235f),
-                new Color(0.12f, 0.24f, 0.42f, 0.94f), Cyan, 30, combat.BasicAttack);
+                new Color(0.12f, 0.24f, 0.42f, 0.94f), Cyan, 30, violet.BasicAttack);
 
             CreateRoundButton(
                 "PESADO", canvasRect, circleSprite,
@@ -516,20 +526,24 @@ namespace Highfly.Editor
                 new Vector2(1f, 0f), new Vector2(166f, 166f), new Vector2(-660f, 185f),
                 new Color(0.06f, 0.21f, 0.30f, 0.94f), Cyan, 24, combat.DashOrDodge);
 
-            CreateRoundButton(
-                "S1\nCORTE", canvasRect, circleSprite,
+            Button prismaButton = CreateRoundButton(
+                "S1\nPRISMA", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(182f, 182f), new Vector2(-600f, 400f),
-                new Color(0.05f, 0.22f, 0.31f, 0.94f), Cyan, 22, combat.SkillLineCleave);
+                new Color(0.15f, 0.10f, 0.30f, 0.94f), Violet, 22, violet.Prisma);
+            prismaButton.gameObject.AddComponent<HighflyVioletAimButton>().Configure(
+                violet, cameraRig.GetComponent<Camera>(), 1, 15f);
 
-            CreateRoundButton(
-                "S2\nABANICO", canvasRect, circleSprite,
+            Button rupturaButton = CreateRoundButton(
+                "S2\nRUPTURA", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(182f, 182f), new Vector2(-407f, 500f),
-                new Color(0.16f, 0.10f, 0.33f, 0.94f), Violet, 21, combat.SkillCone);
+                new Color(0.16f, 0.10f, 0.33f, 0.94f), Violet, 21, violet.Ruptura);
+            rupturaButton.gameObject.AddComponent<HighflyVioletAimButton>().Configure(
+                violet, cameraRig.GetComponent<Camera>(), 2, 8f);
 
             CreateRoundButton(
-                "S3\nÁREA", canvasRect, circleSprite,
+                "S3\nTEMPESTAD", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(182f, 182f), new Vector2(-190f, 530f),
-                new Color(0.23f, 0.08f, 0.34f, 0.96f), Violet, 22, combat.SkillArea);
+                new Color(0.23f, 0.08f, 0.34f, 0.96f), Violet, 20, violet.Tempestad);
 
             CreateRoundHoldButton(
                 "BLOQ", canvasRect, circleSprite,
@@ -545,7 +559,16 @@ namespace Highfly.Editor
                 new Vector2(0f, 48f),
                 19,
                 TextAnchor.MiddleCenter);
-            hint.color = new Color(0.62f, 0.68f, 0.82f, 0.75f);
+            hint.text = "ARRASTRÁ S1/S2 PARA APUNTAR  •  SOLTÁ PARA LANZAR  •  ARRIBA DERECHA CANCELA";
+            hint.color = new Color(0.80f, 0.62f, 0.94f, 0.86f);
+
+            Text violetCharge = CreateText(
+                "SUPER MAGIC 0%", canvasRect,
+                new Vector2(1f, 1f), new Vector2(750f, 44f),
+                new Vector2(-400f, -64f), 24, TextAnchor.MiddleCenter);
+            HighflyVioletSuperMagicHUD violetHud = canvasGo.AddComponent<HighflyVioletSuperMagicHUD>();
+            SetObjectReference(violetHud, "violet", violet);
+            SetObjectReference(violetHud, "readout", violetCharge);
 
             HighflyCombatHUD hud = canvasGo.AddComponent<HighflyCombatHUD>();
             SetObjectReference(hud, "resources", resources);
@@ -619,6 +642,7 @@ namespace Highfly.Editor
             SetObjectReference(ai, "selfHealth", health);
             SetObjectReference(ai, "animator", animator);
             SetFloat(ai, "moveSpeed", speed);
+            SetBool(ai, "boss", boss);
             SetFloat(ai, "attackDamage", boss ? 18f : 8f);
             SetFloat(ai, "attackRange", boss ? 2.15f : 1.65f);
             SetFloat(ai, "detectionRange", boss ? 18f : 14f);
