@@ -248,10 +248,10 @@ namespace Highfly.Core
                 if (_dashElapsed >= _dashDuration)
                 {
                     _isDashing = false;
-                    // Resume at a controllable run speed, not the huge dash
-                    // displacement-per-frame speed.
-                    _planarVelocity = _dashDirection *
-                        Mathf.Max(_planarVelocity.magnitude, moveSpeed * .65f);
+                    // The ordinary velocity solver ran throughout the dash.
+                    // Never inject a NEW impulse on the final frame: that caused
+                    // a second involuntary slide when the joystick was released.
+                    // In-air momentum remains intact through airDeceleration.
                 }
             }
 
@@ -391,17 +391,32 @@ namespace Highfly.Core
         {
             if (flipVisual == null) return;
             StopAndRestoreFlip();
-            // Use CURRENT input: never replay a stale direction from a run
-            // completed several seconds ago. A neutral double jump flips forward.
-            Vector2 input = movementJoystick != null && movementJoystick.IsHeld ?
-                movementJoystick.Value : Vector2.up;
-            if (input.sqrMagnitude < .08f) input = Vector2.up;
-            Vector3 axis = Mathf.Abs(input.y) >= Mathf.Abs(input.x) ?
-                (input.y >= 0f ? Vector3.right : Vector3.left) :
-                (input.x >= 0f ? Vector3.back : Vector3.forward);
+            // Resolve direction in CAMERA SPACE exactly as locomotion does.
+            // A neutral stick flips toward the character's CURRENT facing.
+            // Rotating around hard-coded model-local X/Z axes caused mismatches
+            // when camera, character and imported FBX facing disagreed.
+            Vector2 input = movementJoystick != null && movementJoystick.IsHeld
+                ? movementJoystick.Value : Vector2.zero;
+#if UNITY_EDITOR || UNITY_STANDALONE || UNITY_WEBGL
+            if (input.sqrMagnitude < .001f)
+                input = new Vector2(Input.GetAxisRaw("Horizontal"),
+                                    Input.GetAxisRaw("Vertical"));
+#endif
+            Vector3 worldDirection = input.sqrMagnitude > .0064f
+                ? GetCameraRelativeDirection(input) : transform.forward;
+            worldDirection.y = 0f;
+            if (worldDirection.sqrMagnitude < .001f)
+                worldDirection = transform.forward;
+            worldDirection.Normalize();
+            Vector3 worldAxis = Vector3.Cross(Vector3.up, worldDirection).normalized;
             _originalVisualRotation = flipVisual.localRotation;
             _originalVisualPosition = flipVisual.localPosition;
-            _flipRoutine = StartCoroutine(FlipVisual(axis));
+            // AngleAxis is multiplied on the RIGHT of the imported bind
+            // rotation, so convert the world axis all the way into rig-local.
+            Vector3 parentAxis = flipVisual.parent != null
+                ? flipVisual.parent.InverseTransformDirection(worldAxis) : worldAxis;
+            Vector3 rigAxis = Quaternion.Inverse(_originalVisualRotation) * parentAxis;
+            _flipRoutine = StartCoroutine(FlipVisual(rigAxis.normalized));
         }
 
         private IEnumerator FlipVisual(Vector3 axis)
