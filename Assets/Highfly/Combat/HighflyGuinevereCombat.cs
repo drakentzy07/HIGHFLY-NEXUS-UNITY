@@ -246,6 +246,7 @@ namespace Highfly.Combat
                         resources.Health.CurrentHealth;
                     resources.Health.Heal(resources.Health.MaxHealth * .08f +
                         missing * .08f);
+                    if (effects != null) effects.HealPulse(transform.position);
                     Mark(target);
                 }
                 else GainMagic(34f);
