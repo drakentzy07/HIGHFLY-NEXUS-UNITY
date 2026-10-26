@@ -51,6 +51,15 @@ namespace Highfly.Editor
                 return;
             }
 
+            // CC0 KayKit weapon carried by every Quaternius skin.
+            // Armor is STATS ONLY; outfits are independent cosmetic choices.
+            const string starterWeapon =
+                "Assets/External/KayKit/Adventurers/addons/" +
+                "kaykit_character_pack_adventures/Assets/fbx/sword_1handed.fbx";
+            GameObject swordSource = AssetDatabase.LoadAssetAtPath<GameObject>(starterWeapon);
+            if (swordSource == null)
+                throw new InvalidOperationException(
+                    "W2 requires licensed KayKit CC0 sword visual to equip.");
             List<GameObject> variants = new List<GameObject>();
             List<Animator> animators = new List<Animator>();
             foreach (string path in paths)
@@ -77,6 +86,34 @@ namespace Highfly.Editor
                 }
                 animator.runtimeAnimatorController = controller;
                 animator.applyRootMotion = false;
+                // Visual gear attaches to the active Humanoid skeleton, not to
+                // the Hunter capsule; skin changes keep the right-hand weapon.
+                Transform hand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+                if (hand == null)
+                    throw new InvalidOperationException(
+                        "W2 Quaternius skin has no right hand: " + path);
+                GameObject sword = PrefabUtility.InstantiatePrefab(swordSource, hand)
+                    as GameObject;
+                if (sword == null)
+                    throw new InvalidOperationException(
+                        "W2 could not attach CC0 sword to " + path);
+                sword.name = "W2_Equipped_Sword";
+                sword.transform.localPosition = Vector3.zero;
+                sword.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+                foreach (Collider coll in sword.GetComponentsInChildren<Collider>(true))
+                    coll.enabled = false;
+                Renderer[] swordRenderers = sword.GetComponentsInChildren<Renderer>(true);
+                if (swordRenderers.Length > 0)
+                {
+                    Bounds weaponBounds = swordRenderers[0].bounds;
+                    for (int r = 1; r < swordRenderers.Length; r++)
+                        weaponBounds.Encapsulate(swordRenderers[r].bounds);
+                    float length = Mathf.Max(weaponBounds.size.x,
+                        Mathf.Max(weaponBounds.size.y, weaponBounds.size.z));
+                    if (length > .001f)
+                        sword.transform.localScale *= Mathf.Clamp(1.05f / length, .08f, 4f);
+                }
+                sword.SetActive(false); // HIGHFLY W2 equipment controls visibility.
                 animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
                 HighflyAnimationBalance balance = visual.GetComponent<HighflyAnimationBalance>();
                 if (balance == null) balance = visual.AddComponent<HighflyAnimationBalance>();
@@ -108,6 +145,13 @@ namespace Highfly.Editor
 
             HighflyHunterAppearance appearance = player.AddComponent<HighflyHunterAppearance>();
             SerializedObject so = new SerializedObject(appearance);
+            int starterLook = variants.FindIndex(go =>
+                go.name.IndexOf("knight", StringComparison.OrdinalIgnoreCase) >= 0);
+            if (starterLook < 0)
+                starterLook = variants.FindIndex(go =>
+                    go.name.IndexOf("warrior", StringComparison.OrdinalIgnoreCase) >= 0);
+            so.FindProperty("initialVariant").intValue =
+                Mathf.Max(0, starterLook);
             SerializedProperty v = so.FindProperty("variants");
             SerializedProperty a = so.FindProperty("variantAnimators");
             v.arraySize = variants.Count;
