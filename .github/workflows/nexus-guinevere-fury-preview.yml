@@ -425,6 +425,9 @@ jobs:
           retention-days: 7
 
   deploy_preview:
+    # Pages deployment is restricted to main; main's workflow_run promotion
+    # publishes a GREEN feature-branch artifact under a separate beta path.
+    if: ${{ false }}
     name: Publish isolated FURY beta alongside unchanged City01
     needs: build
     runs-on: ubuntu-latest
