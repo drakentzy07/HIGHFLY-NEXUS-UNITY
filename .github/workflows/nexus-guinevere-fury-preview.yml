@@ -1,0 +1,536 @@
+name: Build NEXUS Guinevere FURY preview - Unity 6
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/nexus-guinevere-rgpoly-unity6-20261026
+    paths:
+      - "Assets/Highfly/**"
+      - "ci/world/**"
+      - ".github/workflows/nexus-guinevere-fury-preview.yml"
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: highfly-nexus-guinevere-fury-preview
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Unity 6000.6 Golden Host RG Poly City01
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout HIGHFLY
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Free disk
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+
+      - name: Add swap for Unity import
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo swapoff -a || true
+          sudo rm -f /swapfile
+          sudo fallocate -l 12G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+          swapon --show
+
+      - name: Download pinned Unity6 Lucid Golden Host
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir LucidHost
+          git -C LucidHost init
+          git -C LucidHost remote add origin https://github.com/DohunWi/3D-Action.git
+          git -C LucidHost lfs install --local
+          GIT_LFS_SKIP_SMUDGE=1 git -C LucidHost fetch --depth 1 origin da73b5be7ffa7216c48e196c4a69fe3ff66c6c65
+          GIT_LFS_SKIP_SMUDGE=1 git -C LucidHost checkout --detach FETCH_HEAD
+          git -C LucidHost lfs pull
+          test -f LucidHost/3D_game/ProjectSettings/ProjectVersion.txt
+          cat LucidHost/3D_game/ProjectSettings/ProjectVersion.txt
+
+      - name: Prune optional Unity editor packages for lean CI
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          removable = [
+              "com.unity.ai.assistant",
+              "com.unity.collab-proxy",
+              "com.unity.ide.rider",
+              "com.unity.ide.visualstudio",
+              "com.unity.multiplayer.center",
+              "com.unity.performance.profile-analyzer",
+              "com.unity.test-framework",
+          ]
+
+          manifest = Path("LucidHost/3D_game/Packages/manifest.json")
+          data = json.loads(manifest.read_text())
+          deps = data.setdefault("dependencies", {})
+          for package in removable:
+              removed = deps.pop(package, None)
+              print("manifest", package, "removed=", removed is not None)
+          manifest.write_text(json.dumps(data, indent=2) + "\n")
+
+          lock = Path("LucidHost/3D_game/Packages/packages-lock.json")
+          if lock.exists():
+              ldata = json.loads(lock.read_text())
+              ldeps = ldata.get("dependencies", {})
+              for package in removable:
+                  removed = ldeps.pop(package, None)
+                  print("lock", package, "removed=", removed is not None)
+              lock.write_text(json.dumps(ldata, indent=2) + "\n")
+          PY
+
+          for P in             com.unity.ai.assistant             com.unity.collab-proxy             com.unity.ide.rider             com.unity.ide.visualstudio             com.unity.multiplayer.center             com.unity.performance.profile-analyzer             com.unity.test-framework
+          do
+            ! grep -q "\"$P\"" LucidHost/3D_game/Packages/manifest.json
+          done
+
+          echo "=== Lean HIGHFLY CI package manifest ==="
+          cat LucidHost/3D_game/Packages/manifest.json
+
+      - name: Remove unused legacy host assets before Unity import
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          rm -rf "LucidHost/3D_game/Assets/UnityTechnologies/ParticlePack"
+          rm -rf "LucidHost/3D_game/Assets/TextMesh Pro"
+
+          # These legacy assets are not referenced by HIGHFLY WORLD and have
+          # repeatedly entered Unity's Linux texture-compression crash path.
+          test ! -d "LucidHost/3D_game/Assets/UnityTechnologies/ParticlePack"
+          test ! -d "LucidHost/3D_game/Assets/TextMesh Pro"
+
+      - name: Install current HIGHFLY core into Unity6 host
+        shell: bash
+        run: |
+          set -euxo pipefail
+          rm -rf LucidHost/3D_game/Assets/Highfly
+          cp -a Assets/Highfly LucidHost/3D_game/Assets/Highfly
+
+          AROOT="LucidHost/3D_game/Assets/External/KayKit/Adventurers/addons/kaykit_character_pack_adventures"
+          mkdir -p /tmp/kaykit-adventurers
+          rm -rf /tmp/kaykit-adventurers
+          git clone --depth 1 https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0.git /tmp/kaykit-adventurers
+          mkdir -p "$AROOT/Characters/fbx" "$AROOT/Assets/fbx"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/RogueHooded.fbx "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/rogue_texture.png "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/Barbarian.fbx "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/fbx/barbarian_texture.png "$AROOT/Characters/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/sword_1handed.fbx "$AROOT/Assets/fbx/"
+          cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/rogue_texture.png "$AROOT/Assets/fbx/" || true
+
+          # CC0 KayKit Skeletons donor: first hostile training encounter.
+          git clone --depth 1 https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0.git /tmp/hf-skeletons
+          SKEL_DST="LucidHost/3D_game/Assets/External/KayKit/Skeletons/addons/kaykit_character_pack_skeletons/Characters/fbx"
+          mkdir -p "$SKEL_DST"
+          SKEL_SOURCE="$(find /tmp/hf-skeletons -type f -iname 'Skeleton_Warrior.fbx' | head -n 1)"
+          test -n "$SKEL_SOURCE"
+          cp "$SKEL_SOURCE" "$SKEL_DST/Skeleton_Warrior.fbx"
+          find "$(dirname "$SKEL_SOURCE")" -maxdepth 1 -type f -iname '*.png' -exec cp '{}' "$SKEL_DST/" ';'
+          test -s "$SKEL_DST/Skeleton_Warrior.fbx"
+
+          test -f LucidHost/3D_game/Assets/Highfly/Editor/HighflyBuildPipeline.cs
+          test -f LucidHost/3D_game/Assets/Highfly/Editor/HighflyCombatLabBuilder.RgPoly.cs
+          test -f LucidHost/3D_game/Assets/Highfly/Editor/HighflyQuaterniusHeroInstaller.cs
+          test -f LucidHost/3D_game/Assets/Highfly/Core/HighflyThirdPersonMotor.cs
+
+      - name: Download official RG Poly Medieval Village FREE
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p .hf-itch world-download
+          npm --prefix .hf-itch init -y >/dev/null 2>&1
+          npm --prefix .hf-itch install --no-save itchio-downloader@latest
+
+          node <<'NODE'
+          const path = require('path');
+          const { downloadGame } = require(path.join(process.cwd(), '.hf-itch/node_modules/itchio-downloader'));
+          (async () => {
+            const result = await downloadGame({
+              itchGameUrl: 'https://rg-poly.itch.io/stylized-medieval-village-unity-urp',
+              downloadDirectory: path.join(process.cwd(), 'world-download'),
+              desiredFileName: 'Stylized_Medieval_Village',
+              resume: true,
+              noCookieCache: true,
+            });
+            console.log(JSON.stringify(result, null, 2));
+          })().catch(err => { console.error(err); process.exit(1); });
+          NODE
+
+          PACKAGE="$(find world-download -type f \( -name '*.unitypackage' -o -name 'Stylized_Medieval_Village.zip' \) | head -n 1)"
+          test -n "$PACKAGE"
+          test -f "$PACKAGE"
+          test "$(stat -c%s "$PACKAGE")" -eq 142787244
+          python3 - "$PACKAGE" <<'PY'
+          import hashlib, sys, tarfile
+          p=sys.argv[1]
+          if not tarfile.is_tarfile(p):
+              raise SystemExit(f"Not a Unity tar package: {p}")
+          h=hashlib.sha256()
+          with open(p,'rb') as f:
+              for chunk in iter(lambda:f.read(1024*1024), b''):
+                  h.update(chunk)
+          expected="34e2bf4ec08a7b9a1687a04b4e5c155648f3b1a31ff77ddb29812e821318a98d"
+          digest=h.hexdigest()
+          print("RG Poly sha256="+digest)
+          if digest != expected:
+              raise SystemExit(f"Unexpected digest: {digest}")
+          PY
+          echo "WORLD_PACKAGE=$PACKAGE" >> "$GITHUB_ENV"
+
+      - name: Extract RG Poly into native Unity6 host
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 ci/world/extract_unitypackage.py --package "$WORLD_PACKAGE" --project LucidHost/3D_game
+          test -f "LucidHost/3D_game/Assets/Stylized Medieval Kingdom URP/Scenes/Demo Stylized Medieval.unity"
+          test -f "LucidHost/3D_game/Assets/Stylized Medieval Kingdom URP/Prefabs/Wall/Wall_Gate Variant.prefab"
+
+      - name: Download minimal Quaternius Forge donor
+        shell: bash
+        run: |
+          set -euxo pipefail
+          rm -rf q-download q-stage
+          mkdir -p q-download/props q-stage/props
+
+          node <<'NODE'
+          const path = require('path');
+          const { downloadGame } = require(path.join(process.cwd(), '.hf-itch/node_modules/itchio-downloader'));
+
+          (async () => {
+            const result = await downloadGame({
+              itchGameUrl: 'https://quaternius.itch.io/fantasy-props-megakit',
+              downloadDirectory: path.join(process.cwd(), 'q-download/props'),
+              desiredFileName: 'Fantasy Props MegaKit[Standard]',
+              resume: true,
+              noCookieCache: true,
+            });
+            console.log(JSON.stringify(result, null, 2));
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
+
+          PROP_PACKAGE="$(find q-download/props -type f -name '*.zip' | head -n 1)"
+          test -f "$PROP_PACKAGE"
+          unzip -q "$PROP_PACKAGE" -d q-stage/props
+
+          PROPS_DST="LucidHost/3D_game/Assets/External/Quaternius/FantasyPropsMegaKit"
+          rm -rf "LucidHost/3D_game/Assets/External/Quaternius"
+          mkdir -p "$PROPS_DST/Models"
+
+          for NAME in Anvil Workbench; do
+            SRC="$(find q-stage/props -type f -iname "$NAME.fbx" | head -n 1)"
+            test -n "$SRC"
+            cp "$SRC" "$PROPS_DST/Models/"
+          done
+
+          echo "=== HIGHFLY W1.1 minimal donor payload ==="
+          find "$PROPS_DST" -type f -printf '%p %k KB\n' | sort
+          du -sh "$PROPS_DST"
+          test "$(find "$PROPS_DST" -type f -iname '*.fbx' | wc -l)" -eq 2
+          test -f "$PROPS_DST/Models/Anvil.fbx"
+          test -f "$PROPS_DST/Models/Workbench.fbx"
+
+      - name: Download CC0 Quaternius hunter + outfits + animations
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p q-download/base q-download/outfits q-download/animations q-download/animations2
+          node <<'NODE'
+          const path = require('path');
+          const { downloadGame } = require(path.join(process.cwd(), '.hf-itch/node_modules/itchio-downloader'));
+          (async () => {
+            const assets = [
+              ['https://quaternius.itch.io/universal-base-characters', 'Universal Base Characters[Standard]', 'base'],
+              ['https://quaternius.itch.io/modular-character-outfits-fantasy', 'Modular Character Outfits - Fantasy[Standard]', 'outfits'],
+              ['https://quaternius.itch.io/universal-animation-library', 'Universal Animation Library[Standard]', 'animations'],
+              ['https://quaternius.itch.io/universal-animation-library-2', 'Universal Animation Library 2[Standard]', 'animations2']
+            ];
+            for (const [itchGameUrl, desiredFileName, name] of assets) {
+              const result = await downloadGame({
+                itchGameUrl, desiredFileName,
+                downloadDirectory: path.join(process.cwd(), 'q-download', name),
+                resume: true, noCookieCache: true
+              });
+              console.log(name, JSON.stringify(result));
+            }
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+          BASE="$(find q-download/base -type f -iname '*.zip' | head -n 1)"
+          OUTFITS="$(find q-download/outfits -type f -iname '*.zip' | head -n 1)"
+          ANIMS="$(find q-download/animations -type f -iname '*.zip' | head -n 1)"
+          ANIMS2="$(find q-download/animations2 -type f -iname '*.zip' | head -n 1)"
+          test -n "$BASE" && test -n "$OUTFITS" && test -n "$ANIMS" && test -n "$ANIMS2"
+          python3 ci/world/stage_quaternius_hunter.py \
+            --base "$BASE" --outfits "$OUTFITS" --animations "$ANIMS" \
+            --animations-2 "$ANIMS2" --project LucidHost/3D_game
+          test -s LucidHost/3D_game/build/diagnostics/quaternius-hunter-provenance.txt
+          grep -q "Animations2: 1 FBX" LucidHost/3D_game/build/diagnostics/quaternius-hunter-provenance.txt
+          test "$(find LucidHost/3D_game/Assets/External/Quaternius/Hunters/Base -type f -iname '*.fbx' | wc -l)" -ge 1
+
+      - name: Audit W1.1 reusable interior donors
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 ci/world/audit_w1_1_donors.py \
+            "LucidHost/3D_game/Assets/Stylized Medieval Kingdom URP" \
+            "LucidHost/3D_game/build/diagnostics"
+          cat LucidHost/3D_game/build/diagnostics/w1-1-rgpoly-donor-summary.txt
+
+      - name: Restore Unity6 host Library cache
+        id: host-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: LucidHost/3D_game/Library
+          key: nexus-guinevere-fury6000-v1-${{ hashFiles('Assets/Highfly/**', 'ci/world/**') }}
+          restore-keys: |
+            nexus-guinevere-fury6000-v1-
+
+      - name: Prepare CITY01 on native Unity6 host — attempt 1
+        id: prepare1
+        continue-on-error: true
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: LucidHost/3D_game
+          unityVersion: 6000.6.2f1
+          targetPlatform: WebGL
+          buildsPath: build/prepare
+          buildName: HIGHFLY-RGPOLY-PREPARE
+          buildMethod: Highfly.Editor.HighflyBuildPipeline.PrepareWebGLRgPolyWorld
+          customParameters: -job-worker-count 1 -disableManagedDebugger
+          allowDirtyBuild: true
+
+      - name: Prepare CITY01 retry after transient Unity crash
+        if: steps.prepare1.outcome == 'failure'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: LucidHost/3D_game
+          unityVersion: 6000.6.2f1
+          targetPlatform: WebGL
+          buildsPath: build/prepare
+          buildName: HIGHFLY-RGPOLY-PREPARE
+          buildMethod: Highfly.Editor.HighflyBuildPipeline.PrepareWebGLRgPolyWorld
+          customParameters: -job-worker-count 1 -disableManagedDebugger
+          allowDirtyBuild: true
+
+      - name: Verify prepared CITY01
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SCENE="LucidHost/3D_game/Assets/Highfly/Scenes/WorldLab.unity"
+          test -f "$SCENE"
+          grep -q "HIGHFLY_RG_POLY_CITY01" "$SCENE"
+          grep -q "HIGHFLY_Hunter" "$SCENE"
+          grep -q "HIGHFLY_MobileHUD" "$SCENE"
+          grep -q "QUATERNIUS_" "$SCENE"
+          grep -q "FURY_JUMP" "$SCENE"
+          grep -q "Guinevere_SuperMagic" "$SCENE"
+          grep -q "FURY_TRAINING_SKELETON" "$SCENE"
+
+          FORGE_SCENE="LucidHost/3D_game/Assets/Highfly/Scenes/Interiors/HF_INT_RGPOLY_FORGE.unity"
+          test -f "$FORGE_SCENE"
+          grep -q "FORGE_SHOP_LEVEL" "$FORGE_SCENE"
+          grep -q "SHOP_COUNTER_BODY" "$FORGE_SCENE"
+          grep -q "SHOP_VITRINE_WEAPONS_BASE" "$FORGE_SCENE"
+          grep -q "FORGE_STAIR_STEP_0" "$FORGE_SCENE"
+          grep -q "FORGE_BASEMENT_LEVEL" "$FORGE_SCENE"
+          grep -q "BASEMENT_FURNACE" "$FORGE_SCENE"
+          grep -q "BASEMENT_ANVIL" "$FORGE_SCENE"
+          grep -q "BASEMENT_WORKBENCH" "$FORGE_SCENE"
+          grep -q "HERRERO_KAYKIT" "$FORGE_SCENE"
+          grep -q "EXIT_TO_CAPITAL" "$FORGE_SCENE"
+
+          du -sh LucidHost/3D_game/Library || true
+
+      - name: Save Unity6 host Library before build
+        if: steps.host-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: LucidHost/3D_game/Library
+          key: nexus-guinevere-fury6000-v1-${{ hashFiles('Assets/Highfly/**', 'ci/world/**') }}
+
+      - name: Build prepared CITY01 WebGL on native Unity6 host
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: LucidHost/3D_game
+          unityVersion: 6000.6.2f1
+          targetPlatform: WebGL
+          buildsPath: build
+          buildName: HIGHFLY-WORLD-RGPOLY
+          buildMethod: Highfly.Editor.HighflyBuildPipeline.BuildPreparedWebGLRgPolyWorld
+          customParameters: -job-worker-count 1 -disableManagedDebugger
+          allowDirtyBuild: true
+
+      - name: Inspect output
+        if: always()
+        shell: bash
+        run: |
+          find build -maxdepth 5 -type f -printf "%p %k KB\n" | sort | head -300 || true
+          find LucidHost/3D_game/build/diagnostics -maxdepth 2 -type f -print -exec cat {} \; || true
+
+      - name: Upload WebGL
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-NEXUS-GUINEVERE-FURY-UNITY6-PREVIEW-WEBGL
+          path: build/WebGL/**
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-NEXUS-GUINEVERE-FURY-UNITY6-DIAGNOSTICS
+          path: LucidHost/3D_game/build/diagnostics/**
+          if-no-files-found: warn
+          retention-days: 7
+
+  deploy_preview:
+    # Pages deployment is restricted to main; main's workflow_run promotion
+    # publishes a GREEN feature-branch artifact under a separate beta path.
+    if: ${{ false }}
+    name: Publish isolated FURY beta alongside unchanged City01
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}preview/guinevere-fury/
+
+    steps:
+      - name: Fetch existing live City01 without changing its files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p site-publish/Build site-publish/TemplateData
+          BASE="https://drakentzy07.github.io/HIGHFLY-NEXUS-UNITY"
+          curl -fsSL --retry 3 "$BASE/index.html" -o site-publish/index.html
+          test -s site-publish/index.html
+          grep -q "unity-canvas" site-publish/index.html
+          for ext in loader.js framework.js wasm data; do
+            curl -fsSL --retry 3 "$BASE/Build/HIGHFLY-WORLD-RGPOLY.$ext"               -o "site-publish/Build/HIGHFLY-WORLD-RGPOLY.$ext"
+            test -s "site-publish/Build/HIGHFLY-WORLD-RGPOLY.$ext"
+          done
+          for asset in style.css favicon.ico unity-logo-dark.png progress-bar-empty-dark.png progress-bar-full-dark.png unity-webgl-logo.png unity-logo-light.png progress-bar-empty-light.png progress-bar-full-light.png; do
+            curl -fsSL --retry 2 "$BASE/TemplateData/$asset"               -o "site-publish/TemplateData/$asset" || rm -f "site-publish/TemplateData/$asset"
+          done
+          for file in manifest.webmanifest manifest.json service-worker.js; do
+            curl -fsSL --retry 2 "$BASE/$file" -o "site-publish/$file"               || rm -f "site-publish/$file"
+          done
+          test -s site-publish/Build/HIGHFLY-WORLD-RGPOLY.wasm
+          test -s site-publish/Build/HIGHFLY-WORLD-RGPOLY.data
+          touch site-publish/.nojekyll
+          echo "Stable City01 mirrored intact; isolated beta is additive."
+
+      - name: Download successful FURY WebGL artifact from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: HIGHFLY-NEXUS-GUINEVERE-FURY-UNITY6-PREVIEW-WEBGL
+          path: fury-download
+
+      - name: Prepare standalone preview subdirectory
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX="$(find fury-download -type f -name index.html | head -1)"
+          test -n "$INDEX"
+          SRC="$(dirname "$INDEX")"
+          DST="site-publish/preview/guinevere-fury"
+          mkdir -p "$DST"
+          cp -a "$SRC"/. "$DST/"
+          test -s "$DST/index.html"
+          test -s "$DST/Build/HIGHFLY-WORLD-RGPOLY.loader.js"
+          test -s "$DST/Build/HIGHFLY-WORLD-RGPOLY.wasm"
+          test -s "$DST/Build/HIGHFLY-WORLD-RGPOLY.data"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("site-publish/preview/guinevere-fury/index.html")
+          s=p.read_text(encoding="utf-8")
+          s=s.replace("unityShowBanner('WebGL builds are not supported on mobile devices.');","")
+          head="""<meta name="viewport" content="width=device-width,height=device-height,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+          <meta name="mobile-web-app-capable" content="yes">
+          <meta name="screen-orientation" content="landscape">
+          <style>
+          html,body{padding:0!important;margin:0!important;overflow:hidden!important;background:#07121b!important}
+          #unity-container,#unity-container.unity-desktop,#unity-container.unity-mobile{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important}
+          #unity-canvas,#unity-canvas.unity-mobile{display:block!important;width:100vw!important;height:100dvh!important}
+          #unity-footer,#unity-webgl-logo,#unity-logo{display:none!important}
+          #hf-open-beta{display:none;position:fixed;inset:0;z-index:99999;background:#07121b;align-items:center;justify-content:center;font-family:system-ui,sans-serif;text-align:center;color:#fff}
+          #hf-open-beta button{padding:20px 30px;font-size:22px;border-radius:14px;background:#2b1957;border:2px solid #c8a4f8;color:#fff}
+          </style>"""
+          script="""<div id="hf-open-beta"><button type="button">ENTRAR A HIGHFLY FURY</button></div>
+          <script>
+          (()=>{const mobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+          const overlay=document.getElementById('hf-open-beta');
+          const fit=()=>{for(const id of ['unity-container','unity-canvas']){
+            let e=document.getElementById(id);if(e){e.style.width='100vw';e.style.height='100dvh';}}};
+          fit();window.addEventListener('resize',fit);
+          if(mobile){overlay.style.display='flex';overlay.querySelector('button').onclick=async()=>{
+            try{await document.documentElement.requestFullscreen()}catch(_){}
+            try{await screen.orientation.lock('landscape')}catch(_){}
+            overlay.style.display='none';fit();};}
+          })();
+          </script>"""
+          if 'viewport-fit=cover' not in s:s=s.replace("</head>",head+"</head>")
+          if 'id="hf-open-beta"' not in s:s=s.replace("</body>",script+"</body>")
+          p.write_text(s,encoding="utf-8")
+          PY
+          test -s site-publish/index.html
+          test -s "$DST/index.html"
+          test -s "$DST/Build/HIGHFLY-WORLD-RGPOLY.framework.js"
+          du -sh site-publish
+          echo "FURY preview ready: /HIGHFLY-NEXUS-UNITY/preview/guinevere-fury/"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload combined Pages site (stable root unchanged)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site-publish
+
+      - name: Deploy Pages with isolated beta
+        id: deployment
+        uses: actions/deploy-pages@v4

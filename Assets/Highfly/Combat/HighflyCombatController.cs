@@ -51,6 +51,11 @@ namespace Highfly.Combat
 
         public bool IsBlocking => _isBlocking;
 
+        public void BindAnimator(Animator value)
+        {
+            if (value != null) animator = value;
+        }
+
         private void Awake()
         {
             if (motor == null)
@@ -117,10 +122,9 @@ namespace Highfly.Combat
             if (resources != null && !resources.TrySpendStamina(dashStaminaCost))
                 return;
 
-            Vector3 direction = motor.LastMoveDirection.sqrMagnitude > 0.001f ? motor.LastMoveDirection : transform.forward;
             if (vfx != null)
                 vfx.PlayDash();
-            motor.Dash(direction);
+            motor.Dash();
         }
 
         public void BeginBlock()

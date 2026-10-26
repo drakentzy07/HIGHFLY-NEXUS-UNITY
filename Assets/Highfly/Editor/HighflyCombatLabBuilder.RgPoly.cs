@@ -118,6 +118,19 @@ namespace Highfly.Editor
             SetObjectReference(cameraRig, "targeting", targeting);
 
             CleanRgPolyWorldHud(canvas);
+            HighflyGuinevereWorldInstaller.Install(player, canvas, camera);
+
+            // Enemies belong OUTSIDE the walled capital. Use the audited
+            // FOREST activity zone (x=-60, z=22), never the city spawn.
+            // The nearby town keeps its peaceful NPC and interior services.
+            CreateEnemy(
+                "FURY_TRAINING_SKELETON",
+                SkeletonWarriorPath,
+                new Vector3(-60f, 13.35f, 22f),
+                980f, 2.35f,
+                player.transform,
+                player.GetComponent<HighflyHealth>(),
+                false, 1f);
 
             // World traversal test: keep the character visible but do not attach
             // the extra HIGHFLY sword. RogueHooded already carries its own visual gear.
