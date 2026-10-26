@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using Highfly.Core;
 using Highfly.Mobile;
 using Highfly.Combat;
+using Highfly.UI;
 
 namespace Highfly.Editor
 {
@@ -29,8 +30,10 @@ namespace Highfly.Editor
             rect.sizeDelta = new Vector2(168f, 168f);
             Image img = go.GetComponent<Image>();
             img.color = new Color(.13f, .25f, .45f, .90f);
-            Button button = go.GetComponent<Button>();
-            UnityEventTools.AddPersistentListener(button.onClick, motor.Jump);
+            // React to finger DOWN. Button.onClick fires on release and made
+            // a standing jump feel delayed or unresponsive on mobile.
+            HighflyHoldActionButton jumpPress = go.AddComponent<HighflyHoldActionButton>();
+            UnityEventTools.AddPersistentListener(jumpPress.OnPressed, motor.Jump);
 
             GameObject label = new GameObject("Label",
                 typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
@@ -47,6 +50,35 @@ namespace Highfly.Editor
             txt.fontStyle = FontStyle.Bold;
             txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txt.raycastTarget = false;
+
+            // Explicit walk/run choice with joystick analog movement retained.
+            GameObject moveMode = new GameObject("FURY_MoveMode",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                typeof(Button), typeof(HighflyFuryMoveModeLabel));
+            moveMode.transform.SetParent(canvas.transform, false);
+            RectTransform walkRect = moveMode.GetComponent<RectTransform>();
+            walkRect.anchorMin = walkRect.anchorMax = new Vector2(0f, 0f);
+            walkRect.pivot = new Vector2(.5f, .5f);
+            walkRect.anchoredPosition = new Vector2(645f, 235f);
+            walkRect.sizeDelta = new Vector2(235f, 98f);
+            moveMode.GetComponent<Image>().color = new Color(.07f, .21f, .32f, .92f);
+            UnityEventTools.AddPersistentListener(
+                moveMode.GetComponent<Button>().onClick, motor.ToggleMoveMode);
+            GameObject walkLabel = new GameObject("Label",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            walkLabel.transform.SetParent(moveMode.transform, false);
+            RectTransform walkLabelRect = walkLabel.GetComponent<RectTransform>();
+            walkLabelRect.anchorMin = Vector2.zero;
+            walkLabelRect.anchorMax = Vector2.one;
+            walkLabelRect.offsetMin = walkLabelRect.offsetMax = Vector2.zero;
+            Text walkText = walkLabel.GetComponent<Text>();
+            walkText.alignment = TextAnchor.MiddleCenter;
+            walkText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            walkText.fontSize = 18;
+            walkText.fontStyle = FontStyle.Bold;
+            walkText.color = Color.white;
+            walkText.raycastTarget = false;
+            moveMode.GetComponent<HighflyFuryMoveModeLabel>().Configure(motor, walkText);
 
             GameObject mode = new GameObject("FURY_Mode",
                 typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
