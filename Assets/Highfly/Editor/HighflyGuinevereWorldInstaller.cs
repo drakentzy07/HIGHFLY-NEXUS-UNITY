@@ -32,6 +32,10 @@ namespace Highfly.Editor
             WireButton(canvas, "S2_ABANICO_Button", "S2\nRUPTURA", guinevere.Ruptura, guinevere, gameplayCamera, 2, 8f);
             WireButton(canvas, "S3_ÁREA_Button", "S3\nTEMPESTAD", guinevere.Tempestad, null);
             CreateChargeLabel(canvas, guinevere);
+            Highfly.Core.HighflyThirdPersonMotor motor =
+                player.GetComponent<Highfly.Core.HighflyThirdPersonMotor>();
+            HighflyFuryMobileHud.Install(canvas, motor, guinevere);
+            HighflyQuaterniusHeroInstaller.Install(player, guinevere);
             Debug.Log("HIGHFLY Guinevere installed on RG POLY CITY01 generated world");
         }
 
