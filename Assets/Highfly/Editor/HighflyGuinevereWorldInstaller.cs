@@ -31,6 +31,16 @@ namespace Highfly.Editor
             WireButton(canvas, "S1_CORTE_Button", "S1\nPRISMA", guinevere.Prisma, guinevere, gameplayCamera, 1, 15f);
             WireButton(canvas, "S2_ABANICO_Button", "S2\nRUPTURA", guinevere.Ruptura, guinevere, gameplayCamera, 2, 8f);
             WireButton(canvas, "S3_ÁREA_Button", "S3\nTEMPESTAD", guinevere.Tempestad, null);
+            // Make cooldowns visible so testers can distinguish an unavailable
+            // skill from a broken touch event. This only updates HUD text.
+            HighflyGuinevereCooldownHud cooldowns =
+                canvas.GetComponent<HighflyGuinevereCooldownHud>();
+            if (cooldowns == null)
+                cooldowns = canvas.AddComponent<HighflyGuinevereCooldownHud>();
+            cooldowns.Configure(guinevere,
+                canvas.transform.Find("S1_CORTE_Button").GetComponentInChildren<Text>(true),
+                canvas.transform.Find("S2_ABANICO_Button").GetComponentInChildren<Text>(true),
+                canvas.transform.Find("S3_ÁREA_Button").GetComponentInChildren<Text>(true));
             CreateChargeLabel(canvas, guinevere);
             Highfly.Core.HighflyThirdPersonMotor motor =
                 player.GetComponent<Highfly.Core.HighflyThirdPersonMotor>();
