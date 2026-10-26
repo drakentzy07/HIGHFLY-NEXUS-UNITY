@@ -51,6 +51,10 @@ namespace Highfly.Core
         private Quaternion _originalVisualRotation;
 
         private CharacterController _controller;
+        // Non-alloc ground probe supports standing jumps on uneven RG POLY mesh.
+        // isGrounded alone can miss the first frame at rest on prefab surfaces.
+        private readonly RaycastHit[] _groundHits = new RaycastHit[12];
+        private bool _groundContact;
         private Vector3 _planarVelocity;
         private float _verticalVelocity;
         private bool _isDashing;
@@ -103,11 +107,11 @@ namespace Highfly.Core
         {
             if (_isDashing)
                 return;
-            if (_controller.isGrounded)
+            _groundContact = _controller.isGrounded || ProbeNearGround();
+            if (_groundContact && _verticalVelocity <= 0f)
             {
                 _lastGroundedTime = Time.time;
-                if (_verticalVelocity <= 0f)
-                    _jumpCount = 0;
+                _jumpCount = 0;
                 if (_flipRoutine == null && flipVisual != null)
                     flipVisual.localRotation = _originalVisualRotation;
             }
@@ -175,7 +179,7 @@ namespace Highfly.Core
                     -maxSwimVerticalSpeed,
                     maxSwimVerticalSpeed);
             }
-            else if (_controller.isGrounded && _verticalVelocity < 0f)
+            else if (_groundContact && _verticalVelocity < 0f)
             {
                 _verticalVelocity = -2f;
             }
@@ -186,6 +190,11 @@ namespace Highfly.Core
 
             Vector3 velocity = _planarVelocity + Vector3.up * _verticalVelocity;
             _controller.Move(velocity * Time.deltaTime);
+            // Physics root owns all movement: visual animations must never
+            // decide whether a jump or dash is allowed.
+            _groundContact = _controller.isGrounded || ProbeNearGround();
+            if (_groundContact && _verticalVelocity <= 0f)
+                _lastGroundedTime = Time.time;
 
             if (animator != null)
             {
@@ -195,7 +204,7 @@ namespace Highfly.Core
                     Mathf.Clamp01(_planarVelocity.magnitude / Mathf.Max(.01f, sprintSpeed));
                 animator.SetFloat("MoveSpeed", locomotion, .10f, Time.deltaTime);
                 animator.SetBool("IsMoving", IsMoving && !IsSwimming);
-                animator.SetBool("Grounded", _controller.isGrounded &&
+                animator.SetBool("Grounded", _groundContact &&
                     _verticalVelocity <= 0f && _jumpCount == 0);
                 SetAnimatorBoolIfPresent("IsSwimming", IsSwimming);
                 SetAnimatorBoolIfPresent("IsWading", IsWading);
@@ -213,7 +222,7 @@ namespace Highfly.Core
         {
             if (_queuedJumpUntil < Time.time || _isDashing || ExternalMovementLock ||
                 IsSwimming || IsWading) return;
-            bool groundGrace = _controller.isGrounded ||
+            bool groundGrace = _controller.isGrounded || ProbeNearGround() ||
                                (Time.time - _lastGroundedTime) <= coyoteSeconds;
             if (_jumpCount == 0 && groundGrace)
             {
@@ -223,7 +232,7 @@ namespace Highfly.Core
                 if (animator != null) animator.SetBool("Grounded", false);
                 TriggerAnimationIfPresent("Jump");
             }
-            else if (_jumpCount == 1 && !_controller.isGrounded)
+            else if (_jumpCount == 1 && _verticalVelocity > 0f)
             {
                 _jumpCount = 2;
                 _verticalVelocity = secondJumpVelocity;
@@ -232,6 +241,27 @@ namespace Highfly.Core
                 TriggerAnimationIfPresent("DoubleJump");
                 StartFlip();
             }
+        }
+
+        private bool ProbeNearGround()
+        {
+            if (_controller == null || !_controller.enabled) return false;
+            Bounds b = _controller.bounds;
+            // Probe from just above capsule midpoint, ignoring our own rig.
+            float radius = Mathf.Max(.08f, _controller.radius);
+            Vector3 origin = new Vector3(b.center.x, b.min.y + radius + .22f, b.center.z);
+            int count = Physics.RaycastNonAlloc(origin, Vector3.down,
+                _groundHits, radius + .56f, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                RaycastHit hit = _groundHits[i];
+                if (hit.collider == null || hit.collider.transform.IsChildOf(transform) ||
+                    hit.normal.y < .57f) continue;
+                float gap = b.min.y - hit.point.y;
+                if (gap >= -.08f && gap <= .38f)
+                    return true;
+            }
+            return false;
         }
 
         private void TriggerAnimationIfPresent(string name)
@@ -360,7 +390,9 @@ namespace Highfly.Core
 
         public void Dash()
         {
-            Dash(LastMoveDirection, defaultDashDistance, defaultDashDuration);
+            // Pressing DASH with a neutral joystick is a valid action.
+            Dash(IsMoving ? LastMoveDirection : transform.forward,
+                defaultDashDistance, defaultDashDuration);
         }
 
         public void Dash(Vector3 direction)

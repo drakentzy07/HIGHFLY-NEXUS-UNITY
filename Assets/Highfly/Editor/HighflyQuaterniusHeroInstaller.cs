@@ -25,6 +25,7 @@ namespace Highfly.Editor
         private const string Base = Root + "/Base";
         private const string Outfits = Root + "/Outfits";
         private const string Animations = Root + "/Animations";
+        private const string Animations2 = Root + "/Animations2";
         private const string Generated = "Assets/Highfly/Generated/Controllers";
         private const string ControllerPath = Generated + "/Guinevere_Quaternius_FURY.controller";
         private const string MaskPath = Generated + "/Guinevere_UpperBody.mask";
@@ -77,6 +78,9 @@ namespace Highfly.Editor
                 animator.runtimeAnimatorController = controller;
                 animator.applyRootMotion = false;
                 animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                HighflyAnimationBalance balance = visual.GetComponent<HighflyAnimationBalance>();
+                if (balance == null) balance = visual.AddComponent<HighflyAnimationBalance>();
+                balance.Configure(animator, player.GetComponent<CharacterController>());
 
                 Renderer[] renderers = visual.GetComponentsInChildren<Renderer>();
                 Bounds bounds = default(Bounds);
@@ -130,7 +134,7 @@ namespace Highfly.Editor
 
         private static void PrepareHumanoidImports()
         {
-            foreach (string folder in new[] { Base, Outfits, Animations })
+            foreach (string folder in new[] { Base, Outfits, Animations, Animations2 })
             {
                 if (!AssetDatabase.IsValidFolder(folder)) continue;
                 string[] files = AssetDatabase.FindAssets("t:Model", new[] { folder })
@@ -157,7 +161,8 @@ namespace Highfly.Editor
         {
             if (!Directory.Exists(Generated)) Directory.CreateDirectory(Generated);
             // Prefer in-place takes. Root motion stays owned by FURY CharacterController.
-            var assets = AssetDatabase.FindAssets("t:AnimationClip", new[] { Animations })
+            var assets = AssetDatabase.FindAssets("t:AnimationClip",
+                new[] { Animations, Animations2 })
                 .Select(AssetDatabase.GUIDToAssetPath)
                 .Where(p => !Path.GetFileNameWithoutExtension(p).EndsWith("_RM",
                     StringComparison.OrdinalIgnoreCase))
@@ -177,7 +182,8 @@ namespace Highfly.Editor
             AnimationClip jumpLand = PickExact(clips, "Jump_Land");
             AnimationClip attack = PickExact(clips, "Sword_Attack");
             AnimationClip magic = PickExact(clips, "Spell_Simple_Shoot");
-            AnimationClip dodge = PickExact(clips, "Roll");
+            AnimationClip dodge = PickExact(clips, "Sword_Dash") ??
+                PickExact(clips, "Roll");
             if (idle == null || walk == null || jog == null || sprint == null ||
                 jumpStart == null || jumpLoop == null || jumpLand == null ||
                 attack == null)
@@ -263,7 +269,10 @@ namespace Highfly.Editor
             AnimatorControllerLayer upper = new AnimatorControllerLayer {
                 name = "FURY_UpperBody_Cast",
                 blendingMode = AnimatorLayerBlendingMode.Override,
-                avatarMask = mask, defaultWeight = 1f,
+                // Empty FreeUpper at weight 1 overrides the running upper body
+                // with an unanimated bind pose (the "open legs / floating" look).
+                // The runtime driver enables the layer ONLY for action states.
+                avatarMask = mask, defaultWeight = 0f,
                 stateMachine = new AnimatorStateMachine { name = "FURY_UpperStateMachine" }
             };
             AssetDatabase.AddObjectToAsset(upper.stateMachine, animator);
@@ -275,22 +284,29 @@ namespace Highfly.Editor
             // clips when the Universal Animation Library supplies them, rather
             // than using one repeated animation for all stages.
             // Never select Sword_Idle as an ATK finisher: it is a pose!
-            AnimationClip[] attacks = clips.Where(c => {
-                string name = ClipName(c);
-                return name == "Punch_Jab" || name == "Punch_Cross" ||
-                    name == "Sword_Attack";
-            }).OrderBy(c => ClipName(c), StringComparer.OrdinalIgnoreCase).ToArray();
-            if (attacks.Length == 0) attacks = new[] { attack };
-            float[] comboSpeeds = { 1.18f, 1.23f, 1.08f, .93f };
+            AnimationClip[] legacyStrikes =
+                { PickExact(clips, "Punch_Jab"), PickExact(clips, "Punch_Cross"),
+                  PickExact(clips, "Sword_Attack"), PickExact(clips, "Sword_Attack") };
+            AnimationClip[] newStrikes =
+                { PickExact(clips, "Sword_Regular_A"),
+                  PickExact(clips, "Sword_Regular_B"),
+                  PickExact(clips, "Sword_Regular_C"),
+                  PickExact(clips, "Sword_Heavy_Combo") };
+            bool ual2Ready = newStrikes.All(c => c != null);
+            // Four distinct visual phases when the free CC0 pack has loaded.
+            float[] comboSpeeds = { 1.15f, 1.2f, 1.1f, 1.18f };
             for (int i = 0; i < 4; i++)
             {
-                AnimationClip clip = attacks[i % attacks.Length];
+                AnimationClip clip = ual2Ready ? newStrikes[i] : legacyStrikes[i];
+                if (clip == null) throw new InvalidOperationException("FURY ATK clip missing stage " + i);
                 AddCast(sm, neutral, "ATK_" + (i + 1), clip,
-                    "BasicAttack" + (i + 1), comboSpeeds[i], (i & 1) == 1);
-                Debug.Log("FURY 4-hit ATK stage " + (i + 1) + ": " + clip.name);
+                    "BasicAttack" + (i + 1), comboSpeeds[i], false);
+                Debug.Log("FURY COMBO STAGE " + (i + 1) + " = " + clip.name +
+                    (ual2Ready ? " UAL2 Standard CC0" : " UAL1 fallback"));
             }
             AddCast(sm, neutral, "ATK_Legacy", attack, "BasicAttack");
-            AddCast(sm, neutral, "Heavy", attack, "HeavyAttack");
+            AddCast(sm, neutral, "Heavy",
+                PickExact(clips, "Sword_Heavy_Combo") ?? attack, "HeavyAttack");
             AddCast(sm, neutral, "Dash", dodge ?? attack, "Dash");
             AddCast(sm, neutral, "Prisma", magic ?? attack, "Skill1");
             AddCast(sm, neutral, "Ruptura", attack, "Skill2");

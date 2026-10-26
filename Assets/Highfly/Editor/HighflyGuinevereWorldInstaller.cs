@@ -35,6 +35,16 @@ namespace Highfly.Editor
             Highfly.Core.HighflyThirdPersonMotor motor =
                 player.GetComponent<Highfly.Core.HighflyThirdPersonMotor>();
             HighflyFuryMobileHud.Install(canvas, motor, guinevere);
+            // The original "DASH" button targeted the legacy combat layer.
+            // Route both Jump and Dash to the exact same FURY physics motor.
+            Transform dashRoot = canvas.transform.Find("DASH_Button");
+            if (dashRoot == null) throw new InvalidOperationException("Missing FURY DASH button");
+            Button dashButton = dashRoot.GetComponent<Button>();
+            if (dashButton == null) throw new InvalidOperationException("No Button on DASH");
+            for (int i = dashButton.onClick.GetPersistentEventCount() - 1; i >= 0; --i)
+                UnityEventTools.RemovePersistentListener(dashButton.onClick, i);
+            UnityEventTools.AddPersistentListener(dashButton.onClick, motor.Dash);
+            Debug.Log("FURY INPUT VERIFIED: separate JUMP=Motor.Jump and DASH=Motor.Dash");
             HighflyQuaterniusHeroInstaller.Install(player, guinevere);
             Debug.Log("HIGHFLY Guinevere installed on RG POLY CITY01 generated world");
         }

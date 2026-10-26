@@ -265,7 +265,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p q-download/base q-download/outfits q-download/animations
+          mkdir -p q-download/base q-download/outfits q-download/animations q-download/animations2
           node <<'NODE'
           const path = require('path');
           const { downloadGame } = require(path.join(process.cwd(), '.hf-itch/node_modules/itchio-downloader'));
@@ -273,7 +273,8 @@ jobs:
             const assets = [
               ['https://quaternius.itch.io/universal-base-characters', 'Universal Base Characters[Standard]', 'base'],
               ['https://quaternius.itch.io/modular-character-outfits-fantasy', 'Modular Character Outfits - Fantasy[Standard]', 'outfits'],
-              ['https://quaternius.itch.io/universal-animation-library', 'Universal Animation Library[Standard]', 'animations']
+              ['https://quaternius.itch.io/universal-animation-library', 'Universal Animation Library[Standard]', 'animations'],
+              ['https://quaternius.itch.io/universal-animation-library-2', 'Universal Animation Library 2[Standard]', 'animations2']
             ];
             for (const [itchGameUrl, desiredFileName, name] of assets) {
               const result = await downloadGame({
@@ -288,11 +289,13 @@ jobs:
           BASE="$(find q-download/base -type f -iname '*.zip' | head -n 1)"
           OUTFITS="$(find q-download/outfits -type f -iname '*.zip' | head -n 1)"
           ANIMS="$(find q-download/animations -type f -iname '*.zip' | head -n 1)"
-          test -n "$BASE" && test -n "$OUTFITS" && test -n "$ANIMS"
+          ANIMS2="$(find q-download/animations2 -type f -iname '*.zip' | head -n 1)"
+          test -n "$BASE" && test -n "$OUTFITS" && test -n "$ANIMS" && test -n "$ANIMS2"
           python3 ci/world/stage_quaternius_hunter.py \
             --base "$BASE" --outfits "$OUTFITS" --animations "$ANIMS" \
-            --project LucidHost/3D_game
+            --animations-2 "$ANIMS2" --project LucidHost/3D_game
           test -s LucidHost/3D_game/build/diagnostics/quaternius-hunter-provenance.txt
+          grep -q "Animations2: 1 FBX" LucidHost/3D_game/build/diagnostics/quaternius-hunter-provenance.txt
           test "$(find LucidHost/3D_game/Assets/External/Quaternius/Hunters/Base -type f -iname '*.fbx' | wc -l)" -ge 1
 
       - name: Audit W1.1 reusable interior donors

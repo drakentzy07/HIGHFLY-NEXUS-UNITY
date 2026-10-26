@@ -122,10 +122,9 @@ namespace Highfly.Combat
             if (resources != null && !resources.TrySpendStamina(dashStaminaCost))
                 return;
 
-            Vector3 direction = motor.LastMoveDirection.sqrMagnitude > 0.001f ? motor.LastMoveDirection : transform.forward;
             if (vfx != null)
                 vfx.PlayDash();
-            motor.Dash(direction);
+            motor.Dash();
         }
 
         public void BeginBlock()
