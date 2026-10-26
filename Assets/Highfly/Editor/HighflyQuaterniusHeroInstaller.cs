@@ -255,7 +255,10 @@ namespace Highfly.Editor
             AnimatorState dashBody = locomotion.AddState("FURY_Dash_Body");
             dashBody.motion = dodge ?? jog;
             dashBody.speed = dodge != null ?
-                Mathf.Clamp(dodge.length / .25f, .85f, 3.5f) : 1.5f;
+                Mathf.Clamp(dodge.length / .22f, .85f, 5f) : 1.5f;
+            Debug.Log("FURY DASH CLIP " + (dodge != null ? dodge.name : jog.name) +
+                " clipSeconds=" + (dodge != null ? dodge.length : jog.length) +
+                " playbackSpeed=" + dashBody.speed);
             AnimatorStateTransition dashEnter = locomotion.AddAnyStateTransition(dashBody);
             dashEnter.hasExitTime = false;
             dashEnter.duration = .04f;

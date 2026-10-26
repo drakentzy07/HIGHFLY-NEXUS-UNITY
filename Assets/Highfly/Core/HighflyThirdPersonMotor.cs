@@ -515,10 +515,11 @@ namespace Highfly.Core
         }
 
         public void Dash(Vector3 direction, float distance, float duration,
-            bool playDashAnimation)
+            bool playDashAnimation, bool interruptExisting = false)
         {
-            if (_isDashing || ExternalMovementLock || IsSwimming || IsWading ||
-                !isActiveAndEnabled) return;
+            // Skill mobility can override a basic dash for combo chaining.
+            if ((_isDashing && !interruptExisting) || ExternalMovementLock ||
+                IsSwimming || IsWading || !isActiveAndEnabled) return;
 
             direction.y = 0f;
             if (direction.sqrMagnitude < .001f) direction = transform.forward;

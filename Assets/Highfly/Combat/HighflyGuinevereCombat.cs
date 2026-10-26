@@ -308,7 +308,7 @@ namespace Highfly.Combat
                 distance = Mathf.Min(rupturaRange, Vector3.Distance(transform.position, targeting.CurrentTarget.AimPoint.position));
             Vector3 start = transform.position;
             if (motor != null)
-                motor.Dash(direction, distance, rupturaDuration, false);
+                motor.Dash(direction, distance, rupturaDuration, false, true);
             else Debug.LogWarning("Ruptura requires FURY motor for displacement");
             if (effects != null) effects.Launch(start);
             // Motor owns every movement frame. This coroutine owns only skill
