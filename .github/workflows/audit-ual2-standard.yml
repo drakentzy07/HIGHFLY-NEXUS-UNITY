@@ -65,6 +65,15 @@ jobs:
                 lines.append('CLIP_CANDIDATE: '+name)
               # Binary FBX may store clip names in separate token arrays; text
               # extraction is informational, not proof of Unity retargeting.
+              if 'UAL2_Standard.fbx' in entry and '_RM.' not in entry:
+                # Binary FBX keeps take labels in typed string properties;
+                # first surface printable context without expensive imports.
+                tokens=[m.decode('utf-8','replace') for m in
+                        re.findall(rb'[ -~]{5,140}',data)]
+                matches=[v for v in tokens if any(h in v.lower() for h in
+                    ('sword','combo','melee','dodge','climb','roll','wall','jump','attack','fist','light','heavy'))]
+                for name in list(dict.fromkeys(matches))[:160]:
+                  lines.append('FBX_STRING: '+name)
               for keyword in (b'Sword_Light',b'Sword',b'Combo',b'Punch',b'Attack',b'Parkour',b'Roll'):
                 lines.append(f'MARKER {keyword.decode()}: {data.count(keyword)}')
           Path('report/ual2-standard-audit.txt').write_text('\n'.join(lines)+'\n')
