@@ -275,6 +275,17 @@ namespace Highfly.Core
             if (flipVisual != null) flipVisual.localRotation = _originalVisualRotation;
         }
 
+        public void BindVisual(Animator newAnimator)
+        {
+            if (newAnimator == null || newAnimator.transform == transform) return;
+            if (_flipRoutine != null) StopCoroutine(_flipRoutine);
+            _flipRoutine = null;
+            if (flipVisual != null) flipVisual.localRotation = _originalVisualRotation;
+            animator = newAnimator;
+            flipVisual = newAnimator.transform;
+            _originalVisualRotation = flipVisual.localRotation;
+        }
+
         public void EnterWater(float surfaceY)
         {
             _waterContacts++;
