@@ -22,13 +22,13 @@ namespace Highfly.Combat
 
         private readonly Queue<ParticleSystem> _free = new Queue<ParticleSystem>();
         private readonly Queue<LineRenderer> _freeRings = new Queue<LineRenderer>();
+        private readonly List<GameObject> _activeGhosts = new List<GameObject>();
         private Material _particleMaterial;
         private Material _lineMaterial;
         private Material _ghostMaterial;
         private int _particleObjects;
         private int _ringObjects;
         private bool _ultimateActive;
-        private bool _loggedShaderFailure;
 
         public void SetQuality(int level) { quality = Mathf.Clamp(level, 0, 2); }
         private float Density => quality == 0 ? .38f : quality == 1 ? .70f : 1f;
@@ -331,6 +331,7 @@ namespace Highfly.Combat
                 renderer.sharedMaterial = _ghostMaterial;
                 renderer.shadowCastingMode = ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
+                _activeGhosts.Add(go);
                 StartCoroutine(FadeGhost(go, renderer, snapshot));
                 copied++;
             }
@@ -351,6 +352,7 @@ namespace Highfly.Combat
                 go.transform.position += Vector3.up * (.11f * Time.deltaTime);
                 yield return null;
             }
+            _activeGhosts.Remove(go);
             if (go != null) Destroy(go);
             if (mesh != null) Destroy(mesh);
         }
@@ -366,6 +368,15 @@ namespace Highfly.Combat
                 if (child != null && child.name.StartsWith("R06_Pooled_"))
                     Destroy(child.gameObject);
             }
+            for (int i = 0; i < _activeGhosts.Count; i++)
+            {
+                GameObject ghost = _activeGhosts[i];
+                if (ghost == null) continue;
+                MeshFilter filter = ghost.GetComponent<MeshFilter>();
+                if (filter != null && filter.sharedMesh != null) Destroy(filter.sharedMesh);
+                Destroy(ghost);
+            }
+            _activeGhosts.Clear();
             _free.Clear();
             _freeRings.Clear();
             _particleObjects = 0;
