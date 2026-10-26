@@ -25,6 +25,7 @@ namespace Highfly.Editor
         private const string Base = Root + "/Base";
         private const string Outfits = Root + "/Outfits";
         private const string Animations = Root + "/Animations";
+        private const string Animations2 = Root + "/Animations2";
         private const string Generated = "Assets/Highfly/Generated/Controllers";
         private const string ControllerPath = Generated + "/Guinevere_Quaternius_FURY.controller";
         private const string MaskPath = Generated + "/Guinevere_UpperBody.mask";
@@ -124,7 +125,7 @@ namespace Highfly.Editor
 
         private static void PrepareHumanoidImports()
         {
-            foreach (string folder in new[] { Base, Outfits, Animations })
+            foreach (string folder in new[] { Base, Outfits, Animations, Animations2 })
             {
                 if (!AssetDatabase.IsValidFolder(folder)) continue;
                 string[] files = AssetDatabase.FindAssets("t:Model", new[] { folder })
@@ -150,7 +151,8 @@ namespace Highfly.Editor
         private static AnimatorController CreateController()
         {
             if (!Directory.Exists(Generated)) Directory.CreateDirectory(Generated);
-            var assets = AssetDatabase.FindAssets("t:AnimationClip", new[] { Animations })
+            var assets = AssetDatabase.FindAssets("t:AnimationClip",
+                new[] { Animations, Animations2 })
                 .Select(AssetDatabase.GUIDToAssetPath).Distinct().ToArray();
             var clips = assets.SelectMany(p => AssetDatabase.LoadAllAssetsAtPath(p)
                 .OfType<AnimationClip>()).Where(c => c != null &&
@@ -161,7 +163,8 @@ namespace Highfly.Editor
             AnimationClip run = Pick(clips, "Running", "Run", "Jog", "Walking");
             AnimationClip attack = Pick(clips, "Sword", "Melee", "Punch", "Attack");
             AnimationClip magic = Pick(clips, "Magic", "Cast", "Spell", "Attack");
-            AnimationClip dodge = Pick(clips, "Dodge", "Roll", "Run");
+            AnimationClip dodge = PickExact(clips, "Sword_Dash") ??
+                Pick(clips, "Dodge", "Roll", "Run");
             if (idle == null || run == null || attack == null) return null;
 
             AssetDatabase.DeleteAsset(ControllerPath);
@@ -224,13 +227,28 @@ namespace Highfly.Editor
                 .Any(key => c.name.IndexOf(key, StringComparison.OrdinalIgnoreCase) >= 0))
                 .OrderBy(c => c.name, StringComparer.OrdinalIgnoreCase).ToArray();
             if (attacks.Length == 0) attacks = new[] { attack };
-            float[] comboSpeeds = { 1.18f, 1.23f, 1.08f, .93f };
+            // UAL2 Standard ACTUAL audited clips. Three separate strikes and
+            // recoveries exist in the free archive; fourth uses its heavy combo
+            // as a provisional finisher, pending phone timing/VFX review.
+            AnimationClip[] provenUAL2 =
+            {
+                PickExact(clips, "Sword_Regular_A"),
+                PickExact(clips, "Sword_Regular_B"),
+                PickExact(clips, "Sword_Regular_C"),
+                PickExact(clips, "Sword_Heavy_Combo")
+            };
+            bool ual2Available = provenUAL2[0] != null &&
+                provenUAL2[1] != null && provenUAL2[2] != null;
+            float[] comboSpeeds = { 1.18f, 1.23f, 1.08f, 1.12f };
             for (int i = 0; i < 4; i++)
             {
-                AnimationClip clip = attacks[i % attacks.Length];
+                AnimationClip clip = ual2Available ?
+                    (provenUAL2[i] ?? provenUAL2[2]) :
+                    attacks[i % attacks.Length];
                 AddCast(sm, neutral, "ATK_" + (i + 1), clip,
                     "BasicAttack" + (i + 1), comboSpeeds[i], (i & 1) == 1);
-                Debug.Log("FURY 4-hit ATK stage " + (i + 1) + ": " + clip.name);
+                Debug.Log("FURY 4-hit ATK stage " + (i + 1) + ": " +
+                    clip.name + (ual2Available ? " [UAL2 Standard CC0]" : " [fallback UAL1]"));
             }
             AddCast(sm, neutral, "ATK_Legacy", attack, "BasicAttack");
             AddCast(sm, neutral, "Heavy", attacks[attacks.Length - 1], "HeavyAttack");
@@ -240,6 +258,18 @@ namespace Highfly.Editor
             AddCast(sm, neutral, "Tempestad", magic ?? attack, "Skill3");
             AssetDatabase.SaveAssets();
             return animator;
+        }
+
+        private static AnimationClip PickExact(AnimationClip[] clips, string expected)
+        {
+            // Unity FBX take names sometimes carry an Armature| prefix.
+            return clips.FirstOrDefault(c =>
+            {
+                string name = c.name;
+                int i = name.LastIndexOf('|');
+                if (i >= 0) name = name.Substring(i + 1);
+                return string.Equals(name, expected, StringComparison.OrdinalIgnoreCase);
+            });
         }
 
         private static AnimationClip Pick(AnimationClip[] clips, params string[] hints)
