@@ -36,7 +36,7 @@ Se incorpora `HighflyGuineverePremiumVfx` de forma automática desde `Awake`, se
 
 ## Validación previa a integración (no afirmar GREEN)
 
-1. Ejecutar `python3 scripts/tests/check_guinevere_r06_vfx_contract.py` (auditoría estática, **no** compilación).
+1. Ejecutar `python3 scripts/check_guinevere_r06_vfx_contract.py` (auditoría estática, **no** compilación).
 2. Rebasar/cherry-pick **solo los dos archivos de VFX** sobre el commit FURY aprobado, tras revisar los conflictos.
 3. Compilar Unity 6 en rama aislada; verificar que shaders Built-In se resuelvan en el perfil gráfico WebGL. Si el proyecto usa URP y alguno no se resuelve, implementar materiales/shaders compatibles antes de declarar apto.
 4. Verificar instalación Quaternius, prefabs y `Awake` en runtime real.
