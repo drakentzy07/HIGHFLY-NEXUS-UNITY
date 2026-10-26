@@ -51,6 +51,7 @@ namespace Highfly.Combat
 
         public void OnBeginDrag(PointerEventData eventData)
         {
+            if (_cancelled) return;
             _dragging = true;
             _activeAim = this;
             eventData.eligibleForClick = false;
@@ -71,7 +72,7 @@ namespace Highfly.Combat
 
         private void RefreshAim(Vector2 screenPoint)
         {
-            if (guinevere == null) return;
+            if (_cancelled || guinevere == null) return;
             Vector2 delta = screenPoint - _start;
             if (delta.sqrMagnitude < 16f) return;
             Camera cam = aimCamera != null ? aimCamera : Camera.main;
