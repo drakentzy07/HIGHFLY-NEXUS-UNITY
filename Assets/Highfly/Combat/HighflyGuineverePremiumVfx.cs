@@ -57,7 +57,7 @@ namespace Highfly.Combat
         // Existing HIGHFLY calls are mirrored here, never substituted with damage logic.
         public void PrismaSpawn(Transform projectile)
         {
-            if (projectile == null) return;
+            if (!isActiveAndEnabled || projectile == null) return;
             // A second halo is parented to the moving orb: no projectile-motion ownership.
             GameObject shell = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             shell.name = "R06_Prism_SecondaryHalo";
@@ -81,6 +81,7 @@ namespace Highfly.Combat
 
         public void Launch(Vector3 position)
         {
+            if (!isActiveAndEnabled) return;
             Spark(position + Vector3.up * .35f, violet, 32, 3.7f, .16f, .42f);
             Ring(position, 1.35f, rose, .34f, .16f, 0f);
             Ring(position + Vector3.up * .65f, .80f, white, .28f, .10f, 65f);
@@ -88,6 +89,7 @@ namespace Highfly.Combat
 
         public void Impact(Vector3 position, float radius)
         {
+            if (!isActiveAndEnabled) return;
             Spark(position + Vector3.up * .5f, white, 35, 4.7f, .18f, .42f);
             Spark(position + Vector3.up * .7f, rose, 25, 2.4f, .15f, .52f);
             Ring(position, Mathf.Max(.6f, radius), white, .40f, .16f, 0f);
@@ -97,6 +99,7 @@ namespace Highfly.Combat
 
         public void Mark(Vector3 position, int stacks)
         {
+            if (!isActiveAndEnabled) return;
             int count = Mathf.Clamp(stacks, 1, 3);
             Vector3 focus = position + Vector3.up * 1.85f;
             Spark(focus, count >= 3 ? white : violet, 6 + count * 5, .8f, .09f, .65f);
@@ -106,6 +109,7 @@ namespace Highfly.Combat
 
         public void Lift(Vector3 position)
         {
+            if (!isActiveAndEnabled) return;
             Vector3 bottom = position + Vector3.up * .20f;
             Spark(bottom, violet, 25, 2.6f, .12f, .70f);
             Ring(bottom, 1.0f, rose, .53f, .12f, 0f);
@@ -114,6 +118,7 @@ namespace Highfly.Combat
 
         public void Basic(Vector3 at, int stage)
         {
+            if (!isActiveAndEnabled) return;
             if (stage < 4) return; // Clarity/readability: only charged finisher.
             Spark(at + Vector3.up, rose, 24, 2.6f, .12f, .42f);
             Ring(at, 1.1f, white, .40f, .10f, 0f);
@@ -121,6 +126,7 @@ namespace Highfly.Combat
 
         public void Blink(Vector3 from, Vector3 to)
         {
+            if (!isActiveAndEnabled) return;
             // The motor already moves the player; this is only a readable transit cue.
             Vector3 axis = to - from;
             float length = axis.magnitude;
@@ -140,6 +146,7 @@ namespace Highfly.Combat
 
         public void Echo(Vector3 at)
         {
+            if (!isActiveAndEnabled) return;
             Spark(at + Vector3.up, violet, 20, .8f, .10f, 1.25f);
             Ring(at, 1.30f, violet, 1.42f, .08f, 0f);
             if (allowQuaterniusGhost && quality > 0 && _ghostMaterial != null)
@@ -148,6 +155,7 @@ namespace Highfly.Combat
 
         public void Tempestad(Vector3 at, float radius, int hit)
         {
+            if (!isActiveAndEnabled) return;
             // Called by real U3 pulses (1..11); never schedules or applies damage.
             float angle = hit * 2.39996323f;
             float r = Mathf.Min(radius, 1.5f + (hit % 4) * .44f);
