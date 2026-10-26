@@ -407,6 +407,9 @@ namespace Highfly.Combat
             if (target == null || !target.IsAlive) return false;
             State st = Read(target);
             if (Time.time < st.AirborneUntil) amount *= 1.25f;
+            // FURY: a deliberately executed double jump / mortal is rewarded
+            // when the Hunter lands an actual aerial hit (not merely presses ATK).
+            if (motor != null && motor.IsInAerialComboWindow) amount *= 1.20f;
             if (!target.ApplyDamage(amount)) return false;
             if (gain) GainMagic(source == "tempestad" ? 10f : 34f);
             return true;
