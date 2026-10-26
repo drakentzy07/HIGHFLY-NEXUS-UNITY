@@ -29,6 +29,7 @@ namespace Highfly.Combat
         private float _airborneStart = -100f;
         private Transform _airborneVisual;
         private Vector3 _airborneRestLocal;
+        private bool _airborneOffsetActive;
         private float _poise;
         public bool IsBoss => boss;
 
@@ -172,13 +173,17 @@ namespace Highfly.Combat
             float height = airborneVisualHeight * Mathf.Min(rise, fall);
             _airborneVisual.localPosition =
                 _airborneRestLocal + Vector3.up * height;
+            _airborneOffsetActive = true;
         }
 
         private void RestoreAirborneVisual()
         {
-            if (_airborneVisual != null &&
-                (_airborneVisual.localPosition - _airborneRestLocal).sqrMagnitude > .000001f)
+            // Never overwrite ordinary walking/idle animation root positions;
+            // only unwind the offset if our own suspension code applied one.
+            if (!_airborneOffsetActive) return;
+            if (_airborneVisual != null)
                 _airborneVisual.localPosition = _airborneRestLocal;
+            _airborneOffsetActive = false;
         }
 
         private void OnDisable()
