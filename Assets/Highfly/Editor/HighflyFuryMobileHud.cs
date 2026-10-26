@@ -132,20 +132,38 @@ namespace Highfly.Editor
                 ts.ApplyModifiedPropertiesWithoutUndo();
             }
 
-            GameObject cancelText = new GameObject("FURY_CancelHint",
-                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            cancelText.transform.SetParent(canvas.transform, false);
-            RectTransform cancelRect = cancelText.GetComponent<RectTransform>();
+            // Real, separate top-right CANCEL button. It consumes a second
+            // finger on touch-down while the other finger keeps dragging S1/S2.
+            GameObject cancelGo = new GameObject("FURY_CancelAim",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                typeof(Button), typeof(HighflyHoldActionButton),
+                typeof(HighflyFuryAimCancel));
+            cancelGo.transform.SetParent(canvas.transform, false);
+            RectTransform cancelRect = cancelGo.GetComponent<RectTransform>();
             cancelRect.anchorMin = cancelRect.anchorMax = new Vector2(1f, 1f);
-            cancelRect.anchoredPosition = new Vector2(-175f, -61f);
-            cancelRect.sizeDelta = new Vector2(305f, 53f);
+            cancelRect.pivot = new Vector2(.5f, .5f);
+            cancelRect.anchoredPosition = new Vector2(-175f, -84f);
+            cancelRect.sizeDelta = new Vector2(305f, 92f);
+            cancelGo.GetComponent<Image>().color = new Color(.36f, .08f, .15f, .90f);
+            HighflyHoldActionButton cancelPress =
+                cancelGo.GetComponent<HighflyHoldActionButton>();
+            HighflyFuryAimCancel cancelAction =
+                cancelGo.GetComponent<HighflyFuryAimCancel>();
+            UnityEventTools.AddPersistentListener(cancelPress.OnPressed, cancelAction.CancelAim);
+            GameObject cancelText = new GameObject("Label",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            cancelText.transform.SetParent(cancelGo.transform, false);
+            RectTransform cancelLabelRect = cancelText.GetComponent<RectTransform>();
+            cancelLabelRect.anchorMin = Vector2.zero;
+            cancelLabelRect.anchorMax = Vector2.one;
+            cancelLabelRect.offsetMin = cancelLabelRect.offsetMax = Vector2.zero;
             Text cancel = cancelText.GetComponent<Text>();
             cancel.text = "✕ CANCELAR SKILL";
             cancel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             cancel.fontSize = 20;
             cancel.fontStyle = FontStyle.Bold;
             cancel.alignment = TextAnchor.MiddleCenter;
-            cancel.color = new Color(1f, .57f, .66f, 1f);
+            cancel.color = new Color(1f, .82f, .84f, 1f);
             cancel.raycastTarget = false;
 
             // PC/editor can test the same input without a phone.
