@@ -16,11 +16,25 @@ namespace Highfly.Combat
         [SerializeField] private Color rose = new Color(.96f, .57f, 1f, 1f);
         [SerializeField] private Color core = new Color(1f, .90f, .98f, 1f);
 
+        private HighflyGuineverePremiumVfx _premium;
+        private bool UsePremium => _premium != null && _premium.isActiveAndEnabled;
+        public bool PremiumEnabled => UsePremium;
+        public int CurrentQuality => (int)quality;
+        public void SetPremiumEnabled(bool enabled)
+        {
+            if (_premium == null)
+                _premium = GetComponent<HighflyGuineverePremiumVfx>();
+            if (_premium != null) _premium.enabled = enabled;
+        }
         private Material _particles;
         private Material _unlit;
 
         private void Awake()
         {
+            // Visual-only R06 add-on. No change to hit/movement/cooldown authority.
+            _premium = GetComponent<HighflyGuineverePremiumVfx>();
+            if (_premium == null) _premium = gameObject.AddComponent<HighflyGuineverePremiumVfx>();
+            _premium.SetQuality((int)quality);
             Shader p = Shader.Find("Particles/Standard Unlit");
             if (p == null) p = Shader.Find("Legacy Shaders/Particles/Additive");
             if (p == null) p = Shader.Find("Sprites/Default");
@@ -30,7 +44,11 @@ namespace Highfly.Combat
             if (u != null) _unlit = new Material(u);
         }
 
-        public void SetQuality(int value) { quality = (Quality)Mathf.Clamp(value, 0, 2); }
+        public void SetQuality(int value)
+        {
+            quality = (Quality)Mathf.Clamp(value, 0, 2);
+            if (_premium != null) _premium.SetQuality((int)quality);
+        }
 
         private int Count(int source)
         {
@@ -45,7 +63,11 @@ namespace Highfly.Combat
             go.transform.position = position;
             go.transform.localScale = Vector3.one * .31f;
             Collider collider = go.GetComponent<Collider>();
-            if (collider != null) Destroy(collider);
+            if (collider != null)
+            {
+                collider.enabled = false; // Destroy() completes end-of-frame; avoid a transient projectile self-hit.
+                Destroy(collider);
+            }
             Renderer renderer = go.GetComponent<Renderer>();
             if (renderer != null && _unlit != null)
             {
@@ -63,37 +85,60 @@ namespace Highfly.Combat
             trail.startColor = rose;
             trail.endColor = new Color(violet.r, violet.g, violet.b, 0f);
             if (_particles != null) trail.sharedMaterial = _particles;
-            Burst(position, rose, 11, .45f, .13f, .26f);
+            if (UsePremium)
+                _premium.PrismaSpawn(go.transform);
+            else
+                Burst(position, rose, 11, .45f, .13f, .26f);
             return go.transform;
         }
 
-        public void Launch(Vector3 at) { Burst(at + Vector3.up, violet, 25, 3f, .16f, .48f); }
+        public void Launch(Vector3 at)
+        {
+            // Premium is a REPLACEMENT for old violet demo rings/bursts.
+            if (UsePremium) { _premium.Launch(at); return; }
+            Burst(at + Vector3.up, violet, 25, 3f, .16f, .48f);
+
+        }
 
         public void Impact(Vector3 at, float radius)
         {
+            // Premium is a REPLACEMENT for old violet demo rings/bursts.
+            if (UsePremium) { _premium.Impact(at, radius); return; }
             Burst(at + Vector3.up * .8f, core, 38, 4f, .20f, .55f);
             Ring(at, radius, rose, .66f);
+
         }
 
         public void Mark(Vector3 at, int stacks)
         {
+            // Premium is a REPLACEMENT for old violet demo rings/bursts.
+            if (UsePremium) { _premium.Mark(at, stacks); return; }
             Burst(at + Vector3.up * 1.9f, stacks >= 3 ? core : rose, 9 + stacks * 3, 1.2f, .11f, .55f);
+
         }
 
         public void Lift(Vector3 at)
         {
+            // Premium is a REPLACEMENT for old violet demo rings/bursts.
+            if (UsePremium) { _premium.Lift(at); return; }
             Burst(at + Vector3.up * .45f, violet, 18, 2.8f, .13f, .44f);
             Ring(at, 1f, violet, .38f);
+
         }
 
         public void Basic(Vector3 at, int combo)
         {
+            // Premium is a REPLACEMENT for old violet demo rings/bursts.
+            if (UsePremium) { _premium.Basic(at, combo); return; }
             Burst(at + Vector3.up * .9f, combo >= 4 ? core : violet, 11 + combo * 4, 2.8f, .12f, .34f);
             if (combo >= 4) Ring(at, 1.25f, rose, .35f);
+
         }
 
         public void Blink(Vector3 origin, Vector3 destination)
         {
+            // Premium is a REPLACEMENT for old violet demo rings/bursts.
+            if (UsePremium) { _premium.Blink(origin, destination); return; }
             Burst(origin + Vector3.up, violet, 22, 2f, .14f, .43f);
             Burst(destination + Vector3.up, rose, 25, 2.6f, .15f, .52f);
             GameObject line = new GameObject("Guinevere_Blink_Trail");
@@ -107,22 +152,29 @@ namespace Highfly.Combat
             r.endColor = violet;
             if (_particles != null) r.sharedMaterial = _particles;
             Destroy(line, .22f);
+
         }
 
         public void Echo(Vector3 origin)
         {
+            // Premium is a REPLACEMENT for old violet demo rings/bursts.
+            if (UsePremium) { _premium.Echo(origin); return; }
             Ring(origin, 2.05f, rose, 1.5f);
             Burst(origin + Vector3.up, violet, 15, 1f, .15f, 1.5f);
+
         }
 
         public void Tempestad(Vector3 origin, float radius, int index)
         {
+            // Premium is a REPLACEMENT for old violet demo rings/bursts.
+            if (UsePremium) { _premium.Tempestad(origin, radius, index); return; }
             // Each of the 11 deterministic damage pulses gets its own clear visual cue.
             float theta = index * 2.39996323f;
             Vector3 offset = new Vector3(Mathf.Cos(theta), 0f, Mathf.Sin(theta)) * (1.4f + (index % 3) * .38f);
             Burst(origin + offset + Vector3.up * 1.3f, index % 2 == 0 ? rose : violet, 13, 2.9f, .14f, .30f);
             if (index == 1 || index == 6 || index == 11)
                 Ring(origin, radius, index == 11 ? core : violet, .48f);
+
         }
 
         private void Burst(Vector3 at, Color color, int count, float speed, float size, float lifetime)
