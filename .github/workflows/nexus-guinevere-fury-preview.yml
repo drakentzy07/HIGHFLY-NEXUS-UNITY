@@ -144,6 +144,16 @@ jobs:
           cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/sword_1handed.fbx "$AROOT/Assets/fbx/"
           cp /tmp/kaykit-adventurers/addons/kaykit_character_pack_adventures/Assets/fbx/rogue_texture.png "$AROOT/Assets/fbx/" || true
 
+          # CC0 KayKit Skeletons donor: first hostile training encounter.
+          git clone --depth 1 https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0.git /tmp/hf-skeletons
+          SKEL_DST="LucidHost/3D_game/Assets/External/KayKit/Skeletons/addons/kaykit_character_pack_skeletons/Characters/fbx"
+          mkdir -p "$SKEL_DST"
+          SKEL_SOURCE="$(find /tmp/hf-skeletons -type f -iname 'Skeleton_Warrior.fbx' | head -n 1)"
+          test -n "$SKEL_SOURCE"
+          cp "$SKEL_SOURCE" "$SKEL_DST/Skeleton_Warrior.fbx"
+          find "$(dirname "$SKEL_SOURCE")" -maxdepth 1 -type f -iname '*.png' -exec cp '{}' "$SKEL_DST/" ';'
+          test -s "$SKEL_DST/Skeleton_Warrior.fbx"
+
           test -f LucidHost/3D_game/Assets/Highfly/Editor/HighflyBuildPipeline.cs
           test -f LucidHost/3D_game/Assets/Highfly/Editor/HighflyCombatLabBuilder.RgPoly.cs
           test -f LucidHost/3D_game/Assets/Highfly/Editor/HighflyQuaterniusHeroInstaller.cs
