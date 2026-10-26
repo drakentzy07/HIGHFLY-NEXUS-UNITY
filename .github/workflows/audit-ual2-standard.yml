@@ -1,0 +1,77 @@
+name: Audit CC0 Quaternius UAL2 Standard animation payload
+
+on:
+  push:
+    branches:
+      - audit/nexus-free-ual2-20261026
+    paths:
+      - ".github/workflows/audit-ual2-standard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the actual free Standard zip (not Source/Pro)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p .hf-itch ual2-download report
+          npm --prefix .hf-itch init -y >/dev/null 2>&1
+          npm --prefix .hf-itch install --no-save itchio-downloader@latest
+          node <<'NODE'
+          const path=require('path');
+          const {downloadGame}=require(path.join(process.cwd(),'.hf-itch/node_modules/itchio-downloader'));
+          (async()=>{let r=await downloadGame({
+            itchGameUrl:'https://quaternius.itch.io/universal-animation-library-2',
+            desiredFileName:'Universal Animation Library 2[Standard]',
+            downloadDirectory:path.join(process.cwd(),'ual2-download'),
+            resume:true,noCookieCache:true
+          });console.log(JSON.stringify(r,null,2));})().catch(e=>{console.error(e);process.exit(1);});
+          NODE
+          find ual2-download -maxdepth 2 -type f -printf '%p %s bytes\n'
+          test "$(find ual2-download -type f -iname '*.zip' | wc -l)" -ge 1
+      - name: Inspect actual files and FBX clips without Unity installation
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import hashlib,re
+          files=sorted(Path('ual2-download').rglob('*.zip'))
+          if not files:raise SystemExit('No Standard ZIP received')
+          pack=files[0]
+          lines=[f'Pack: {pack.name}',f'Size: {pack.stat().st_size}',
+                 'SHA256: '+hashlib.sha256(pack.read_bytes()).hexdigest(),
+                 'Official license: CC0 (https://quaternius.itch.io/universal-animation-library-2)']
+          with ZipFile(pack) as z:
+            fs=[f for f in z.namelist() if not f.endswith('/')]
+            fbxs=[f for f in fs if f.lower().endswith('.fbx')]
+            lines.append(f'Entries: {len(fs)} | FBX: {len(fbxs)}')
+            for entry in fbxs:
+              lines.append(f'FBX: {entry}')
+              data=z.read(entry)
+              # Blender/FBX often serializes FBX AnimationStack names.
+              names=set()
+              for pattern in (rb'AnimStack::([^\x00\r\n"]{1,120})', rb'AnimationStack::([^\x00\r\n"]{1,120})'):
+                names.update(m.decode('utf-8','replace').strip() for m in re.findall(pattern,data))
+              for name in sorted(names):
+                lines.append('CLIP_CANDIDATE: '+name)
+              # Binary FBX may store clip names in separate token arrays; text
+              # extraction is informational, not proof of Unity retargeting.
+              for keyword in (b'Sword_Light',b'Sword',b'Combo',b'Punch',b'Attack',b'Parkour',b'Roll'):
+                lines.append(f'MARKER {keyword.decode()}: {data.count(keyword)}')
+          Path('report/ual2-standard-audit.txt').write_text('\n'.join(lines)+'\n')
+          print(Path('report/ual2-standard-audit.txt').read_text()[:20000])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HIGHFLY-UAL2-STANDARD-CC0-INDEX
+          path: report/ual2-standard-audit.txt
+          retention-days: 14
