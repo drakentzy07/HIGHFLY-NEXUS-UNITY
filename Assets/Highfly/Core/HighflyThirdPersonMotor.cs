@@ -562,9 +562,28 @@ namespace Highfly.Core
         public void Dash(Vector3 direction, float distance, float duration,
             bool playDashAnimation, bool interruptExisting = false)
         {
-            // Skill mobility can override a basic dash for combo chaining.
-            if ((_isDashing && !interruptExisting) || ExternalMovementLock ||
-                IsSwimming || IsWading || !isActiveAndEnabled) return;
+            TryDash(direction, distance, duration, playDashAnimation, interruptExisting);
+        }
+
+        /// <summary>
+        /// Public motion contract for combat: prevent spending resources on
+        /// a request FURY cannot currently execute.
+        /// </summary>
+        public bool CanDash(bool interruptExisting = false)
+        {
+            return isActiveAndEnabled && _controller != null && _controller.enabled &&
+                   !ExternalMovementLock && !IsSwimming && !IsWading &&
+                   (!_isDashing || interruptExisting);
+        }
+
+        /// <summary>
+        /// Sole authoritative capsule dash. Returns false on denied action.
+        /// Skill code must NEVER call CharacterController.Move itself.
+        /// </summary>
+        public bool TryDash(Vector3 direction, float distance, float duration,
+            bool playDashAnimation = true, bool interruptExisting = false)
+        {
+            if (!CanDash(interruptExisting)) return false;
 
             direction.y = 0f;
             if (direction.sqrMagnitude < .001f) direction = transform.forward;
@@ -577,8 +596,8 @@ namespace Highfly.Core
                 _dashDistance.ToString("F2") + " duration=" +
                 _dashDuration.ToString("F2") +
                 " air=" + (_jumpCount > 0));
-            // Dash is an ACTION, not a mode that freezes gravity or input.
             if (playDashAnimation) TriggerAnimationIfPresent("Dash");
+            return true;
         }
     }
 }
