@@ -132,18 +132,18 @@ namespace Highfly.Editor
                 out Transform attackOrigin,
                 out Animator playerAnimator);
 
-            HighflyVioletVfx violetVfx = player.AddComponent<HighflyVioletVfx>();
-            HighflyVioletCombat violet = player.AddComponent<HighflyVioletCombat>();
-            SetObjectReference(violet, "resources", resources);
-            SetObjectReference(violet, "targeting", targeting);
-            SetObjectReference(violet, "motor", motor);
-            SetObjectReference(violet, "animator", playerAnimator);
-            SetObjectReference(violet, "effects", violetVfx);
-            SetInt(violet, "enemyMask", EnemyMask);
+            HighflyGuinevereVfx guinevereVfx = player.AddComponent<HighflyGuinevereVfx>();
+            HighflyGuinevereCombat guinevere = player.AddComponent<HighflyGuinevereCombat>();
+            SetObjectReference(guinevere, "resources", resources);
+            SetObjectReference(guinevere, "targeting", targeting);
+            SetObjectReference(guinevere, "motor", motor);
+            SetObjectReference(guinevere, "animator", playerAnimator);
+            SetObjectReference(guinevere, "effects", guinevereVfx);
+            SetInt(guinevere, "enemyMask", EnemyMask);
 
             Camera camera = CreateCamera(player.transform, targeting, out HighflyThirdPersonCamera cameraRig);
             GameObject canvas = CreateMobileHUD(
-                motor, targeting, combat, violet, resources, cameraRig, circleSprite,
+                motor, targeting, combat, guinevere, resources, cameraRig, circleSprite,
                 out HighflyVirtualJoystick joystick, out HighflyCameraLookArea lookArea);
 
             HighflyInteractionController interaction = player.GetComponent<HighflyInteractionController>();
@@ -381,7 +381,7 @@ namespace Highfly.Editor
             HighflyThirdPersonMotor motor,
             HighflyTargetingSystem targeting,
             HighflyCombatController combat,
-            HighflyVioletCombat violet,
+            HighflyGuinevereCombat guinevere,
             HighflyPlayerResources resources,
             HighflyThirdPersonCamera cameraRig,
             Sprite circleSprite,
@@ -514,7 +514,7 @@ namespace Highfly.Editor
             CreateRoundButton(
                 "ATAQUE", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(260f, 260f), new Vector2(-205f, 235f),
-                new Color(0.12f, 0.24f, 0.42f, 0.94f), Cyan, 30, violet.BasicAttack);
+                new Color(0.12f, 0.24f, 0.42f, 0.94f), Cyan, 30, guinevere.BasicAttack);
 
             CreateRoundButton(
                 "PESADO", canvasRect, circleSprite,
@@ -529,21 +529,21 @@ namespace Highfly.Editor
             Button prismaButton = CreateRoundButton(
                 "S1\nPRISMA", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(182f, 182f), new Vector2(-600f, 400f),
-                new Color(0.15f, 0.10f, 0.30f, 0.94f), Violet, 22, violet.Prisma);
-            prismaButton.gameObject.AddComponent<HighflyVioletAimButton>().Configure(
-                violet, cameraRig.GetComponent<Camera>(), 1, 15f);
+                new Color(0.15f, 0.10f, 0.30f, 0.94f), Violet, 22, guinevere.Prisma);
+            prismaButton.gameObject.AddComponent<HighflyGuinevereAimButton>().Configure(
+                guinevere, cameraRig.GetComponent<Camera>(), 1, 15f);
 
             Button rupturaButton = CreateRoundButton(
                 "S2\nRUPTURA", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(182f, 182f), new Vector2(-407f, 500f),
-                new Color(0.16f, 0.10f, 0.33f, 0.94f), Violet, 21, violet.Ruptura);
-            rupturaButton.gameObject.AddComponent<HighflyVioletAimButton>().Configure(
-                violet, cameraRig.GetComponent<Camera>(), 2, 8f);
+                new Color(0.16f, 0.10f, 0.33f, 0.94f), Violet, 21, guinevere.Ruptura);
+            rupturaButton.gameObject.AddComponent<HighflyGuinevereAimButton>().Configure(
+                guinevere, cameraRig.GetComponent<Camera>(), 2, 8f);
 
             CreateRoundButton(
                 "S3\nTEMPESTAD", canvasRect, circleSprite,
                 new Vector2(1f, 0f), new Vector2(182f, 182f), new Vector2(-190f, 530f),
-                new Color(0.23f, 0.08f, 0.34f, 0.96f), Violet, 20, violet.Tempestad);
+                new Color(0.23f, 0.08f, 0.34f, 0.96f), Violet, 20, guinevere.Tempestad);
 
             CreateRoundHoldButton(
                 "BLOQ", canvasRect, circleSprite,
@@ -562,13 +562,13 @@ namespace Highfly.Editor
             hint.text = "ARRASTRÁ S1/S2 PARA APUNTAR  •  SOLTÁ PARA LANZAR  •  ARRIBA DERECHA CANCELA";
             hint.color = new Color(0.80f, 0.62f, 0.94f, 0.86f);
 
-            Text violetCharge = CreateText(
+            Text guinevereCharge = CreateText(
                 "SUPER MAGIC 0%", canvasRect,
                 new Vector2(1f, 1f), new Vector2(750f, 44f),
                 new Vector2(-400f, -64f), 24, TextAnchor.MiddleCenter);
-            HighflyVioletSuperMagicHUD violetHud = canvasGo.AddComponent<HighflyVioletSuperMagicHUD>();
-            SetObjectReference(violetHud, "violet", violet);
-            SetObjectReference(violetHud, "readout", violetCharge);
+            HighflyGuinevereSuperMagicHUD guinevereHud = canvasGo.AddComponent<HighflyGuinevereSuperMagicHUD>();
+            SetObjectReference(guinevereHud, "guinevere", guinevere);
+            SetObjectReference(guinevereHud, "readout", guinevereCharge);
 
             HighflyCombatHUD hud = canvasGo.AddComponent<HighflyCombatHUD>();
             SetObjectReference(hud, "resources", resources);

@@ -6,18 +6,18 @@ using Highfly.Core;
 namespace Highfly.Combat
 {
     /// <summary>
-    /// Independent HIGHFLY port of Proyecto Violeta R05 (not a Mobile Legends asset).
+    /// Independent HIGHFLY port of Guinevere R05 (not a Mobile Legends asset).
     /// No global game state, no direct dependencies on ClaudeCraft or Three.js.
     /// The combat rules remain separate from the renderer and mobile input.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HighflyVioletCombat : MonoBehaviour
+    public sealed class HighflyGuinevereCombat : MonoBehaviour
     {
         [Header("References")]
         [SerializeField] private HighflyPlayerResources resources;
         [SerializeField] private HighflyTargetingSystem targeting;
         [SerializeField] private HighflyThirdPersonMotor motor;
-        [SerializeField] private HighflyVioletVfx effects;
+        [SerializeField] private HighflyGuinevereVfx effects;
         [SerializeField] private Animator animator;
         [SerializeField] private LayerMask enemyMask = 1 << 8;
 
@@ -70,7 +70,7 @@ namespace Highfly.Combat
             if (resources == null) resources = GetComponent<HighflyPlayerResources>();
             if (targeting == null) targeting = GetComponent<HighflyTargetingSystem>();
             if (motor == null) motor = GetComponent<HighflyThirdPersonMotor>();
-            if (effects == null) effects = GetComponent<HighflyVioletVfx>();
+            if (effects == null) effects = GetComponent<HighflyGuinevereVfx>();
             if (animator == null) animator = GetComponentInChildren<Animator>();
             _controller = GetComponent<CharacterController>();
         }

@@ -8,7 +8,7 @@ namespace Highfly.Combat
     /// Scales particle counts for landscape Android/WebGL.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class HighflyVioletVfx : MonoBehaviour
+    public sealed class HighflyGuinevereVfx : MonoBehaviour
     {
         public enum Quality { Fluido, Equilibrado, Ultra }
         [SerializeField] private Quality quality = Quality.Equilibrado;
@@ -41,7 +41,7 @@ namespace Highfly.Combat
         public Transform CreatePrisma(Vector3 position)
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            go.name = "Violet_Prism_Bolt";
+            go.name = "Guinevere_Prism_Bolt";
             go.transform.position = position;
             go.transform.localScale = Vector3.one * .31f;
             Collider collider = go.GetComponent<Collider>();
@@ -96,7 +96,7 @@ namespace Highfly.Combat
         {
             Burst(origin + Vector3.up, violet, 22, 2f, .14f, .43f);
             Burst(destination + Vector3.up, rose, 25, 2.6f, .15f, .52f);
-            GameObject line = new GameObject("Violet_Blink_Trail");
+            GameObject line = new GameObject("Guinevere_Blink_Trail");
             LineRenderer r = line.AddComponent<LineRenderer>();
             r.positionCount = 2;
             r.SetPosition(0, origin + Vector3.up);
@@ -127,7 +127,7 @@ namespace Highfly.Combat
 
         private void Burst(Vector3 at, Color color, int count, float speed, float size, float lifetime)
         {
-            GameObject go = new GameObject("Violet_VFX_Burst");
+            GameObject go = new GameObject("Guinevere_VFX_Burst");
             go.transform.position = at;
             ParticleSystem particles = go.AddComponent<ParticleSystem>();
             ParticleSystem.MainModule main = particles.main;
@@ -154,7 +154,7 @@ namespace Highfly.Combat
 
         private void Ring(Vector3 origin, float radius, Color color, float life)
         {
-            GameObject go = new GameObject("Violet_VFX_Ring");
+            GameObject go = new GameObject("Guinevere_VFX_Ring");
             go.transform.position = origin + Vector3.up * .10f;
             LineRenderer line = go.AddComponent<LineRenderer>();
             line.useWorldSpace = false;

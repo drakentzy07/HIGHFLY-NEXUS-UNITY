@@ -8,10 +8,10 @@ namespace Highfly.Combat
     /// Ordinary tap still invokes the existing Button.onClick binding.
     /// Drag release casts in the camera-relative direction; top-right cancels.
     /// </summary>
-    public sealed class HighflyVioletAimButton : MonoBehaviour,
+    public sealed class HighflyGuinevereAimButton : MonoBehaviour,
         IPointerDownHandler, IBeginDragHandler, IDragHandler, IPointerUpHandler, IEndDragHandler
     {
-        [SerializeField] private HighflyVioletCombat violet;
+        [SerializeField] private HighflyGuinevereCombat guinevere;
         [SerializeField] private Camera aimCamera;
         [SerializeField] private int skillSlot = 1;
         [SerializeField] private float aimRange = 8f;
@@ -22,9 +22,9 @@ namespace Highfly.Combat
         private LineRenderer _preview;
         private Material _previewMaterial;
 
-        public void Configure(HighflyVioletCombat controller, Camera camera, int slot, float range)
+        public void Configure(HighflyGuinevereCombat controller, Camera camera, int slot, float range)
         {
-            violet = controller;
+            guinevere = controller;
             aimCamera = camera;
             skillSlot = slot;
             aimRange = range;
@@ -57,7 +57,7 @@ namespace Highfly.Combat
 
         private void RefreshAim(Vector2 screenPoint)
         {
-            if (violet == null) return;
+            if (guinevere == null) return;
             Vector2 delta = screenPoint - _start;
             if (delta.sqrMagnitude < 16f) return;
             Camera cam = aimCamera != null ? aimCamera : Camera.main;
@@ -71,7 +71,7 @@ namespace Highfly.Combat
 
             if (_preview == null)
             {
-                GameObject line = new GameObject("Violet_Aim_Preview");
+                GameObject line = new GameObject("Guinevere_Aim_Preview");
                 _preview = line.AddComponent<LineRenderer>();
                 _preview.positionCount = 2;
                 _preview.startWidth = .13f;
@@ -85,8 +85,8 @@ namespace Highfly.Combat
                     _preview.sharedMaterial = _previewMaterial;
                 }
             }
-            _preview.SetPosition(0, violet.transform.position + Vector3.up * .12f);
-            _preview.SetPosition(1, violet.transform.position + Vector3.up * .12f + _direction * aimRange);
+            _preview.SetPosition(0, guinevere.transform.position + Vector3.up * .12f);
+            _preview.SetPosition(1, guinevere.transform.position + Vector3.up * .12f + _direction * aimRange);
         }
 
         public void OnPointerUp(PointerEventData eventData)
@@ -94,13 +94,13 @@ namespace Highfly.Combat
             bool dragged = _dragging;
             _dragging = false;
             Cleanup();
-            if (!dragged || violet == null) return; // Taps use the Button listener.
+            if (!dragged || guinevere == null) return; // Taps use the Button listener.
             eventData.eligibleForClick = false;
             bool cancel = eventData.position.x >= Screen.width * .76f &&
                           eventData.position.y >= Screen.height * .70f;
             if (cancel) return;
-            if (skillSlot == 1) violet.CastPrisma(_direction);
-            if (skillSlot == 2) violet.CastRuptura(_direction);
+            if (skillSlot == 1) guinevere.CastPrisma(_direction);
+            if (skillSlot == 2) guinevere.CastRuptura(_direction);
         }
 
         public void OnEndDrag(PointerEventData eventData) { Cleanup(); }
