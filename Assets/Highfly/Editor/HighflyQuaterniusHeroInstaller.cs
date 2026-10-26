@@ -76,6 +76,7 @@ namespace Highfly.Editor
                 }
                 animator.runtimeAnimatorController = controller;
                 animator.applyRootMotion = false;
+                animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
 
                 Renderer[] renderers = visual.GetComponentsInChildren<Renderer>();
                 Bounds bounds = default(Bounds);
@@ -87,6 +88,11 @@ namespace Highfly.Editor
                 }
                 if (found && bounds.size.y > .1f)
                     visual.transform.localScale *= Mathf.Clamp(1.82f / bounds.size.y, .30f, 4f);
+                Debug.Log("FURY RIG DIAG visual=" + visual.name +
+                    " avatar=" + animator.avatar.name +
+                    " scale=" + visual.transform.localScale +
+                    " sourceHeight=" + (found ? bounds.size.y : 0f) +
+                    " controllerHeight=" + player.GetComponent<CharacterController>().height);
                 variants.Add(visual);
                 animators.Add(animator);
             }
@@ -150,25 +156,41 @@ namespace Highfly.Editor
         private static AnimatorController CreateController()
         {
             if (!Directory.Exists(Generated)) Directory.CreateDirectory(Generated);
+            // Prefer in-place takes. Root motion stays owned by FURY CharacterController.
             var assets = AssetDatabase.FindAssets("t:AnimationClip", new[] { Animations })
-                .Select(AssetDatabase.GUIDToAssetPath).Distinct().ToArray();
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(p => !Path.GetFileNameWithoutExtension(p).EndsWith("_RM",
+                    StringComparison.OrdinalIgnoreCase))
+                .Distinct().OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
             var clips = assets.SelectMany(p => AssetDatabase.LoadAllAssetsAtPath(p)
                 .OfType<AnimationClip>()).Where(c => c != null &&
                 c.isHumanMotion && !c.name.StartsWith("__preview__"))
                 .GroupBy(c => c.name).Select(g => g.First()).ToArray();
-            AnimationClip idle = Pick(clips, "Idle");
-            AnimationClip walk = Pick(clips, "Walking", "Walk");
-            AnimationClip run = Pick(clips, "Running", "Run", "Jog", "Walking");
-            AnimationClip attack = Pick(clips, "Sword", "Melee", "Punch", "Attack");
-            AnimationClip magic = Pick(clips, "Magic", "Cast", "Spell", "Attack");
-            AnimationClip dodge = Pick(clips, "Dodge", "Roll", "Run");
-            if (idle == null || run == null || attack == null) return null;
+            // These names were verified against the REAL CC0 UAL1 Standard FBX.
+            // Loose "Idle" had selected Crouch_Idle_Loop: the Hunter crouched!
+            AnimationClip idle = PickExact(clips, "Idle_Loop");
+            AnimationClip walk = PickExact(clips, "Walk_Loop");
+            AnimationClip jog = PickExact(clips, "Jog_Fwd_Loop");
+            AnimationClip sprint = PickExact(clips, "Sprint_Loop");
+            AnimationClip jumpStart = PickExact(clips, "Jump_Start");
+            AnimationClip jumpLoop = PickExact(clips, "Jump_Loop");
+            AnimationClip jumpLand = PickExact(clips, "Jump_Land");
+            AnimationClip attack = PickExact(clips, "Sword_Attack");
+            AnimationClip magic = PickExact(clips, "Spell_Simple_Shoot");
+            AnimationClip dodge = PickExact(clips, "Roll");
+            if (idle == null || walk == null || jog == null || sprint == null ||
+                jumpStart == null || jumpLoop == null || jumpLand == null ||
+                attack == null)
+                throw new InvalidOperationException(
+                    "FURY UAL1 required upright gait/jump clips missing; " +
+                    "refusing Crouch_Idle or Sword_Idle fallback.");
 
             AssetDatabase.DeleteAsset(ControllerPath);
             AnimatorController animator = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
             animator.AddParameter("MoveSpeed", AnimatorControllerParameterType.Float);
             animator.AddParameter("IsMoving", AnimatorControllerParameterType.Bool);
             animator.AddParameter("ComboIndex", AnimatorControllerParameterType.Int);
+            animator.AddParameter("Grounded", AnimatorControllerParameterType.Bool);
             foreach (string trigger in new[] {
                 "BasicAttack","BasicAttack1","BasicAttack2","BasicAttack3","BasicAttack4",
                 "HeavyAttack","Dash","Skill1","Skill2","Skill3","Jump","DoubleJump"})
@@ -185,14 +207,47 @@ namespace Highfly.Editor
             };
             AssetDatabase.AddObjectToAsset(moveBlend, animator);
             moveBlend.AddChild(idle, 0f);
-            moveBlend.AddChild(walk ?? run, .44f);
-            moveBlend.AddChild(run, .98f);
+            moveBlend.AddChild(walk, .43f);
+            moveBlend.AddChild(jog, .73f);
+            moveBlend.AddChild(sprint, 1f);
             AnimatorState locomotionState = locomotion.AddState("FURY_Move_360");
             locomotionState.motion = moveBlend;
             locomotion.defaultState = locomotionState;
-            Debug.Log("FURY locomotion clips: idle=" + idle.name +
-                ", walk=" + (walk != null ? walk.name : run.name) +
-                ", run=" + run.name);
+
+            // Original controller exposed jump triggers but NO corresponding
+            // animation states. Drive true takeoff -> air loop -> landing.
+            AnimatorState leap = locomotion.AddState("FURY_Jump_Start");
+            leap.motion = jumpStart;
+            AnimatorState aerial = locomotion.AddState("FURY_Jump_Air");
+            aerial.motion = jumpLoop;
+            AnimatorState landing = locomotion.AddState("FURY_Jump_Land");
+            landing.motion = jumpLand;
+            AnimatorState flipLeap = locomotion.AddState("FURY_DoubleJump_Start");
+            flipLeap.motion = jumpStart;
+            AnimatorStateTransition begin = locomotion.AddAnyStateTransition(leap);
+            begin.hasExitTime = false; begin.duration = .06f;
+            begin.canTransitionToSelf = false;
+            begin.AddCondition(AnimatorConditionMode.If, 0f, "Jump");
+            AnimatorStateTransition beginDouble = locomotion.AddAnyStateTransition(flipLeap);
+            beginDouble.hasExitTime = false; beginDouble.duration = .05f;
+            beginDouble.canTransitionToSelf = false;
+            beginDouble.AddCondition(AnimatorConditionMode.If, 0f, "DoubleJump");
+            AnimatorStateTransition leapToAir = leap.AddTransition(aerial);
+            leapToAir.hasExitTime = true; leapToAir.exitTime = .75f;
+            leapToAir.duration = .07f;
+            AnimatorStateTransition flipToAir = flipLeap.AddTransition(aerial);
+            flipToAir.hasExitTime = true; flipToAir.exitTime = .75f;
+            flipToAir.duration = .07f;
+            AnimatorStateTransition airToLand = aerial.AddTransition(landing);
+            airToLand.hasExitTime = false; airToLand.duration = .08f;
+            airToLand.AddCondition(AnimatorConditionMode.If, 0f, "Grounded");
+            AnimatorStateTransition landToMove = landing.AddTransition(locomotionState);
+            landToMove.hasExitTime = true; landToMove.exitTime = .8f;
+            landToMove.duration = .08f;
+            Debug.Log("FURY POSTURE VERIFIED upright=" + idle.name +
+                " walk=" + walk.name + " jog=" + jog.name +
+                " sprint=" + sprint.name + " jump=" + jumpStart.name +
+                "/" + jumpLoop.name + "/" + jumpLand.name);
 
             AssetDatabase.DeleteAsset(MaskPath);
             AvatarMask mask = new AvatarMask();
@@ -219,10 +274,12 @@ namespace Highfly.Editor
             // Real 1-2-3-4 Animator chain. Pick up to four separate CC0 attack
             // clips when the Universal Animation Library supplies them, rather
             // than using one repeated animation for all stages.
-            AnimationClip[] attacks = clips.Where(c =>
-                new[] { "attack", "sword", "slash", "punch", "melee", "strike", "thrust" }
-                .Any(key => c.name.IndexOf(key, StringComparison.OrdinalIgnoreCase) >= 0))
-                .OrderBy(c => c.name, StringComparer.OrdinalIgnoreCase).ToArray();
+            // Never select Sword_Idle as an ATK finisher: it is a pose!
+            AnimationClip[] attacks = clips.Where(c => {
+                string name = ClipName(c);
+                return name == "Punch_Jab" || name == "Punch_Cross" ||
+                    name == "Sword_Attack";
+            }).OrderBy(c => ClipName(c), StringComparer.OrdinalIgnoreCase).ToArray();
             if (attacks.Length == 0) attacks = new[] { attack };
             float[] comboSpeeds = { 1.18f, 1.23f, 1.08f, .93f };
             for (int i = 0; i < 4; i++)
@@ -233,13 +290,26 @@ namespace Highfly.Editor
                 Debug.Log("FURY 4-hit ATK stage " + (i + 1) + ": " + clip.name);
             }
             AddCast(sm, neutral, "ATK_Legacy", attack, "BasicAttack");
-            AddCast(sm, neutral, "Heavy", attacks[attacks.Length - 1], "HeavyAttack");
+            AddCast(sm, neutral, "Heavy", attack, "HeavyAttack");
             AddCast(sm, neutral, "Dash", dodge ?? attack, "Dash");
             AddCast(sm, neutral, "Prisma", magic ?? attack, "Skill1");
             AddCast(sm, neutral, "Ruptura", attack, "Skill2");
             AddCast(sm, neutral, "Tempestad", magic ?? attack, "Skill3");
             AssetDatabase.SaveAssets();
             return animator;
+        }
+
+        private static string ClipName(AnimationClip clip)
+        {
+            string name = clip.name;
+            int separator = name.LastIndexOf('|');
+            return separator < 0 ? name : name.Substring(separator + 1);
+        }
+
+        private static AnimationClip PickExact(AnimationClip[] clips, string take)
+        {
+            return clips.FirstOrDefault(c =>
+                string.Equals(ClipName(c), take, StringComparison.OrdinalIgnoreCase));
         }
 
         private static AnimationClip Pick(AnimationClip[] clips, params string[] hints)

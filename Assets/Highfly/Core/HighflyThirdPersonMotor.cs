@@ -195,6 +195,8 @@ namespace Highfly.Core
                     Mathf.Clamp01(_planarVelocity.magnitude / Mathf.Max(.01f, sprintSpeed));
                 animator.SetFloat("MoveSpeed", locomotion, .10f, Time.deltaTime);
                 animator.SetBool("IsMoving", IsMoving && !IsSwimming);
+                animator.SetBool("Grounded", _controller.isGrounded &&
+                    _verticalVelocity <= 0f && _jumpCount == 0);
                 SetAnimatorBoolIfPresent("IsSwimming", IsSwimming);
                 SetAnimatorBoolIfPresent("IsWading", IsWading);
             }
@@ -218,6 +220,7 @@ namespace Highfly.Core
                 _jumpCount = 1;
                 _verticalVelocity = firstJumpVelocity;
                 _queuedJumpUntil = -100f;
+                if (animator != null) animator.SetBool("Grounded", false);
                 TriggerAnimationIfPresent("Jump");
             }
             else if (_jumpCount == 1 && !_controller.isGrounded)
@@ -225,6 +228,7 @@ namespace Highfly.Core
                 _jumpCount = 2;
                 _verticalVelocity = secondJumpVelocity;
                 _queuedJumpUntil = -100f;
+                if (animator != null) animator.SetBool("Grounded", false);
                 TriggerAnimationIfPresent("DoubleJump");
                 StartFlip();
             }
