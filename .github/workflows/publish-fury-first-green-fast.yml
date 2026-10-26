@@ -1,11 +1,12 @@
 name: Publish first GREEN NEXUS Guinevere FURY beta on Pages
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - "Build NEXUS Guinevere FURY preview - Unity 6"
     branches:
-      - main
-    paths:
-      - ".github/workflows/publish-fury-first-green-fast.yml"
+      - feature/nexus-guinevere-rgpoly-unity6-20261026
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -20,7 +21,8 @@ concurrency:
 
 jobs:
   publish_beta:
-    name: Publish isolated FURY beta alongside unchanged City01
+    name: Promote successful FURY build without touching stable City01
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/nexus-guinevere-rgpoly-unity6-20261026') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -58,7 +60,7 @@ jobs:
           name: HIGHFLY-NEXUS-GUINEVERE-FURY-UNITY6-PREVIEW-WEBGL
           path: fury-download
           repository: drakentzy07/HIGHFLY-NEXUS-UNITY
-          run-id: 40313125726
+          run-id: ${{ github.event.workflow_run.id || '40313125726' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare standalone preview subdirectory
