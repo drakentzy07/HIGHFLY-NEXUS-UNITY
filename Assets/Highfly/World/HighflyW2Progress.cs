@@ -228,6 +228,10 @@ namespace Highfly.World
                 _weaponVisual = GetComponent<HighflyW2WeaponVisual>();
             if (_weaponVisual != null)
                 _weaponVisual.SetEquipped(!string.IsNullOrEmpty(_data.weapon));
+            Highfly.Combat.HighflyHealth health =
+                GetComponent<Highfly.Combat.HighflyHealth>();
+            if (health != null)
+                health.SetEquipmentHealthBonus(VitalityBonus * 10f);
         }
 
         public void OnSkeletonDefeated()
