@@ -508,7 +508,7 @@ jobs:
           })();
           </script>"""
           if 'viewport-fit=cover' not in s:s=s.replace("</head>",head+"</head>")
-          if 'hf-open-beta' not in s:s=s.replace("</body>",script+"</body>")
+          if 'id="hf-open-beta"' not in s:s=s.replace("</body>",script+"</body>")
           p.write_text(s,encoding="utf-8")
           PY
           test -s site-publish/index.html
