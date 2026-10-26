@@ -274,10 +274,15 @@ namespace Highfly.Combat
             {
                 _recastUntil = 0f;
                 Vector3 oldPos = transform.position;
-                if (_controller != null) _controller.Move(dir * 4.7f);
-                else transform.position += dir * 4.7f;
                 Face(dir);
-                if (effects != null) effects.Blink(oldPos, transform.position);
+                // The original recast moved the capsule ~4.7 m instantly,
+                // outside FURY's single Move and without a meaningful VFX path.
+                // Use the motor's collision-safe short dash instead.
+                if (motor != null)
+                    motor.Dash(dir, 4.7f, .16f);
+                else if (_controller != null)
+                    _controller.Move(dir * 4.7f);
+                StartCoroutine(RupturaRecastVisual(oldPos, .16f));
                 StartCoroutine(EchoExplosion(oldPos));
                 return;
             }
@@ -288,25 +293,26 @@ namespace Highfly.Combat
             StartCoroutine(RupturaLeap(dir));
         }
 
+        private IEnumerator RupturaRecastVisual(Vector3 oldPos, float seconds)
+        {
+            yield return new WaitForSeconds(seconds);
+            if (effects != null) effects.Blink(oldPos, transform.position);
+        }
+
         private IEnumerator RupturaLeap(Vector3 direction)
         {
             _busy = true;
-            if (motor != null) motor.ExternalMovementLock = true;
             float distance = rupturaRange * .75f;
             if (targeting != null && targeting.HasTarget)
                 distance = Mathf.Min(rupturaRange, Vector3.Distance(transform.position, targeting.CurrentTarget.AimPoint.position));
             Vector3 start = transform.position;
-            float elapsed = 0f;
-            while (elapsed < rupturaDuration)
-            {
-                float dt = Mathf.Min(Time.deltaTime, rupturaDuration - elapsed);
-                elapsed += dt;
-                Vector3 delta = direction * (distance / rupturaDuration) * dt;
-                if (_controller != null) _controller.Move(delta);
-                else transform.position += delta;
-                if (effects != null && elapsed < dt + .02f) effects.Launch(start);
-                yield return null;
-            }
+            if (motor != null)
+                motor.Dash(direction, distance, rupturaDuration);
+            else Debug.LogWarning("Ruptura requires FURY motor for displacement");
+            if (effects != null) effects.Launch(start);
+            // Motor owns every movement frame. This coroutine owns only skill
+            // timing, VFX and hit logic, not a second CharacterController.Move.
+            yield return new WaitForSeconds(rupturaDuration);
             if (effects != null) effects.Impact(transform.position, rupturaRadius);
             int count = Physics.OverlapSphereNonAlloc(transform.position, rupturaRadius, _hits, enemyMask, QueryTriggerInteraction.Collide);
             HashSet<HighflyHealth> unique = new HashSet<HighflyHealth>();
@@ -322,7 +328,6 @@ namespace Highfly.Combat
                 }
             }
             _recastUntil = Time.time + 5f;
-            if (motor != null) motor.ExternalMovementLock = false;
             _busy = false;
             FlushBuffer();
         }

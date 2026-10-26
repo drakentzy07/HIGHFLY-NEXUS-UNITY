@@ -19,11 +19,8 @@ namespace Highfly.Mobile
             if (Input.GetKeyDown(KeyCode.Alpha1)) combat.Prisma();
             if (Input.GetKeyDown(KeyCode.Alpha2)) combat.Ruptura();
             if (Input.GetKeyDown(KeyCode.Alpha3)) combat.Tempestad();
-            if (Input.GetKeyDown(KeyCode.LeftShift))
-            {
-                HighflyCombatController existing = combat.GetComponent<HighflyCombatController>();
-                if (existing != null) existing.DashOrDodge();
-            }
+            if (Input.GetKeyDown(KeyCode.LeftShift) && motor != null)
+                motor.Dash();
         }
 #endif
     }
