@@ -120,12 +120,13 @@ namespace Highfly.Editor
             CleanRgPolyWorldHud(canvas);
             HighflyGuinevereWorldInstaller.Install(player, canvas, camera);
 
-            // Isolated CC0 combat target placed near the starting path.
-            // Uses existing HIGHFLY health, targeting, damage and enemy AI.
+            // Enemies belong OUTSIDE the walled capital. Use the audited
+            // FOREST activity zone (x=-60, z=22), never the city spawn.
+            // The nearby town keeps its peaceful NPC and interior services.
             CreateEnemy(
                 "FURY_TRAINING_SKELETON",
                 SkeletonWarriorPath,
-                player.transform.position + player.transform.forward * 11.5f,
+                new Vector3(-60f, 13.35f, 22f),
                 980f, 2.35f,
                 player.transform,
                 player.GetComponent<HighflyHealth>(),
