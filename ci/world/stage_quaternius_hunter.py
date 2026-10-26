@@ -78,6 +78,15 @@ def stage(archive_path: Path, root: Path, kind: str) -> list[str]:
                     best = candidates[0]
                 if best not in selected:
                     selected.append(best)
+            if not selected and fbxs:
+                # Donor names differ from gender/class naming; favor Unity FBX
+                # outfit rigs first and retain CC0 modular pieces for later assembly.
+                selected = sorted(fbxs, key=lambda p: (
+                    "unity" not in clean(p),
+                    not any(h in clean(p) for h in ("outfit", "knight", "warrior", "robe", "armor", "armour")),
+                    "gltf" in clean(p),
+                    len(p)
+                ))[:12]
         elif kind == "Animations":
             hints = ("idle", "running", "run", "jog", "walking",
                      "sword", "slash", "punch", "attack", "magic",

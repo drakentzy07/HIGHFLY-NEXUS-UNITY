@@ -57,7 +57,7 @@ namespace Highfly.Editor
                 string name = Path.GetFileNameWithoutExtension(path).ToLowerInvariant();
                 if (!name.Contains("regular") && !name.Contains("knight") &&
                     !name.Contains("wizard") && !name.Contains("rogue") &&
-                    !name.Contains("warrior")) continue;
+                    !name.Contains("warrior") && !name.Contains("superhero")) continue;
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 if (prefab == null) continue;
                 GameObject visual = PrefabUtility.InstantiatePrefab(prefab, player.transform) as GameObject;

@@ -354,6 +354,10 @@ jobs:
           grep -q "HIGHFLY_RG_POLY_CITY01" "$SCENE"
           grep -q "HIGHFLY_Hunter" "$SCENE"
           grep -q "HIGHFLY_MobileHUD" "$SCENE"
+          grep -q "QUATERNIUS_" "$SCENE"
+          grep -q "FURY_JUMP" "$SCENE"
+          grep -q "Guinevere_SuperMagic" "$SCENE"
+          grep -q "FURY_TRAINING_SKELETON" "$SCENE"
 
           FORGE_SCENE="LucidHost/3D_game/Assets/Highfly/Scenes/Interiors/HF_INT_RGPOLY_FORGE.unity"
           test -f "$FORGE_SCENE"
