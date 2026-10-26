@@ -25,6 +25,9 @@
 
 Additional integration: `SuperMagicNormalized` drives a low-cost visual aura at charge >=35%; true hit-charged heal triggers `HealPulse` after the existing actual healing has been applied. Never generates charge on a miss.
 
+### Enemy knock-up completeness
+The previous `HighflySimpleEnemyAI.ApplyAirborne` only suppressed enemy movement (it did not visibly raise the target). The integration now lifts the **Animator's child visual only** during the authoritative airborne/combat state, using a short rise / held suspension / fall envelope. The enemy physics root and its hitbox stay fixed, so the eleven S3 pulse OverlapSphere queries still detect the real target. Bosses remain immune to normal lifting and instead take poise pressure. The displacement is reverted on state expiry/disable, and ordinary non-airborne animations are not overwritten.
+
 **R06 replaces rather than stacks old effects** when active. Disabled R06 uses original effects for A/B testing. Projectile shape/trail retains its existing real transform so collision logic is unchanged. No direct force/animation/state ownership in visual classes. No proprietary Genshin/MLBB assets.
 
 ## Controls for S23 WebGL comparison
