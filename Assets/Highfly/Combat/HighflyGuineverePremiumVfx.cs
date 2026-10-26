@@ -29,6 +29,36 @@ namespace Highfly.Combat
         private int _particleObjects;
         private int _ringObjects;
         private bool _ultimateActive;
+        private HighflyGuinevereCombat _combat;
+        private float _nextPassiveAura;
+
+        private void Update()
+        {
+            // Visual-only passive. Reads the authoritative combat meter; never
+            // grants Super Magic, health, damage, knockup or movement.
+            if (_combat == null) _combat = GetComponent<HighflyGuinevereCombat>();
+            if (_combat == null || !isActiveAndEnabled) return;
+            float charge = _combat.SuperMagicNormalized;
+            if (charge < .35f || Time.time < _nextPassiveAura) return;
+            _nextPassiveAura = Time.time +
+                (quality == 0 ? .86f : quality == 1 ? .66f : .48f);
+            Vector3 origin = transform.position + Vector3.up * .95f;
+            int count = charge >= 1f ? 10 : 4;
+            Spark(origin, Color.Lerp(violet, white, charge), count,
+                .75f + charge * .5f, .065f, .32f);
+            if (charge >= 1f)
+                Ring(transform.position + Vector3.up * .06f, 1.15f,
+                    rose, .48f, .06f, 0f);
+        }
+
+        public void HealPulse(Vector3 at)
+        {
+            if (!isActiveAndEnabled) return;
+            // The combat core applies healing first. This is only its feedback.
+            Color healed = new Color(.42f, 1f, .72f, .90f);
+            Spark(at + Vector3.up, healed, 18, 1.3f, .09f, .52f);
+            Ring(at + Vector3.up * .20f, .85f, healed, .45f, .08f, 0f);
+        }
 
         public void SetQuality(int level) { quality = Mathf.Clamp(level, 0, 2); }
         private float Density => quality == 0 ? .38f : quality == 1 ? .70f : 1f;
