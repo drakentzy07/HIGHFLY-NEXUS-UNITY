@@ -248,8 +248,23 @@ namespace Highfly.Editor
             airToLand.hasExitTime = false; airToLand.duration = .08f;
             airToLand.AddCondition(AnimatorConditionMode.If, 0f, "Grounded");
             AnimatorStateTransition landToMove = landing.AddTransition(locomotionState);
-            landToMove.hasExitTime = true; landToMove.exitTime = .8f;
-            landToMove.duration = .08f;
+            landToMove.hasExitTime = true; landToMove.exitTime = .58f;
+            landToMove.duration = .07f;
+            // DASH owns a short full-body state, not a torso-only mask over
+            // running legs. In-place Sword_Dash preserves FURY physics.
+            AnimatorState dashBody = locomotion.AddState("FURY_Dash_Body");
+            dashBody.motion = dodge ?? jog;
+            dashBody.speed = dodge != null ?
+                Mathf.Clamp(dodge.length / .25f, .85f, 3.5f) : 1.5f;
+            AnimatorStateTransition dashEnter = locomotion.AddAnyStateTransition(dashBody);
+            dashEnter.hasExitTime = false;
+            dashEnter.duration = .04f;
+            dashEnter.canTransitionToSelf = false;
+            dashEnter.AddCondition(AnimatorConditionMode.If, 0f, "Dash");
+            AnimatorStateTransition dashLeave = dashBody.AddTransition(locomotionState);
+            dashLeave.hasExitTime = true;
+            dashLeave.exitTime = .82f;
+            dashLeave.duration = .09f;
             Debug.Log("FURY POSTURE VERIFIED upright=" + idle.name +
                 " walk=" + walk.name + " jog=" + jog.name +
                 " sprint=" + sprint.name + " jump=" + jumpStart.name +
@@ -307,7 +322,6 @@ namespace Highfly.Editor
             AddCast(sm, neutral, "ATK_Legacy", attack, "BasicAttack");
             AddCast(sm, neutral, "Heavy",
                 PickExact(clips, "Sword_Heavy_Combo") ?? attack, "HeavyAttack");
-            AddCast(sm, neutral, "Dash", dodge ?? attack, "Dash");
             AddCast(sm, neutral, "Prisma", magic ?? attack, "Skill1");
             AddCast(sm, neutral, "Ruptura", attack, "Skill2");
             AddCast(sm, neutral, "Tempestad", magic ?? attack, "Skill3");

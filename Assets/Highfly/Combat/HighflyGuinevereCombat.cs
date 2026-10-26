@@ -115,8 +115,9 @@ namespace Highfly.Combat
         private void Face(Vector3 direction)
         {
             direction.y = 0f;
-            if (direction.sqrMagnitude > .001f)
-                transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+            if (direction.sqrMagnitude <= .001f) return;
+            if (motor != null) motor.FaceForAction(direction);
+            else transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
         }
 
         private void Update()
@@ -307,7 +308,7 @@ namespace Highfly.Combat
                 distance = Mathf.Min(rupturaRange, Vector3.Distance(transform.position, targeting.CurrentTarget.AimPoint.position));
             Vector3 start = transform.position;
             if (motor != null)
-                motor.Dash(direction, distance, rupturaDuration);
+                motor.Dash(direction, distance, rupturaDuration, false);
             else Debug.LogWarning("Ruptura requires FURY motor for displacement");
             if (effects != null) effects.Launch(start);
             // Motor owns every movement frame. This coroutine owns only skill

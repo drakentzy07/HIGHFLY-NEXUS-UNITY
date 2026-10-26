@@ -69,14 +69,19 @@ namespace Highfly.Core
         private float _dashElapsed;
         private float _dashDuration;
         private float _dashDistance;
+        private Vector3 _facingForAction;
+        private float _facingRequestUntil = -100f;
         private int _waterContacts;
         private float _swimSurfaceY;
 
         public Vector3 LastMoveDirection { get; private set; } = Vector3.forward;
         public bool IsMoving { get; private set; }
         public bool IsDashing => _isDashing;
+        public enum MotionPhase { Idle, Moving, Rising, Falling, Dashing, Swimming, Wading }
+        public MotionPhase CurrentPhase { get; private set; }
         public bool IsGrounded => _groundContact && _jumpCount == 0 && _verticalVelocity <= 0f;
         public float CurrentPlanarSpeed => _planarVelocity.magnitude;
+        public float CurrentVerticalSpeed => _verticalVelocity;
         public bool ExternalMovementLock { get; set; }
         public int JumpCount => _jumpCount;
         public bool IsAirborne => _controller != null && !_controller.isGrounded;
@@ -157,12 +162,15 @@ namespace Highfly.Core
             Vector3 desiredDirection = GetCameraRelativeDirection(input);
             IsMoving = desiredDirection.sqrMagnitude > 0.001f;
 
-            if (IsMoving)
+            if (IsMoving) LastMoveDirection = desiredDirection.normalized;
+            // Combat asks FURY to steer facing: no direct second transform
+            // rotation in a different Update order, preventing 1-frame snaps.
+            Vector3 facing = Time.time <= _facingRequestUntil ?
+                _facingForAction : IsMoving ? LastMoveDirection : Vector3.zero;
+            if (facing.sqrMagnitude > .01f)
             {
-                LastMoveDirection = desiredDirection.normalized;
-                Quaternion targetRotation = Quaternion.LookRotation(LastMoveDirection, Vector3.up);
-                transform.rotation = Quaternion.Slerp(
-                    transform.rotation,
+                Quaternion targetRotation = Quaternion.LookRotation(facing, Vector3.up);
+                transform.rotation = Quaternion.Slerp(transform.rotation,
                     targetRotation,
                     1f - Mathf.Exp(-rotationSharpness * Time.deltaTime));
             }
@@ -255,6 +263,14 @@ namespace Highfly.Core
                 _groundContact = _jumpCount == 0 && _verticalVelocity <= 0f &&
                     ProbeNearGround();
             }
+
+            CurrentPhase = IsSwimming ? MotionPhase.Swimming :
+                IsWading ? MotionPhase.Wading :
+                _isDashing ? MotionPhase.Dashing :
+                _jumpCount > 0 || !_groundContact ?
+                    (_verticalVelocity > 0f ? MotionPhase.Rising : MotionPhase.Falling) :
+                _planarVelocity.sqrMagnitude > .025f ?
+                    MotionPhase.Moving : MotionPhase.Idle;
 
             if (animator != null)
             {
@@ -456,6 +472,14 @@ namespace Highfly.Core
             }
         }
 
+        public void FaceForAction(Vector3 direction, float seconds = .17f)
+        {
+            direction.y = 0f;
+            if (direction.sqrMagnitude <= .001f) return;
+            _facingForAction = direction.normalized;
+            _facingRequestUntil = Time.time + Mathf.Max(.03f, seconds);
+        }
+
         private Vector3 GetCameraRelativeDirection(Vector2 input)
         {
             if (input.sqrMagnitude < 0.001f)
@@ -487,6 +511,12 @@ namespace Highfly.Core
 
         public void Dash(Vector3 direction, float distance, float duration)
         {
+            Dash(direction, distance, duration, true);
+        }
+
+        public void Dash(Vector3 direction, float distance, float duration,
+            bool playDashAnimation)
+        {
             if (_isDashing || ExternalMovementLock || IsSwimming || IsWading ||
                 !isActiveAndEnabled) return;
 
@@ -498,7 +528,7 @@ namespace Highfly.Core
             _dashElapsed = 0f;
             _isDashing = true;
             // Dash is an ACTION, not a mode that freezes gravity or input.
-            TriggerAnimationIfPresent("Dash");
+            if (playDashAnimation) TriggerAnimationIfPresent("Dash");
         }
     }
 }
