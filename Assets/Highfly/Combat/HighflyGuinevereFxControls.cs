@@ -27,6 +27,13 @@ namespace Highfly.Combat
             Refresh();
         }
 
+        private void Start()
+        {
+            // The editor constructs this panel before runtime Awake has
+            // attached the premium component to the actor; refresh on play.
+            Refresh();
+        }
+
         public void CycleQuality()
         {
             if (vfx == null) return;
