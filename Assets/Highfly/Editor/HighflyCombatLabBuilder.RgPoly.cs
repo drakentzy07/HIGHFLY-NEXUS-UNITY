@@ -118,6 +118,7 @@ namespace Highfly.Editor
             SetObjectReference(cameraRig, "targeting", targeting);
 
             CleanRgPolyWorldHud(canvas);
+            HighflyGuinevereWorldInstaller.Install(player, canvas, camera);
 
             // World traversal test: keep the character visible but do not attach
             // the extra HIGHFLY sword. RogueHooded already carries its own visual gear.

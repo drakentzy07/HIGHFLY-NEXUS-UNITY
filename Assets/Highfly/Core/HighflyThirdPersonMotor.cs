@@ -46,6 +46,7 @@ namespace Highfly.Core
         public Vector3 LastMoveDirection { get; private set; } = Vector3.forward;
         public bool IsMoving { get; private set; }
         public bool IsDashing => _isDashing;
+        public bool ExternalMovementLock { get; set; }
         public bool IsInWater => _waterContacts > 0;
         public float WaterDepth
         {
@@ -81,10 +82,10 @@ namespace Highfly.Core
             if (_isDashing)
                 return;
 
-            Vector2 input = movementJoystick != null ? movementJoystick.Value : Vector2.zero;
+            Vector2 input = ExternalMovementLock ? Vector2.zero : (movementJoystick != null ? movementJoystick.Value : Vector2.zero);
 
 #if UNITY_EDITOR || UNITY_STANDALONE || UNITY_WEBGL
-            if (input.sqrMagnitude < 0.001f)
+            if (!ExternalMovementLock && input.sqrMagnitude < 0.001f)
                 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 #endif
 
@@ -120,6 +121,7 @@ namespace Highfly.Core
             else
                 velocityRate = IsSwimming ? swimDeceleration : deceleration;
 
+            if (ExternalMovementLock) _planarVelocity = Vector3.zero;
             _planarVelocity = Vector3.MoveTowards(
                 _planarVelocity,
                 desiredVelocity,
