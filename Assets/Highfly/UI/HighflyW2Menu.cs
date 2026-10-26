@@ -18,8 +18,11 @@ namespace Highfly.UI
         public void Configure(HighflyW2Progress state, HighflyHunterAppearance look,
             GameObject mainPanel, Text heading, Text detail, Text status)
         {
+            if (progress != null) progress.Changed -= Refresh;
             progress = state;
             appearance = look;
+            if (isActiveAndEnabled && progress != null)
+                progress.Changed += Refresh;
             panel = mainPanel;
             title = heading;
             body = detail;
@@ -30,7 +33,11 @@ namespace Highfly.UI
 
         private void OnEnable()
         {
-            if (progress != null) progress.Changed += Refresh;
+            if (progress != null)
+            {
+                progress.Changed -= Refresh;
+                progress.Changed += Refresh;
+            }
         }
 
         private void OnDisable()
