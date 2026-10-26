@@ -64,6 +64,58 @@ namespace Highfly.Editor
             status.fontSize = 20;
             status.raycastTarget = false;
 
+            // Tap to switch between smart / nearest / lowest HP soft aim.
+            HighflyTargetingSystem targeting = combat.GetComponent<HighflyTargetingSystem>();
+            if (targeting != null)
+            {
+                GameObject target = new GameObject("FURY_TargetMode",
+                    typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                    typeof(Button), typeof(HighflyFuryTargetModeLabel));
+                target.transform.SetParent(canvas.transform, false);
+                RectTransform tRect = target.GetComponent<RectTransform>();
+                tRect.anchorMin = tRect.anchorMax = new Vector2(1f, 1f);
+                tRect.pivot = new Vector2(.5f, .5f);
+                tRect.anchoredPosition = new Vector2(-220f, -318f);
+                tRect.sizeDelta = new Vector2(270f, 88f);
+                target.GetComponent<Image>().color = new Color(.14f, .17f, .31f, .90f);
+                UnityEventTools.AddPersistentListener(
+                    target.GetComponent<Button>().onClick, targeting.CyclePriority);
+                GameObject textGo = new GameObject("Label",
+                    typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                textGo.transform.SetParent(target.transform, false);
+                RectTransform tLabel = textGo.GetComponent<RectTransform>();
+                tLabel.anchorMin = Vector2.zero; tLabel.anchorMax = Vector2.one;
+                tLabel.offsetMin = tLabel.offsetMax = Vector2.zero;
+                Text t = textGo.GetComponent<Text>();
+                t.text = "OBJETIVO\nAUTO";
+                t.alignment = TextAnchor.MiddleCenter;
+                t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                t.fontSize = 18;
+                t.fontStyle = FontStyle.Bold;
+                t.color = Color.white;
+                t.raycastTarget = false;
+                SerializedObject ts = new SerializedObject(target.GetComponent<HighflyFuryTargetModeLabel>());
+                ts.FindProperty("targeting").objectReferenceValue = targeting;
+                ts.FindProperty("label").objectReferenceValue = t;
+                ts.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            GameObject cancelText = new GameObject("FURY_CancelHint",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            cancelText.transform.SetParent(canvas.transform, false);
+            RectTransform cancelRect = cancelText.GetComponent<RectTransform>();
+            cancelRect.anchorMin = cancelRect.anchorMax = new Vector2(1f, 1f);
+            cancelRect.anchoredPosition = new Vector2(-175f, -61f);
+            cancelRect.sizeDelta = new Vector2(305f, 53f);
+            Text cancel = cancelText.GetComponent<Text>();
+            cancel.text = "✕ CANCELAR SKILL";
+            cancel.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            cancel.fontSize = 20;
+            cancel.fontStyle = FontStyle.Bold;
+            cancel.alignment = TextAnchor.MiddleCenter;
+            cancel.color = new Color(1f, .57f, .66f, 1f);
+            cancel.raycastTarget = false;
+
             // PC/editor can test the same input without a phone.
             if (canvas.GetComponent<HighflyFuryKeyboardInput>() == null)
             {
