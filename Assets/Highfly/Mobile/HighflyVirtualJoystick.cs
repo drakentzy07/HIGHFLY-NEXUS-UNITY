@@ -19,6 +19,7 @@ namespace Highfly.Mobile
         public bool IsHeld { get; private set; }
 
         private Camera _uiCamera;
+        private int _activePointerId = int.MinValue;
 
         private void Awake()
         {
@@ -32,22 +33,31 @@ namespace Highfly.Mobile
 
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (IsHeld) return; // A second finger cannot steal the left stick.
+            _activePointerId = eventData.pointerId;
             IsHeld = true;
             UpdateValue(eventData);
         }
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (IsHeld)
+            if (IsHeld && eventData.pointerId == _activePointerId)
                 UpdateValue(eventData);
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            if (eventData.pointerId == _activePointerId) ResetStick();
+        }
+
+        private void OnDisable() { ResetStick(); }
+
+        private void ResetStick()
+        {
             IsHeld = false;
+            _activePointerId = int.MinValue;
             Value = Vector2.zero;
-            if (handle != null)
-                handle.anchoredPosition = Vector2.zero;
+            if (handle != null) handle.anchoredPosition = Vector2.zero;
         }
 
         private void UpdateValue(PointerEventData eventData)

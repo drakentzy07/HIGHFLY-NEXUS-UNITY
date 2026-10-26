@@ -16,11 +16,14 @@ namespace Highfly.Core
         [SerializeField] private float upperFadeRate = 12f;
         private static readonly int FreeUpper = Animator.StringToHash("FreeUpper");
         private bool aligned;
+        private int stableIdleFrames;
+        private HighflyThirdPersonMotor motor;
 
         public void Configure(Animator targetAnimator, CharacterController controller)
         {
             animator = targetAnimator;
             capsule = controller;
+            motor = controller != null ? controller.GetComponent<HighflyThirdPersonMotor>() : null;
         }
 
         private void Start()
@@ -28,13 +31,17 @@ namespace Highfly.Core
             if (animator == null) animator = GetComponentInChildren<Animator>();
             if (capsule == null) capsule = GetComponentInParent<CharacterController>();
             if (animator == null) return;
+            if (motor == null && capsule != null)
+                motor = capsule.GetComponent<HighflyThirdPersonMotor>();
             if (animator.layerCount > 1) animator.SetLayerWeight(1, 0f);
-            AlignFootHeight();
+            // Wait for Mecanim to sample upright Idle_Loop and for FURY to
+            // confirm physical ground contact before measuring the ankles.
         }
 
         private void OnEnable()
         {
             aligned = false;
+            stableIdleFrames = 0;
             if (animator != null && animator.layerCount > 1)
                 animator.SetLayerWeight(1, 0f);
         }
@@ -48,7 +55,7 @@ namespace Highfly.Core
             if (left == null || right == null) return;
             float footY = Mathf.Min(left.position.y, right.position.y);
             float floor = capsule.bounds.min.y;
-            float correction = Mathf.Clamp(floor + .07f - footY, -.36f, .36f);
+            float correction = Mathf.Clamp(floor + .09f - footY, -.22f, .22f);
             transform.position += Vector3.up * correction;
             aligned = true;
             Debug.Log("FURY FEET ALIGNED " + name + " offsetY=" + correction +
@@ -57,8 +64,15 @@ namespace Highfly.Core
 
         private void LateUpdate()
         {
-            if (animator == null || !animator.isActiveAndEnabled ||
-                animator.layerCount < 2) return;
+            if (animator == null || !animator.isActiveAndEnabled) return;
+            if (!aligned && motor != null && motor.IsGrounded &&
+                motor.CurrentPlanarSpeed < .10f && !motor.IsDoingSomersault)
+            {
+                stableIdleFrames++;
+                if (stableIdleFrames >= 3) AlignFootHeight();
+            }
+            else if (!aligned) stableIdleFrames = 0;
+            if (animator.layerCount < 2) return;
             AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(1);
             bool action = state.shortNameHash != FreeUpper;
             if (animator.IsInTransition(1))

@@ -144,14 +144,61 @@ namespace Highfly.Editor
                     if (!path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)) continue;
                     ModelImporter mi = AssetImporter.GetAtPath(path) as ModelImporter;
                     if (mi == null) continue;
-                    if (mi.animationType == ModelImporterAnimationType.Human) continue;
-                    mi.animationType = ModelImporterAnimationType.Human;
-                    mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
-                    mi.importAnimation = true;
-                    try { mi.SaveAndReimport(); }
-                    catch (Exception ex)
+                    bool changed = false;
+                    if (mi.animationType != ModelImporterAnimationType.Human)
                     {
-                        Debug.LogWarning("Failed Humanoid import: " + path + " / " + ex.Message);
+                        mi.animationType = ModelImporterAnimationType.Human;
+                        mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                        mi.importAnimation = true;
+                        changed = true;
+                    }
+
+                    // Import the *existing legal in-place* Quaternius takes
+                    // with explicit root behavior. The physics root (FURY)
+                    // owns XZ / Y displacement and facing, not the FBX.
+                    bool motionLibrary = folder == Animations || folder == Animations2;
+                    if (motionLibrary)
+                    {
+                        ModelImporterClipAnimation[] takes = mi.clipAnimations;
+                        if (takes == null || takes.Length == 0)
+                            takes = mi.defaultClipAnimations;
+                        if (takes != null && takes.Length > 0)
+                        {
+                            foreach (ModelImporterClipAnimation take in takes)
+                            {
+                                string name = take.name;
+                                int sep = name.LastIndexOf('|');
+                                if (sep >= 0) name = name.Substring(sep + 1);
+                                bool loop = name.EndsWith("_Loop",
+                                    StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(name, "Idle_Loop",
+                                        StringComparison.OrdinalIgnoreCase);
+                                take.loopTime = loop;
+                                take.loopPose = loop;
+                                take.lockRootRotation = true;
+                                take.lockRootPositionXZ = true;
+                                take.lockRootHeightY = true;
+                                // On jump clips, frame-to-frame feet reference
+                                // is preferable to an arbitrary body-height bias.
+                                if (name.IndexOf("Jump",
+                                    StringComparison.OrdinalIgnoreCase) >= 0)
+                                    take.heightFromFeet = true;
+                            }
+                            mi.clipAnimations = takes;
+                            changed = true;
+                            Debug.Log("FURY ROOT BAKE SETTINGS " + path +
+                                " takeCount=" + takes.Length +
+                                " XZ=pose Rotation=pose Y=pose");
+                        }
+                    }
+                    if (changed)
+                    {
+                        try { mi.SaveAndReimport(); }
+                        catch (Exception ex)
+                        {
+                            Debug.LogWarning("Failed FURY Humanoid/Root import: " +
+                                path + " / " + ex.Message);
+                        }
                     }
                 }
             }
@@ -248,8 +295,26 @@ namespace Highfly.Editor
             airToLand.hasExitTime = false; airToLand.duration = .08f;
             airToLand.AddCondition(AnimatorConditionMode.If, 0f, "Grounded");
             AnimatorStateTransition landToMove = landing.AddTransition(locomotionState);
-            landToMove.hasExitTime = true; landToMove.exitTime = .8f;
-            landToMove.duration = .08f;
+            landToMove.hasExitTime = true; landToMove.exitTime = .58f;
+            landToMove.duration = .07f;
+            // DASH owns a short full-body state, not a torso-only mask over
+            // running legs. In-place Sword_Dash preserves FURY physics.
+            AnimatorState dashBody = locomotion.AddState("FURY_Dash_Body");
+            dashBody.motion = dodge ?? jog;
+            dashBody.speed = dodge != null ?
+                Mathf.Clamp(dodge.length / .22f, .85f, 5f) : 1.5f;
+            Debug.Log("FURY DASH CLIP " + (dodge != null ? dodge.name : jog.name) +
+                " clipSeconds=" + (dodge != null ? dodge.length : jog.length) +
+                " playbackSpeed=" + dashBody.speed);
+            AnimatorStateTransition dashEnter = locomotion.AddAnyStateTransition(dashBody);
+            dashEnter.hasExitTime = false;
+            dashEnter.duration = .04f;
+            dashEnter.canTransitionToSelf = false;
+            dashEnter.AddCondition(AnimatorConditionMode.If, 0f, "Dash");
+            AnimatorStateTransition dashLeave = dashBody.AddTransition(locomotionState);
+            dashLeave.hasExitTime = true;
+            dashLeave.exitTime = .82f;
+            dashLeave.duration = .09f;
             Debug.Log("FURY POSTURE VERIFIED upright=" + idle.name +
                 " walk=" + walk.name + " jog=" + jog.name +
                 " sprint=" + sprint.name + " jump=" + jumpStart.name +
@@ -294,20 +359,26 @@ namespace Highfly.Editor
                   PickExact(clips, "Sword_Heavy_Combo") };
             bool ual2Ready = newStrikes.All(c => c != null);
             // Four distinct visual phases when the free CC0 pack has loaded.
-            float[] comboSpeeds = { 1.15f, 1.2f, 1.1f, 1.18f };
+            // Match animation length with the independent attack cadence;
+            // these are INITIAL calibration values, not validated hit frames.
+            float[] desiredSeconds = { .38f, .38f, .42f, .62f };
             for (int i = 0; i < 4; i++)
             {
                 AnimationClip clip = ual2Ready ? newStrikes[i] : legacyStrikes[i];
-                if (clip == null) throw new InvalidOperationException("FURY ATK clip missing stage " + i);
+                if (clip == null)
+                    throw new InvalidOperationException("FURY ATK clip missing stage " + i);
+                float speed = Mathf.Clamp(clip.length /
+                    desiredSeconds[i], .85f, 4f);
                 AddCast(sm, neutral, "ATK_" + (i + 1), clip,
-                    "BasicAttack" + (i + 1), comboSpeeds[i], false);
-                Debug.Log("FURY COMBO STAGE " + (i + 1) + " = " + clip.name +
+                    "BasicAttack" + (i + 1), speed, false);
+                Debug.Log("FURY TIMED COMBO " + (i + 1) + " = " +
+                    clip.name + " clipSeconds=" + clip.length +
+                    " speed=" + speed + " targetSeconds=" + desiredSeconds[i] +
                     (ual2Ready ? " UAL2 Standard CC0" : " UAL1 fallback"));
             }
             AddCast(sm, neutral, "ATK_Legacy", attack, "BasicAttack");
             AddCast(sm, neutral, "Heavy",
                 PickExact(clips, "Sword_Heavy_Combo") ?? attack, "HeavyAttack");
-            AddCast(sm, neutral, "Dash", dodge ?? attack, "Dash");
             AddCast(sm, neutral, "Prisma", magic ?? attack, "Skill1");
             AddCast(sm, neutral, "Ruptura", attack, "Skill2");
             AddCast(sm, neutral, "Tempestad", magic ?? attack, "Skill3");
