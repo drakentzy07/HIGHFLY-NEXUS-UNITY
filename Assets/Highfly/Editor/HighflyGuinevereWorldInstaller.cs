@@ -45,6 +45,7 @@ namespace Highfly.Editor
             Highfly.Core.HighflyThirdPersonMotor motor =
                 player.GetComponent<Highfly.Core.HighflyThirdPersonMotor>();
             HighflyFuryMobileHud.Install(canvas, motor, guinevere);
+            InstallGuinevereFxTester(canvas, effects);
             // The original "DASH" button targeted the legacy combat layer.
             // Route both Jump and Dash to the exact same FURY physics motor.
             Transform dashRoot = canvas.transform.Find("DASH_Button");
@@ -90,6 +91,68 @@ namespace Highfly.Editor
                 if (aim == null) aim = candidate.gameObject.AddComponent<HighflyGuinevereAimButton>();
                 aim.Configure(owner, camera, slot, range);
             }
+        }
+
+        // Small optional S23 test panel; no modifications to the stable CITY01 canvas.
+        private static void InstallGuinevereFxTester(GameObject canvas, HighflyGuinevereVfx effects)
+        {
+            if (canvas.GetComponent<HighflyGuinevereFxControls>() != null) return;
+            HighflyGuinevereFxControls panel =
+                canvas.AddComponent<HighflyGuinevereFxControls>();
+            Text quality = CreateFxTesterButton(canvas.transform, "FURY_FX_QUALITY",
+                new Vector2(505f, -346f), "FX EQUIL.",
+                panel.CycleQuality);
+            Text premium = CreateFxTesterButton(canvas.transform, "FURY_FX_PREMIUM",
+                new Vector2(505f, -438f), "R06 ACTIVO",
+                panel.TogglePremium);
+            GameObject fpsGo = new GameObject("FURY_FX_FPS",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            fpsGo.transform.SetParent(canvas.transform, false);
+            RectTransform fpsRect = fpsGo.GetComponent<RectTransform>();
+            fpsRect.anchorMin = fpsRect.anchorMax = new Vector2(0f, 1f);
+            fpsRect.pivot = new Vector2(.5f, .5f);
+            fpsRect.anchoredPosition = new Vector2(505f, -514f);
+            fpsRect.sizeDelta = new Vector2(255f, 68f);
+            Text fps = fpsGo.GetComponent<Text>();
+            fps.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            fps.alignment = TextAnchor.MiddleCenter;
+            fps.fontSize = 20;
+            fps.color = Color.white;
+            fps.raycastTarget = false;
+            panel.Configure(effects, quality, premium, fps);
+        }
+
+        private static Text CreateFxTesterButton(Transform parent, string name,
+            Vector2 at, string initial, UnityAction click)
+        {
+            GameObject go = new GameObject(name,
+                typeof(RectTransform), typeof(CanvasRenderer),
+                typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(.5f, .5f);
+            rect.anchoredPosition = at;
+            rect.sizeDelta = new Vector2(255f, 80f);
+            go.GetComponent<Image>().color = new Color(.18f, .13f, .27f, .89f);
+            UnityEventTools.AddPersistentListener(
+                go.GetComponent<Button>().onClick, click);
+            GameObject label = new GameObject("Label",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            label.transform.SetParent(go.transform, false);
+            RectTransform tRect = label.GetComponent<RectTransform>();
+            tRect.anchorMin = Vector2.zero;
+            tRect.anchorMax = Vector2.one;
+            tRect.offsetMin = tRect.offsetMax = Vector2.zero;
+            Text text = label.GetComponent<Text>();
+            text.text = initial;
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.color = Color.white;
+            text.fontSize = 20;
+            text.fontStyle = FontStyle.Bold;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.raycastTarget = false;
+            return text;
         }
 
         private static void CreateChargeLabel(GameObject canvas, HighflyGuinevereCombat guinevere)
