@@ -16,11 +16,16 @@ namespace Highfly.Combat
         [SerializeField] private Color rose = new Color(.96f, .57f, 1f, 1f);
         [SerializeField] private Color core = new Color(1f, .90f, .98f, 1f);
 
+        private HighflyGuineverePremiumVfx _premium;
         private Material _particles;
         private Material _unlit;
 
         private void Awake()
         {
+            // Visual-only R06 add-on. No change to hit/movement/cooldown authority.
+            _premium = GetComponent<HighflyGuineverePremiumVfx>();
+            if (_premium == null) _premium = gameObject.AddComponent<HighflyGuineverePremiumVfx>();
+            _premium.SetQuality((int)quality);
             Shader p = Shader.Find("Particles/Standard Unlit");
             if (p == null) p = Shader.Find("Legacy Shaders/Particles/Additive");
             if (p == null) p = Shader.Find("Sprites/Default");
@@ -30,7 +35,11 @@ namespace Highfly.Combat
             if (u != null) _unlit = new Material(u);
         }
 
-        public void SetQuality(int value) { quality = (Quality)Mathf.Clamp(value, 0, 2); }
+        public void SetQuality(int value)
+        {
+            quality = (Quality)Mathf.Clamp(value, 0, 2);
+            if (_premium != null) _premium.SetQuality((int)quality);
+        }
 
         private int Count(int source)
         {
@@ -64,32 +73,41 @@ namespace Highfly.Combat
             trail.endColor = new Color(violet.r, violet.g, violet.b, 0f);
             if (_particles != null) trail.sharedMaterial = _particles;
             Burst(position, rose, 11, .45f, .13f, .26f);
+            if (_premium != null) _premium.PrismaSpawn(go.transform);
             return go.transform;
         }
 
-        public void Launch(Vector3 at) { Burst(at + Vector3.up, violet, 25, 3f, .16f, .48f); }
+        public void Launch(Vector3 at)
+        {
+            Burst(at + Vector3.up, violet, 25, 3f, .16f, .48f);
+            if (_premium != null) _premium.Launch(at);
+        }
 
         public void Impact(Vector3 at, float radius)
         {
             Burst(at + Vector3.up * .8f, core, 38, 4f, .20f, .55f);
             Ring(at, radius, rose, .66f);
+            if (_premium != null) _premium.Impact(at, radius);
         }
 
         public void Mark(Vector3 at, int stacks)
         {
             Burst(at + Vector3.up * 1.9f, stacks >= 3 ? core : rose, 9 + stacks * 3, 1.2f, .11f, .55f);
+            if (_premium != null) _premium.Mark(at, stacks);
         }
 
         public void Lift(Vector3 at)
         {
             Burst(at + Vector3.up * .45f, violet, 18, 2.8f, .13f, .44f);
             Ring(at, 1f, violet, .38f);
+            if (_premium != null) _premium.Lift(at);
         }
 
         public void Basic(Vector3 at, int combo)
         {
             Burst(at + Vector3.up * .9f, combo >= 4 ? core : violet, 11 + combo * 4, 2.8f, .12f, .34f);
             if (combo >= 4) Ring(at, 1.25f, rose, .35f);
+            if (_premium != null) _premium.Basic(at, combo);
         }
 
         public void Blink(Vector3 origin, Vector3 destination)
@@ -107,12 +125,14 @@ namespace Highfly.Combat
             r.endColor = violet;
             if (_particles != null) r.sharedMaterial = _particles;
             Destroy(line, .22f);
+            if (_premium != null) _premium.Blink(origin, destination);
         }
 
         public void Echo(Vector3 origin)
         {
             Ring(origin, 2.05f, rose, 1.5f);
             Burst(origin + Vector3.up, violet, 15, 1f, .15f, 1.5f);
+            if (_premium != null) _premium.Echo(origin);
         }
 
         public void Tempestad(Vector3 origin, float radius, int index)
@@ -123,6 +143,7 @@ namespace Highfly.Combat
             Burst(origin + offset + Vector3.up * 1.3f, index % 2 == 0 ? rose : violet, 13, 2.9f, .14f, .30f);
             if (index == 1 || index == 6 || index == 11)
                 Ring(origin, radius, index == 11 ? core : violet, .48f);
+            if (_premium != null) _premium.Tempestad(origin, radius, index);
         }
 
         private void Burst(Vector3 at, Color color, int count, float speed, float size, float lifetime)
