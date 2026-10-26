@@ -17,7 +17,11 @@ namespace Highfly.Core
         [SerializeField] private float sprintSpeed = 7.2f;
         [SerializeField] private float rotationSharpness = 15f;
         [SerializeField] private float acceleration = 18f;
-        [SerializeField] private float deceleration = 55f;
+        [SerializeField] private float deceleration = 40f;
+        [Header("Aerial control: keep run momentum during the jump")]
+        [SerializeField] private float airAcceleration = 7.5f;
+        [SerializeField] private float airDeceleration = 1.6f;
+        [SerializeField] private float minDoubleJumpInterval = 0.11f;
         [SerializeField] private float inputDeadZone = 0.06f;
         [SerializeField] private float gravity = -24f;
 
@@ -49,6 +53,9 @@ namespace Highfly.Core
         private Vector2 _lastDirectionalInput = Vector2.up;
         private Coroutine _flipRoutine;
         private Quaternion _originalVisualRotation;
+        private Vector3 _originalVisualPosition;
+        private float _takeoffTime = -100f;
+        [SerializeField] private float flipPivotHeight = 0.92f;
 
         private CharacterController _controller;
         // Non-alloc ground probe supports standing jumps on uneven RG POLY mesh.
@@ -58,12 +65,18 @@ namespace Highfly.Core
         private Vector3 _planarVelocity;
         private float _verticalVelocity;
         private bool _isDashing;
+        private Vector3 _dashDirection;
+        private float _dashElapsed;
+        private float _dashDuration;
+        private float _dashDistance;
         private int _waterContacts;
         private float _swimSurfaceY;
 
         public Vector3 LastMoveDirection { get; private set; } = Vector3.forward;
         public bool IsMoving { get; private set; }
         public bool IsDashing => _isDashing;
+        public bool IsGrounded => _groundContact && _jumpCount == 0 && _verticalVelocity <= 0f;
+        public float CurrentPlanarSpeed => _planarVelocity.magnitude;
         public bool ExternalMovementLock { get; set; }
         public int JumpCount => _jumpCount;
         public bool IsAirborne => _controller != null && !_controller.isGrounded;
@@ -100,20 +113,28 @@ namespace Highfly.Core
             if (flipVisual == null && animator != null && animator.transform != transform)
                 flipVisual = animator.transform;
             if (flipVisual != null)
+            {
                 _originalVisualRotation = flipVisual.localRotation;
+                _originalVisualPosition = flipVisual.localPosition;
+            }
         }
 
         private void Update()
         {
-            if (_isDashing)
-                return;
-            _groundContact = _controller.isGrounded || ProbeNearGround();
+            // One authoritative Update/CharacterController.Move per frame for
+            // locomotion, gravity, jumps and dash. No early return during dash.
+            _groundContact = _controller.isGrounded ||
+                (_jumpCount == 0 && _verticalVelocity <= 0f && ProbeNearGround());
             if (_groundContact && _verticalVelocity <= 0f)
             {
                 _lastGroundedTime = Time.time;
                 _jumpCount = 0;
                 if (_flipRoutine == null && flipVisual != null)
+                {
                     flipVisual.localRotation = _originalVisualRotation;
+                    // Foot calibration is owned by HighflyAnimationBalance, so
+                    // do not force an obsolete position into the visual every frame.
+                }
             }
             if (_queuedJumpUntil >= Time.time)
                 ConsumeJumpRequest();
@@ -149,17 +170,24 @@ namespace Highfly.Core
             float movementSpeed =
                 IsSwimming ? swimSpeed :
                 IsWading ? wadeSpeed :
-                input.magnitude >= .84f ? sprintSpeed : moveSpeed;
+                Mathf.Lerp(moveSpeed, sprintSpeed,
+                    Mathf.InverseLerp(.60f, .95f, input.magnitude));
 
             float targetSpeed = movementSpeed * input.magnitude;
             Vector3 desiredVelocity =
                 IsMoving ? desiredDirection.normalized * targetSpeed : Vector3.zero;
 
+            bool airborne = _jumpCount > 0 || (!_groundContact && !IsSwimming);
             float velocityRate;
             if (IsMoving)
-                velocityRate = IsSwimming ? swimAcceleration : acceleration;
+                velocityRate = IsSwimming ? swimAcceleration :
+                    airborne ? airAcceleration : acceleration;
             else
-                velocityRate = IsSwimming ? swimDeceleration : deceleration;
+                velocityRate = IsSwimming ? swimDeceleration :
+                    airborne ? airDeceleration : deceleration;
+            // When the player lets go of the left stick to press jump/ATK,
+            // airborne velocity decays slowly instead of dropping to zero
+            // in ~0.13 s as in the previous FURY implementation.
 
             if (ExternalMovementLock) _planarVelocity = Vector3.zero;
             _planarVelocity = Vector3.MoveTowards(
@@ -188,13 +216,45 @@ namespace Highfly.Core
                 _verticalVelocity += gravity * Time.deltaTime;
             }
 
-            Vector3 velocity = _planarVelocity + Vector3.up * _verticalVelocity;
-            _controller.Move(velocity * Time.deltaTime);
-            // Physics root owns all movement: visual animations must never
-            // decide whether a jump or dash is allowed.
-            _groundContact = _controller.isGrounded || ProbeNearGround();
-            if (_groundContact && _verticalVelocity <= 0f)
+            Vector3 planarStep = _planarVelocity * Time.deltaTime;
+            if (_isDashing)
+            {
+                // Smooth-start/smooth-end displacement: no teleport-like
+                // constant-speed coroutine, no suspension of vertical physics.
+                float from = Mathf.Clamp01(_dashElapsed / _dashDuration);
+                _dashElapsed = Mathf.Min(_dashDuration, _dashElapsed + Time.deltaTime);
+                float to = Mathf.Clamp01(_dashElapsed / _dashDuration);
+                float easeFrom = from * from * (3f - 2f * from);
+                float easeTo = to * to * (3f - 2f * to);
+                planarStep = _dashDirection * (_dashDistance * (easeTo - easeFrom));
+                if (_dashElapsed >= _dashDuration)
+                {
+                    _isDashing = false;
+                    // Resume at a controllable run speed, not the huge dash
+                    // displacement-per-frame speed.
+                    _planarVelocity = _dashDirection *
+                        Mathf.Max(_planarVelocity.magnitude, moveSpeed * .65f);
+                }
+            }
+
+            CollisionFlags collision = _controller.Move(
+                planarStep + Vector3.up * (_verticalVelocity * Time.deltaTime));
+            if ((collision & CollisionFlags.Above) != 0 && _verticalVelocity > 0f)
+                _verticalVelocity = 0f;
+            if ((collision & CollisionFlags.Below) != 0 && _verticalVelocity <= 0f)
+            {
+                _verticalVelocity = -2f;
+                _jumpCount = 0;
                 _lastGroundedTime = Time.time;
+                _groundContact = true;
+            }
+            else
+            {
+                // A "nearby" floor is NOT a landing while we are airborne.
+                // Only a below-collision ends an in-progress jump.
+                _groundContact = _jumpCount == 0 && _verticalVelocity <= 0f &&
+                    ProbeNearGround();
+            }
 
             if (animator != null)
             {
@@ -214,7 +274,8 @@ namespace Highfly.Core
         /// <summary>Bindable by the HUD jump button; 1st jump and directional 2nd somersault.</summary>
         public void Jump()
         {
-            _queuedJumpUntil = Time.time + jumpBufferSeconds;
+            _queuedJumpUntil = Time.time +
+                Mathf.Max(jumpBufferSeconds, _isDashing ? _dashDuration + .08f : jumpBufferSeconds);
             ConsumeJumpRequest();
         }
 
@@ -227,12 +288,15 @@ namespace Highfly.Core
             if (_jumpCount == 0 && groundGrace)
             {
                 _jumpCount = 1;
+                _takeoffTime = Time.time;
+                _groundContact = false;
                 _verticalVelocity = firstJumpVelocity;
                 _queuedJumpUntil = -100f;
                 if (animator != null) animator.SetBool("Grounded", false);
                 TriggerAnimationIfPresent("Jump");
             }
-            else if (_jumpCount == 1 && _verticalVelocity > 0f)
+            else if (_jumpCount == 1 && !_groundContact &&
+                Time.time - _takeoffTime >= minDoubleJumpInterval)
             {
                 _jumpCount = 2;
                 _verticalVelocity = secondJumpVelocity;
@@ -258,7 +322,7 @@ namespace Highfly.Core
                 if (hit.collider == null || hit.collider.transform.IsChildOf(transform) ||
                     hit.normal.y < .57f) continue;
                 float gap = b.min.y - hit.point.y;
-                if (gap >= -.08f && gap <= .38f)
+                if (gap >= -.05f && gap <= .16f)
                     return true;
             }
             return false;
@@ -281,14 +345,16 @@ namespace Highfly.Core
             if (flipVisual == null) return;
             if (_flipRoutine != null) StopCoroutine(_flipRoutine);
             flipVisual.localRotation = _originalVisualRotation;
-            // The actor turns to face its running direction, so comparing its
-            // forward with the world movement ALWAYS produced a forward-only flip.
-            // Use untouched camera-relative joystick axes instead: up=front,
-            // down=back, left/right=sideways cartwheel. Physics root stays level.
-            Vector2 input = _lastDirectionalInput.sqrMagnitude > .01f ?
-                _lastDirectionalInput.normalized : Vector2.up;
-            Vector3 axis = new Vector3(input.y, 0f, -input.x).normalized;
-            if (axis.sqrMagnitude < .01f) axis = Vector3.right;
+            // Use CURRENT input: never replay a stale direction from a run
+            // completed several seconds ago. A neutral double jump flips forward.
+            Vector2 input = movementJoystick != null && movementJoystick.IsHeld ?
+                movementJoystick.Value : Vector2.up;
+            if (input.sqrMagnitude < .08f) input = Vector2.up;
+            Vector3 axis = Mathf.Abs(input.y) >= Mathf.Abs(input.x) ?
+                (input.y >= 0f ? Vector3.right : Vector3.left) :
+                (input.x >= 0f ? Vector3.back : Vector3.forward);
+            _originalVisualRotation = flipVisual.localRotation;
+            _originalVisualPosition = flipVisual.localPosition;
             _flipRoutine = StartCoroutine(FlipVisual(axis));
         }
 
@@ -301,11 +367,20 @@ namespace Highfly.Core
                 float t = Mathf.Clamp01(elapsed / Mathf.Max(.01f, flipDuration));
                 // Smooth acceleration prevents a visual snap on button press.
                 float eased = t * t * (3f - 2f * t);
-                flipVisual.localRotation = _originalVisualRotation *
-                    Quaternion.AngleAxis(-360f * eased, axis);
+                Quaternion spin = Quaternion.AngleAxis(-360f * eased, axis);
+                flipVisual.localRotation = _originalVisualRotation * spin;
+                // Turn around the torso rather than around the ankles/feet.
+                // The physics capsule itself stays vertical and collision-safe.
+                Vector3 pivot = Vector3.up * flipPivotHeight;
+                flipVisual.localPosition = _originalVisualPosition +
+                    _originalVisualRotation * (pivot - spin * pivot);
                 yield return null;
             }
-            if (flipVisual != null) flipVisual.localRotation = _originalVisualRotation;
+            if (flipVisual != null)
+            {
+                flipVisual.localRotation = _originalVisualRotation;
+                flipVisual.localPosition = _originalVisualPosition;
+            }
             _flipRoutine = null;
         }
 
@@ -315,7 +390,12 @@ namespace Highfly.Core
             _queuedJumpUntil = -100f;
             if (_flipRoutine != null) StopCoroutine(_flipRoutine);
             _flipRoutine = null;
-            if (flipVisual != null) flipVisual.localRotation = _originalVisualRotation;
+            _isDashing = false;
+            if (flipVisual != null)
+            {
+                flipVisual.localRotation = _originalVisualRotation;
+                flipVisual.localPosition = _originalVisualPosition;
+            }
         }
 
         public void BindVisual(Animator newAnimator)
@@ -323,10 +403,15 @@ namespace Highfly.Core
             if (newAnimator == null || newAnimator.transform == transform) return;
             if (_flipRoutine != null) StopCoroutine(_flipRoutine);
             _flipRoutine = null;
-            if (flipVisual != null) flipVisual.localRotation = _originalVisualRotation;
+            if (flipVisual != null)
+            {
+                flipVisual.localRotation = _originalVisualRotation;
+                flipVisual.localPosition = _originalVisualPosition;
+            }
             animator = newAnimator;
             flipVisual = newAnimator.transform;
             _originalVisualRotation = flipVisual.localRotation;
+            _originalVisualPosition = flipVisual.localPosition;
         }
 
         public void EnterWater(float surfaceY)
@@ -402,31 +487,18 @@ namespace Highfly.Core
 
         public void Dash(Vector3 direction, float distance, float duration)
         {
-            if (_isDashing || IsSwimming || IsWading || !isActiveAndEnabled)
-                return;
+            if (_isDashing || ExternalMovementLock || IsSwimming || IsWading ||
+                !isActiveAndEnabled) return;
 
-            if (direction.sqrMagnitude < 0.001f)
-                direction = transform.forward;
-
-            StartCoroutine(DashRoutine(direction.normalized, Mathf.Max(0.1f, distance), Mathf.Max(0.05f, duration)));
-        }
-
-        private IEnumerator DashRoutine(Vector3 direction, float distance, float duration)
-        {
+            direction.y = 0f;
+            if (direction.sqrMagnitude < .001f) direction = transform.forward;
+            _dashDirection = direction.normalized;
+            _dashDistance = Mathf.Max(.10f, distance);
+            _dashDuration = Mathf.Max(.05f, duration);
+            _dashElapsed = 0f;
             _isDashing = true;
-            if (animator != null)
-                animator.SetTrigger("Dash");
-
-            float elapsed = 0f;
-            while (elapsed < duration)
-            {
-                float dt = Time.deltaTime;
-                elapsed += dt;
-                _controller.Move(direction * (distance / duration) * dt);
-                yield return null;
-            }
-
-            _isDashing = false;
+            // Dash is an ACTION, not a mode that freezes gravity or input.
+            TriggerAnimationIfPresent("Dash");
         }
     }
 }
