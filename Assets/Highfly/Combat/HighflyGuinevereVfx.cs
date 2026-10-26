@@ -54,7 +54,11 @@ namespace Highfly.Combat
             go.transform.position = position;
             go.transform.localScale = Vector3.one * .31f;
             Collider collider = go.GetComponent<Collider>();
-            if (collider != null) Destroy(collider);
+            if (collider != null)
+            {
+                collider.enabled = false; // Destroy() completes end-of-frame; avoid a transient projectile self-hit.
+                Destroy(collider);
+            }
             Renderer renderer = go.GetComponent<Renderer>();
             if (renderer != null && _unlit != null)
             {
