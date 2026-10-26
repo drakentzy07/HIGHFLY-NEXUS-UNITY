@@ -65,6 +65,11 @@ namespace Highfly.Combat
         private int _bufferedSkill;
         private Vector3 _bufferedDirection;
 
+        public void BindAnimator(Animator value)
+        {
+            if (value != null) animator = value;
+        }
+
         private void Awake()
         {
             if (resources == null) resources = GetComponent<HighflyPlayerResources>();
