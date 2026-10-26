@@ -92,6 +92,17 @@ namespace Highfly.Combat
             return go.transform;
         }
 
+        public void HealPulse(Vector3 at)
+        {
+            if (UsePremium)
+            {
+                _premium.HealPulse(at);
+                return;
+            }
+            Burst(at + Vector3.up, new Color(.42f, 1f, .72f, .9f),
+                16, 1.2f, .09f, .40f);
+        }
+
         public void Launch(Vector3 at)
         {
             // Premium is a REPLACEMENT for old violet demo rings/bursts.
