@@ -21,7 +21,7 @@ concurrency:
 jobs:
   publish_beta:
     name: Preserve CITY01 and all previous FURY betas while adding R06 GREEN
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/guinevere-r06-fury-input-green-integration-20261026' && github.event.workflow_run.head_sha == 'd23437cd5035a5014b2f246a5e5c62fa1f9642f3' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/guinevere-r06-fury-input-green-integration-20261026' && github.event.workflow_run.head_sha == '9fb2929576f480aebcd31cec3ce1875d7c4e2de9' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
