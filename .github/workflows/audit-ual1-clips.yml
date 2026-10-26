@@ -1,0 +1,57 @@
+name: Audit UAL1 Standard humanoid clip names
+
+on:
+  push:
+    branches: [audit/nexus-ual1-clip-diagnostics-20261026]
+    paths: [.github/workflows/audit-ual1-clips.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  list-clips:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download existing free UAL1 donor
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p .hf-itch donor
+          npm --prefix .hf-itch init -y >/dev/null 2>&1
+          npm --prefix .hf-itch install --no-save itchio-downloader@latest
+          node <<'NODE'
+          const path=require('path');
+          const {downloadGame}=require(path.join(process.cwd(),'.hf-itch/node_modules/itchio-downloader'));
+          (async()=>console.log(JSON.stringify(await downloadGame({
+            itchGameUrl:'https://quaternius.itch.io/universal-animation-library',
+            desiredFileName:'Universal Animation Library[Standard]',
+            downloadDirectory:path.join(process.cwd(),'donor'),
+            noCookieCache:true,resume:true
+          }),null,2)))().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: List exact clip names in free FBX before selecting Animator Idle
+        run: |
+          python3 - <<'PY'
+          import re,zipfile
+          from pathlib import Path
+          zips=list(Path('donor').rglob('*.zip'))
+          if not zips: raise SystemExit('No ZIP')
+          all_names=set()
+          with zipfile.ZipFile(zips[0]) as zipf:
+            for p in zipf.namelist():
+              if not p.lower().endswith('.fbx'):continue
+              raw=zipf.read(p)
+              names=set()
+              for x in re.findall(rb'Armature\|[A-Za-z][A-Za-z0-9_]{3,80}',raw):
+                names.add(x.decode('ascii'))
+              print('FBX',p,'CLIPS',len(names))
+              for n in sorted(names):
+                if not n.endswith('.tak'):
+                  print('CLIP',n)
+                  all_names.add(n)
+          print('UNIQUE',len(all_names))
+          if not all_names: raise SystemExit('No human-readable animation take names')
+          PY
