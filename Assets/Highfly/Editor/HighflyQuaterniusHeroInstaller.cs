@@ -144,14 +144,61 @@ namespace Highfly.Editor
                     if (!path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)) continue;
                     ModelImporter mi = AssetImporter.GetAtPath(path) as ModelImporter;
                     if (mi == null) continue;
-                    if (mi.animationType == ModelImporterAnimationType.Human) continue;
-                    mi.animationType = ModelImporterAnimationType.Human;
-                    mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
-                    mi.importAnimation = true;
-                    try { mi.SaveAndReimport(); }
-                    catch (Exception ex)
+                    bool changed = false;
+                    if (mi.animationType != ModelImporterAnimationType.Human)
                     {
-                        Debug.LogWarning("Failed Humanoid import: " + path + " / " + ex.Message);
+                        mi.animationType = ModelImporterAnimationType.Human;
+                        mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                        mi.importAnimation = true;
+                        changed = true;
+                    }
+
+                    // Import the *existing legal in-place* Quaternius takes
+                    // with explicit root behavior. The physics root (FURY)
+                    // owns XZ / Y displacement and facing, not the FBX.
+                    bool motionLibrary = folder == Animations || folder == Animations2;
+                    if (motionLibrary)
+                    {
+                        ModelImporterClipAnimation[] takes = mi.clipAnimations;
+                        if (takes == null || takes.Length == 0)
+                            takes = mi.defaultClipAnimations;
+                        if (takes != null && takes.Length > 0)
+                        {
+                            foreach (ModelImporterClipAnimation take in takes)
+                            {
+                                string name = take.name;
+                                int sep = name.LastIndexOf('|');
+                                if (sep >= 0) name = name.Substring(sep + 1);
+                                bool loop = name.EndsWith("_Loop",
+                                    StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(name, "Idle_Loop",
+                                        StringComparison.OrdinalIgnoreCase);
+                                take.loopTime = loop;
+                                take.loopPose = loop;
+                                take.lockRootRotation = true;
+                                take.lockRootPositionXZ = true;
+                                take.lockRootHeightY = true;
+                                // On jump clips, frame-to-frame feet reference
+                                // is preferable to an arbitrary body-height bias.
+                                if (name.IndexOf("Jump",
+                                    StringComparison.OrdinalIgnoreCase) >= 0)
+                                    take.heightFromFeet = true;
+                            }
+                            mi.clipAnimations = takes;
+                            changed = true;
+                            Debug.Log("FURY ROOT BAKE SETTINGS " + path +
+                                " takeCount=" + takes.Length +
+                                " XZ=pose Rotation=pose Y=pose");
+                        }
+                    }
+                    if (changed)
+                    {
+                        try { mi.SaveAndReimport(); }
+                        catch (Exception ex)
+                        {
+                            Debug.LogWarning("Failed FURY Humanoid/Root import: " +
+                                path + " / " + ex.Message);
+                        }
                     }
                 }
             }
