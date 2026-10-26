@@ -76,6 +76,8 @@ namespace Highfly.Combat
         private bool _busy;
         private int _bufferedSkill;
         private Vector3 _bufferedDirection;
+        private float _bufferedSkillUntil;
+        [SerializeField] private float skillInputBufferSeconds = .30f;
 
         public void BindAnimator(Animator value)
         {
@@ -94,15 +96,17 @@ namespace Highfly.Combat
 
         private bool TryCast(int slot, float mana, float readyAt)
         {
-            if (_busy)
-            {
-                // One buffered action; prevents a fast tap during landing from disappearing.
-                _bufferedSkill = slot;
-                _bufferedDirection = AimDirection(Vector3.zero);
-                return false;
-            }
             if (resources == null || resources.Health == null || !resources.Health.IsAlive) return false;
             if (Time.time < readyAt || resources.Mana < mana) return false;
+            if (_busy)
+            {
+                // Only queue an available skill for a SHORT cancel/recovery window.
+                // A tap during a long ultimate must never fire seconds later.
+                _bufferedSkill = slot;
+                _bufferedDirection = AimDirection(Vector3.zero);
+                _bufferedSkillUntil = Time.time + skillInputBufferSeconds;
+                return false;
+            }
             return resources.TrySpendMana(mana);
         }
 
@@ -415,6 +419,13 @@ namespace Highfly.Combat
             {
                 yield return new WaitForSeconds(tickSeconds);
                 if (effects != null) effects.Tempestad(transform.position, tempestRadius, tick + 1);
+                // Tempestad continues pulsing independently, but only its
+                // opening beat occupies the input/upper-body action slot.
+                if (tick == 0)
+                {
+                    _busy = false;
+                    FlushBuffer();
+                }
                 int count = Physics.OverlapSphereNonAlloc(transform.position, tempestRadius, _hits, enemyMask, QueryTriggerInteraction.Collide);
                 HashSet<HighflyHealth> unique = new HashSet<HighflyHealth>();
                 for (int i = 0; i < count; i++)
@@ -448,6 +459,9 @@ namespace Highfly.Combat
         {
             _pendingBasicImpact = false;
             _queuedBasicAttack = false;
+            _busy = false;
+            _bufferedSkill = 0;
+            _bufferedSkillUntil = 0f;
             if (motor != null) motor.ExternalMovementLock = false;
         }
 
@@ -455,7 +469,10 @@ namespace Highfly.Combat
         {
             int command = _bufferedSkill;
             Vector3 direction = _bufferedDirection;
+            bool fresh = Time.time <= _bufferedSkillUntil;
             _bufferedSkill = 0;
+            _bufferedSkillUntil = 0f;
+            if (!fresh) return;
             if (command == 1) CastPrisma(direction);
             if (command == 2) CastRuptura(direction);
             if (command == 3) Tempestad();
