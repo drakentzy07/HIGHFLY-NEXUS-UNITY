@@ -9,6 +9,8 @@ namespace Highfly.Combat
     /// </summary>
     public sealed class HighflyTargetingSystem : MonoBehaviour
     {
+        public enum TargetPriority { Smart, Nearest, LowestHealth }
+        [SerializeField] private TargetPriority targetPriority = TargetPriority.Smart;
         [SerializeField] private Transform origin;
         [SerializeField] private Camera gameplayCamera;
         [SerializeField] private LayerMask targetMask = ~0;
@@ -26,6 +28,14 @@ namespace Highfly.Combat
 
         public HighflyTargetable CurrentTarget { get; private set; }
         public bool HasTarget => CurrentTarget != null && CurrentTarget.IsAlive;
+        public TargetPriority Mode => targetPriority;
+
+        public void CyclePriority()
+        {
+            targetPriority = (TargetPriority)(((int)targetPriority + 1) % 3);
+            ClearTarget();
+            AcquireBestTarget();
+        }
 
         private void Awake()
         {
@@ -90,7 +100,16 @@ namespace Highfly.Combat
                 }
 
                 float conePenalty = inForwardCone ? 0f : forwardWeight;
-                float score = (distance / acquireRadius) * distanceWeight + screenPenalty + conePenalty - candidate.PriorityBias;
+                float normalizedDistance = distance / acquireRadius;
+                float score;
+                if (targetPriority == TargetPriority.Nearest)
+                    score = normalizedDistance + .10f * conePenalty + .10f * screenPenalty - candidate.PriorityBias;
+                else if (targetPriority == TargetPriority.LowestHealth)
+                    score = (candidate.Health != null ? candidate.Health.Normalized : 1f)
+                            + .13f * normalizedDistance + .10f * conePenalty
+                            + .05f * screenPenalty - candidate.PriorityBias;
+                else
+                    score = normalizedDistance * distanceWeight + screenPenalty + conePenalty - candidate.PriorityBias;
 
                 if (score < bestScore)
                 {
