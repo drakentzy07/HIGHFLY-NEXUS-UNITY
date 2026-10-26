@@ -120,6 +120,17 @@ namespace Highfly.Editor
             CleanRgPolyWorldHud(canvas);
             HighflyGuinevereWorldInstaller.Install(player, canvas, camera);
 
+            // Isolated CC0 combat target placed near the starting path.
+            // Uses existing HIGHFLY health, targeting, damage and enemy AI.
+            CreateEnemy(
+                "FURY_TRAINING_SKELETON",
+                SkeletonWarriorPath,
+                player.transform.position + player.transform.forward * 11.5f,
+                980f, 2.35f,
+                player.transform,
+                player.GetComponent<HighflyHealth>(),
+                false, 1f);
+
             // World traversal test: keep the character visible but do not attach
             // the extra HIGHFLY sword. RogueHooded already carries its own visual gear.
             GameObject hunterSword = GameObject.Find("Hunter_Sword");
