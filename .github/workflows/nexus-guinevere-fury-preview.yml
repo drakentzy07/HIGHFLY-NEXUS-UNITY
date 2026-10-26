@@ -6,6 +6,7 @@ on:
     branches:
       - feature/nexus-guinevere-rgpoly-unity6-20261026
       - review/nexus-fury-s23-movement-input-20261026
+      - fix/fury-webgl-new-input-stop-freeze-20261026
     paths:
       - "Assets/Highfly/**"
       - "ci/world/**"
