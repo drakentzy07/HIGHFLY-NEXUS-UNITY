@@ -12,6 +12,9 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: highfly-nexus-guinevere-fury-preview
@@ -420,3 +423,108 @@ jobs:
           path: LucidHost/3D_game/build/diagnostics/**
           if-no-files-found: warn
           retention-days: 7
+
+  deploy_preview:
+    name: Publish isolated FURY beta alongside unchanged City01
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}preview/guinevere-fury/
+
+    steps:
+      - name: Fetch existing live City01 without changing its files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p site-publish/Build site-publish/TemplateData
+          BASE="https://drakentzy07.github.io/HIGHFLY-NEXUS-UNITY"
+          curl -fsSL --retry 3 "$BASE/index.html" -o site-publish/index.html
+          test -s site-publish/index.html
+          grep -q "unity-canvas" site-publish/index.html
+          for ext in loader.js framework.js wasm data; do
+            curl -fsSL --retry 3 "$BASE/Build/HIGHFLY-WORLD-RGPOLY.$ext"               -o "site-publish/Build/HIGHFLY-WORLD-RGPOLY.$ext"
+            test -s "site-publish/Build/HIGHFLY-WORLD-RGPOLY.$ext"
+          done
+          for asset in style.css favicon.ico unity-logo-dark.png progress-bar-empty-dark.png progress-bar-full-dark.png unity-webgl-logo.png unity-logo-light.png progress-bar-empty-light.png progress-bar-full-light.png; do
+            curl -fsSL --retry 2 "$BASE/TemplateData/$asset"               -o "site-publish/TemplateData/$asset" || rm -f "site-publish/TemplateData/$asset"
+          done
+          for file in manifest.webmanifest manifest.json service-worker.js; do
+            curl -fsSL --retry 2 "$BASE/$file" -o "site-publish/$file"               || rm -f "site-publish/$file"
+          done
+          test -s site-publish/Build/HIGHFLY-WORLD-RGPOLY.wasm
+          test -s site-publish/Build/HIGHFLY-WORLD-RGPOLY.data
+          touch site-publish/.nojekyll
+          echo "Stable City01 mirrored intact; isolated beta is additive."
+
+      - name: Download successful FURY WebGL artifact from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: HIGHFLY-NEXUS-GUINEVERE-FURY-UNITY6-PREVIEW-WEBGL
+          path: fury-download
+
+      - name: Prepare standalone preview subdirectory
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX="$(find fury-download -type f -name index.html | head -1)"
+          test -n "$INDEX"
+          SRC="$(dirname "$INDEX")"
+          DST="site-publish/preview/guinevere-fury"
+          mkdir -p "$DST"
+          cp -a "$SRC"/. "$DST/"
+          test -s "$DST/index.html"
+          test -s "$DST/Build/HIGHFLY-WORLD-RGPOLY.loader.js"
+          test -s "$DST/Build/HIGHFLY-WORLD-RGPOLY.wasm"
+          test -s "$DST/Build/HIGHFLY-WORLD-RGPOLY.data"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("site-publish/preview/guinevere-fury/index.html")
+          s=p.read_text(encoding="utf-8")
+          s=s.replace("unityShowBanner('WebGL builds are not supported on mobile devices.');","")
+          head="""<meta name="viewport" content="width=device-width,height=device-height,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+          <meta name="mobile-web-app-capable" content="yes">
+          <meta name="screen-orientation" content="landscape">
+          <style>
+          html,body{padding:0!important;margin:0!important;overflow:hidden!important;background:#07121b!important}
+          #unity-container,#unity-container.unity-desktop,#unity-container.unity-mobile{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important}
+          #unity-canvas,#unity-canvas.unity-mobile{display:block!important;width:100vw!important;height:100dvh!important}
+          #unity-footer,#unity-webgl-logo,#unity-logo{display:none!important}
+          #hf-open-beta{display:none;position:fixed;inset:0;z-index:99999;background:#07121b;align-items:center;justify-content:center;font-family:system-ui,sans-serif;text-align:center;color:#fff}
+          #hf-open-beta button{padding:20px 30px;font-size:22px;border-radius:14px;background:#2b1957;border:2px solid #c8a4f8;color:#fff}
+          </style>"""
+          script="""<div id="hf-open-beta"><button type="button">ENTRAR A HIGHFLY FURY</button></div>
+          <script>
+          (()=>{const mobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+          const overlay=document.getElementById('hf-open-beta');
+          const fit=()=>{for(const id of ['unity-container','unity-canvas']){
+            let e=document.getElementById(id);if(e){e.style.width='100vw';e.style.height='100dvh';}}};
+          fit();window.addEventListener('resize',fit);
+          if(mobile){overlay.style.display='flex';overlay.querySelector('button').onclick=async()=>{
+            try{await document.documentElement.requestFullscreen()}catch(_){}
+            try{await screen.orientation.lock('landscape')}catch(_){}
+            overlay.style.display='none';fit();};}
+          })();
+          </script>"""
+          if 'viewport-fit=cover' not in s:s=s.replace("</head>",head+"</head>")
+          if 'hf-open-beta' not in s:s=s.replace("</body>",script+"</body>")
+          p.write_text(s,encoding="utf-8")
+          PY
+          test -s site-publish/index.html
+          test -s "$DST/index.html"
+          test -s "$DST/Build/HIGHFLY-WORLD-RGPOLY.framework.js"
+          du -sh site-publish
+          echo "FURY preview ready: /HIGHFLY-NEXUS-UNITY/preview/guinevere-fury/"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload combined Pages site (stable root unchanged)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site-publish
+
+      - name: Deploy Pages with isolated beta
+        id: deployment
+        uses: actions/deploy-pages@v4
