@@ -1,6 +1,9 @@
 using System.Collections;
 using UnityEngine;
 using Highfly.Mobile;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 namespace Highfly.Core
 {
@@ -23,7 +26,10 @@ namespace Highfly.Core
         [SerializeField] private float deceleration = 28f;
         [Header("Aerial control: keep run momentum during the jump")]
         [SerializeField] private float airAcceleration = 7.5f;
-        [SerializeField] private float airDeceleration = 1.6f;
+        // 1.6 m/s² retained full-speed travel for >4 seconds after releasing
+        // the stick in midair. Keep brief momentum for two-thumb combos but
+        // return control before the next landing.
+        [SerializeField] private float airDeceleration = 10f;
         [SerializeField] private float minDoubleJumpInterval = 0.11f;
         [SerializeField] private float inputDeadZone = 0.06f;
         [SerializeField] private float gravity = -24f;
@@ -154,10 +160,11 @@ namespace Highfly.Core
 
             Vector2 input = ExternalMovementLock ? Vector2.zero : (movementJoystick != null ? movementJoystick.Value : Vector2.zero);
 
-#if UNITY_EDITOR || UNITY_STANDALONE || UNITY_WEBGL
+            // Unity6 WebGL host runs the NEW Input System exclusively.
+            // Reading legacy UnityEngine.Input.GetAxisRaw here throws every
+            // frame at neutral joystick, interrupting physics/animation Update.
             if (!ExternalMovementLock && input.sqrMagnitude < 0.001f)
-                input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-#endif
+                input = ReadKeyboardMove();
 
             input = Vector2.ClampMagnitude(input, 1f);
             if (input.magnitude < inputDeadZone)
@@ -397,11 +404,8 @@ namespace Highfly.Core
             // when camera, character and imported FBX facing disagreed.
             Vector2 input = movementJoystick != null && movementJoystick.IsHeld
                 ? movementJoystick.Value : Vector2.zero;
-#if UNITY_EDITOR || UNITY_STANDALONE || UNITY_WEBGL
             if (input.sqrMagnitude < .001f)
-                input = new Vector2(Input.GetAxisRaw("Horizontal"),
-                                    Input.GetAxisRaw("Vertical"));
-#endif
+                input = ReadKeyboardMove();
             Vector3 worldDirection = input.sqrMagnitude > .0064f
                 ? GetCameraRelativeDirection(input) : transform.forward;
             worldDirection.y = 0f;
@@ -523,6 +527,27 @@ namespace Highfly.Core
             if (direction.sqrMagnitude <= .001f) return;
             _facingForAction = direction.normalized;
             _facingRequestUntil = Time.time + Mathf.Max(.03f, seconds);
+        }
+
+        /// <summary>
+        /// Keyboard fallback independent of joystick; never invoke legacy Input
+        /// in a New-Input-System-only WebGL player (even with a neutral stick).
+        /// </summary>
+        private static Vector2 ReadKeyboardMove()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard k = Keyboard.current;
+            if (k == null) return Vector2.zero;
+            float horizontal = (k.dKey.isPressed || k.rightArrowKey.isPressed ? 1f : 0f)
+                - (k.aKey.isPressed || k.leftArrowKey.isPressed ? 1f : 0f);
+            float vertical = (k.wKey.isPressed || k.upArrowKey.isPressed ? 1f : 0f)
+                - (k.sKey.isPressed || k.downArrowKey.isPressed ? 1f : 0f);
+            return Vector2.ClampMagnitude(new Vector2(horizontal, vertical), 1f);
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            return new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+#else
+            return Vector2.zero;
+#endif
         }
 
         private Vector3 GetCameraRelativeDirection(Vector2 input)
