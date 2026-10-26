@@ -331,18 +331,17 @@ namespace Highfly.Combat
                     Debug.LogWarning("Ruptura recast needs FURY motor; no direct capsule translation.");
                     return;
                 }
+                // Don't consume recast if a dash is denied (water, locks,
+                // disabled capsule or another uninterrupted dash).
+                if (!motor.TryDash(dir, 4.7f, .16f)) return;
                 _recastUntil = 0f;
                 Vector3 oldPos = transform.position;
                 Face(dir);
-                // The original recast moved the capsule ~4.7 m instantly,
-                // outside FURY's single Move and without a meaningful VFX path.
-                // Use the motor's collision-safe short dash instead.
-                motor.Dash(dir, 4.7f, .16f);
                 StartCoroutine(RupturaRecastVisual(oldPos, .16f));
                 StartCoroutine(EchoExplosion(oldPos));
                 return;
             }
-            if (motor == null) return; // No skill-owned physics fallback.
+            if (motor == null || !motor.CanDash(true)) return; // FURY is authoritative.
             if (!TryCast(2, 23f, _nextU2, requestedDirection)) return;
             _nextU2 = Time.time + 17f;
             Face(dir);
@@ -363,9 +362,14 @@ namespace Highfly.Combat
             if (targeting != null && targeting.HasTarget)
                 distance = Mathf.Min(rupturaRange, Vector3.Distance(transform.position, targeting.CurrentTarget.AimPoint.position));
             Vector3 start = transform.position;
-            if (motor != null)
-                motor.Dash(direction, distance, rupturaDuration, false, true);
-            else Debug.LogWarning("Ruptura requires FURY motor for displacement");
+            if (motor == null ||
+                !motor.TryDash(direction, distance, rupturaDuration, false, true))
+            {
+                Debug.LogWarning("Ruptura movement denied by FURY; skipping impact.");
+                _busy = false;
+                FlushBuffer();
+                yield break;
+            }
             if (effects != null) effects.Launch(start);
             // Motor owns every movement frame. This coroutine owns only skill
             // timing, VFX and hit logic, not a second CharacterController.Move.
