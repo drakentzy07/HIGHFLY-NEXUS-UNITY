@@ -157,6 +157,7 @@ namespace Highfly.Editor
                 c.isHumanMotion && !c.name.StartsWith("__preview__"))
                 .GroupBy(c => c.name).Select(g => g.First()).ToArray();
             AnimationClip idle = Pick(clips, "Idle");
+            AnimationClip walk = Pick(clips, "Walking", "Walk");
             AnimationClip run = Pick(clips, "Running", "Run", "Jog", "Walking");
             AnimationClip attack = Pick(clips, "Sword", "Melee", "Punch", "Attack");
             AnimationClip magic = Pick(clips, "Magic", "Cast", "Spell", "Attack");
@@ -169,23 +170,29 @@ namespace Highfly.Editor
             animator.AddParameter("IsMoving", AnimatorControllerParameterType.Bool);
             animator.AddParameter("ComboIndex", AnimatorControllerParameterType.Int);
             foreach (string trigger in new[] {
-                "BasicAttack","HeavyAttack","Dash","Skill1","Skill2","Skill3","Jump","DoubleJump"})
+                "BasicAttack","BasicAttack1","BasicAttack2","BasicAttack3","BasicAttack4",
+                "HeavyAttack","Dash","Skill1","Skill2","Skill3","Jump","DoubleJump"})
                 animator.AddParameter(trigger, AnimatorControllerParameterType.Trigger);
 
+            // Blend the whole lower-body locomotion continuously from actual
+            // CharacterController planar speed; do not snap Idle <-> full Run.
             AnimatorStateMachine locomotion = animator.layers[0].stateMachine;
-            AnimatorState idleState = locomotion.AddState("Idle");
-            idleState.motion = idle;
-            locomotion.defaultState = idleState;
-            AnimatorState runState = locomotion.AddState("Run");
-            runState.motion = run;
-            AnimatorStateTransition start = idleState.AddTransition(runState);
-            start.hasExitTime = false;
-            start.duration = .08f;
-            start.AddCondition(AnimatorConditionMode.Greater, .10f, "MoveSpeed");
-            AnimatorStateTransition stop = runState.AddTransition(idleState);
-            stop.hasExitTime = false;
-            stop.duration = .08f;
-            stop.AddCondition(AnimatorConditionMode.Less, .10f, "MoveSpeed");
+            BlendTree moveBlend = new BlendTree {
+                name = "FURY_Locomotion_IdleWalkRun",
+                blendType = BlendTreeType.Simple1D,
+                blendParameter = "MoveSpeed",
+                useAutomaticThresholds = false
+            };
+            AssetDatabase.AddObjectToAsset(moveBlend, animator);
+            moveBlend.AddChild(idle, 0f);
+            moveBlend.AddChild(walk ?? run, .44f);
+            moveBlend.AddChild(run, .98f);
+            AnimatorState locomotionState = locomotion.AddState("FURY_Move_360");
+            locomotionState.motion = moveBlend;
+            locomotion.defaultState = locomotionState;
+            Debug.Log("FURY locomotion clips: idle=" + idle.name +
+                ", walk=" + (walk != null ? walk.name : run.name) +
+                ", run=" + run.name);
 
             AssetDatabase.DeleteAsset(MaskPath);
             AvatarMask mask = new AvatarMask();
@@ -209,8 +216,24 @@ namespace Highfly.Editor
             AnimatorStateMachine sm = animator.layers[1].stateMachine;
             AnimatorState neutral = sm.AddState("FreeUpper");
             sm.defaultState = neutral;
-            AddCast(sm, neutral, "ATK", attack, "BasicAttack");
-            AddCast(sm, neutral, "Heavy", attack, "HeavyAttack");
+            // Real 1-2-3-4 Animator chain. Pick up to four separate CC0 attack
+            // clips when the Universal Animation Library supplies them, rather
+            // than using one repeated animation for all stages.
+            AnimationClip[] attacks = clips.Where(c =>
+                new[] { "attack", "sword", "slash", "punch", "melee", "strike", "thrust" }
+                .Any(key => c.name.IndexOf(key, StringComparison.OrdinalIgnoreCase) >= 0))
+                .OrderBy(c => c.name, StringComparer.OrdinalIgnoreCase).ToArray();
+            if (attacks.Length == 0) attacks = new[] { attack };
+            float[] comboSpeeds = { 1.18f, 1.23f, 1.08f, .93f };
+            for (int i = 0; i < 4; i++)
+            {
+                AnimationClip clip = attacks[i % attacks.Length];
+                AddCast(sm, neutral, "ATK_" + (i + 1), clip,
+                    "BasicAttack" + (i + 1), comboSpeeds[i], (i & 1) == 1);
+                Debug.Log("FURY 4-hit ATK stage " + (i + 1) + ": " + clip.name);
+            }
+            AddCast(sm, neutral, "ATK_Legacy", attack, "BasicAttack");
+            AddCast(sm, neutral, "Heavy", attacks[attacks.Length - 1], "HeavyAttack");
             AddCast(sm, neutral, "Dash", dodge ?? attack, "Dash");
             AddCast(sm, neutral, "Prisma", magic ?? attack, "Skill1");
             AddCast(sm, neutral, "Ruptura", attack, "Skill2");
@@ -237,10 +260,13 @@ namespace Highfly.Editor
         }
 
         private static void AddCast(AnimatorStateMachine sm, AnimatorState neutral,
-            string name, AnimationClip clip, string trigger)
+            string name, AnimationClip clip, string trigger,
+            float playbackSpeed = 1f, bool mirrored = false)
         {
             AnimatorState state = sm.AddState(name);
             state.motion = clip;
+            state.speed = playbackSpeed;
+            state.mirror = mirrored;
             AnimatorStateTransition enter = sm.AddAnyStateTransition(state);
             enter.hasExitTime = false;
             enter.duration = .045f;

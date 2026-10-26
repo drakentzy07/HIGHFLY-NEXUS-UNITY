@@ -61,6 +61,8 @@ namespace Highfly.Combat
         private float _nextU1, _nextU2, _nextU3, _nextAttack, _recastUntil;
         private int _combo;
         private float _lastAttack = -99f;
+        private bool _queuedBasicAttack;
+        private float _queuedBasicUntil;
         private bool _busy;
         private int _bufferedSkill;
         private Vector3 _bufferedDirection;
@@ -117,14 +119,42 @@ namespace Highfly.Combat
                 transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
         }
 
+        private void Update()
+        {
+            // Fast thumb taps during the 4-hit chain are buffered, not discarded.
+            if (!_queuedBasicAttack) return;
+            if (Time.time > _queuedBasicUntil) { _queuedBasicAttack = false; return; }
+            if (!_busy && Time.time >= _nextAttack)
+            {
+                _queuedBasicAttack = false;
+                ExecuteBasicAttack();
+            }
+        }
+
         public void BasicAttack()
         {
-            if (_busy || Time.time < _nextAttack || resources == null ||
-                resources.Health == null || !resources.Health.IsAlive) return;
-            if (Time.time - _lastAttack > .92f) _combo = 0;
+            if (_busy || resources == null || resources.Health == null ||
+                !resources.Health.IsAlive) return;
+            if (Time.time < _nextAttack)
+            {
+                if (_nextAttack - Time.time <= .30f)
+                {
+                    _queuedBasicAttack = true;
+                    _queuedBasicUntil = _nextAttack + .11f;
+                }
+                return;
+            }
+            ExecuteBasicAttack();
+        }
+
+        private void ExecuteBasicAttack()
+        {
+            if (_busy || resources == null || resources.Health == null ||
+                !resources.Health.IsAlive) return;
+            if (Time.time - _lastAttack > 1.16f) _combo = 0;
             _combo = (_combo % 4) + 1;
             _lastAttack = Time.time;
-            _nextAttack = Time.time + .42f;
+            _nextAttack = Time.time + .36f;
 
             bool charged = SuperMagic >= 100f;
             float range = charged ? 6.3f : 2.6f;
@@ -133,8 +163,15 @@ namespace Highfly.Combat
             Face(dir);
             if (animator != null)
             {
-                animator.SetInteger("ComboIndex", Mathf.Min(_combo, 3));
-                animator.SetTrigger("BasicAttack");
+                animator.SetInteger("ComboIndex", _combo);
+                // Each hit owns an independent Animator state. Older KayKit rigs
+                // still understand BasicAttack and safely fall back to that trigger.
+                string stageTrigger = "BasicAttack" + _combo;
+                bool supportsStages = false;
+                foreach (AnimatorControllerParameter p in animator.parameters)
+                    if (p.type == AnimatorControllerParameterType.Trigger &&
+                        p.name == stageTrigger) { supportsStages = true; break; }
+                animator.SetTrigger(supportsStages ? stageTrigger : "BasicAttack");
             }
             if (target == null)
             {

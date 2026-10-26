@@ -46,6 +46,7 @@ namespace Highfly.Core
         private float _lastGroundedTime = -100f;
         private float _queuedJumpUntil = -100f;
         private int _jumpCount;
+        private Vector2 _lastDirectionalInput = Vector2.up;
         private Coroutine _flipRoutine;
         private Quaternion _originalVisualRotation;
 
@@ -123,6 +124,10 @@ namespace Highfly.Core
             input = Vector2.ClampMagnitude(input, 1f);
             if (input.magnitude < inputDeadZone)
                 input = Vector2.zero;
+            // Remember the CAMERA-relative input before facing/turning changes
+            // the actor's transform. Required for 4-direction FURY aerial flips.
+            if (input.sqrMagnitude > inputDeadZone * inputDeadZone)
+                _lastDirectionalInput = input.normalized;
 
             Vector3 desiredDirection = GetCameraRelativeDirection(input);
             IsMoving = desiredDirection.sqrMagnitude > 0.001f;
@@ -140,7 +145,7 @@ namespace Highfly.Core
             float movementSpeed =
                 IsSwimming ? swimSpeed :
                 IsWading ? wadeSpeed :
-                moveSpeed;
+                input.magnitude >= .84f ? sprintSpeed : moveSpeed;
 
             float targetSpeed = movementSpeed * input.magnitude;
             Vector3 desiredVelocity =
@@ -184,8 +189,11 @@ namespace Highfly.Core
 
             if (animator != null)
             {
-                float locomotion = IsSwimming ? 0f : input.magnitude;
-                animator.SetFloat("MoveSpeed", locomotion, 0.06f, Time.deltaTime);
+                // Animate REAL planar velocity, not instantaneous joystick deflection:
+                // legs accelerate smoothly rather than snapping to a full-speed cycle.
+                float locomotion = IsSwimming ? 0f :
+                    Mathf.Clamp01(_planarVelocity.magnitude / Mathf.Max(.01f, sprintSpeed));
+                animator.SetFloat("MoveSpeed", locomotion, .10f, Time.deltaTime);
                 animator.SetBool("IsMoving", IsMoving && !IsSwimming);
                 SetAnimatorBoolIfPresent("IsSwimming", IsSwimming);
                 SetAnimatorBoolIfPresent("IsWading", IsWading);
@@ -239,12 +247,13 @@ namespace Highfly.Core
             if (flipVisual == null) return;
             if (_flipRoutine != null) StopCoroutine(_flipRoutine);
             flipVisual.localRotation = _originalVisualRotation;
-            Vector3 worldDirection = LastMoveDirection;
-            worldDirection.y = 0f;
-            if (worldDirection.sqrMagnitude < .001f)
-                worldDirection = transform.forward;
-            Vector3 relative = transform.InverseTransformDirection(worldDirection.normalized);
-            Vector3 axis = new Vector3(relative.z, 0f, -relative.x).normalized;
+            // The actor turns to face its running direction, so comparing its
+            // forward with the world movement ALWAYS produced a forward-only flip.
+            // Use untouched camera-relative joystick axes instead: up=front,
+            // down=back, left/right=sideways cartwheel. Physics root stays level.
+            Vector2 input = _lastDirectionalInput.sqrMagnitude > .01f ?
+                _lastDirectionalInput.normalized : Vector2.up;
+            Vector3 axis = new Vector3(input.y, 0f, -input.x).normalized;
             if (axis.sqrMagnitude < .01f) axis = Vector3.right;
             _flipRoutine = StartCoroutine(FlipVisual(axis));
         }
