@@ -51,6 +51,11 @@ namespace Highfly.Combat
 
         public bool IsBlocking => _isBlocking;
 
+        public void BindAnimator(Animator value)
+        {
+            if (value != null) animator = value;
+        }
+
         private void Awake()
         {
             if (motor == null)
