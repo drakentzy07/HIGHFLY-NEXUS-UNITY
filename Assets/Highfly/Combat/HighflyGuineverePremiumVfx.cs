@@ -62,7 +62,11 @@ namespace Highfly.Combat
             GameObject shell = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             shell.name = "R06_Prism_SecondaryHalo";
             Collider c = shell.GetComponent<Collider>();
-            if (c != null) Destroy(c);
+            if (c != null)
+            {
+                c.enabled = false; // Immediately excludes halo from same-frame physics queries.
+                Destroy(c);
+            }
             shell.transform.SetParent(projectile, false);
             shell.transform.localPosition = Vector3.zero;
             shell.transform.localScale = Vector3.one * 1.44f;
