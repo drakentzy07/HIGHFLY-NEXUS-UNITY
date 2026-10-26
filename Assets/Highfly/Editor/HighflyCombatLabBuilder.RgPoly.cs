@@ -135,6 +135,16 @@ namespace Highfly.Editor
                 player.GetComponent<HighflyHealth>(),
                 false, 1f);
 
+            // The original RG POLY source scene does NOT guarantee a quest
+            // NPC. Create a real licensed KayKit CC0 Serin with a collider,
+            // next to the Hunter's initial city entry point.
+            CreateCityNpc("Serin_W2",
+                AdventurerRoot + "/Characters/fbx/Knight.fbx",
+                RgPolySpawn + new Vector3(4.8f, 0f, 4.4f),
+                marker.transform, null);
+            if (GameObject.Find("Serin_W2") == null)
+                throw new Exception("W2 Serin quest giver missing.");
+
             // W2 starter encounter: two killable skeletons with tangible
             // loot and a quest reward bridge. Existing training skeleton stays.
             foreach (Vector3 location in new[] {
