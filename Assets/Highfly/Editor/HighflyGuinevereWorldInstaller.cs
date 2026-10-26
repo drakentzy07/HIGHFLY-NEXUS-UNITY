@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 using Highfly.Combat;
+using Highfly.UI;
 
 namespace Highfly.Editor
 {
