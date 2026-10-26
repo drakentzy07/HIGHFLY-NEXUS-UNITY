@@ -52,6 +52,18 @@ namespace Highfly.Mobile
 
         private void OnDisable() { ResetStick(); }
 
+        // Android/browser overlays, focus loss, and interruptions can cancel a
+        // gesture without delivering IPointerUp to the owning UI component.
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus) ResetStick();
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused) ResetStick();
+        }
+
         private void ResetStick()
         {
             IsHeld = false;
