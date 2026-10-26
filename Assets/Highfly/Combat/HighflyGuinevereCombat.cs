@@ -525,6 +525,12 @@ namespace Highfly.Combat
         {
             if (target == null || !target.IsAlive) return false;
             State st = Read(target);
+            // Classless W2 equipment: the equipped visible sword adds STR.
+            // The appearance itself remains purely cosmetic.
+            Highfly.World.HighflyW2Progress equipment =
+                GetComponent<Highfly.World.HighflyW2Progress>();
+            if (equipment != null)
+                amount *= 1f + .02f * equipment.StrengthBonus;
             if (Time.time < st.AirborneUntil) amount *= 1.25f;
             // FURY: a deliberately executed double jump / mortal is rewarded
             // when the Hunter lands an actual aerial hit (not merely presses ATK).
