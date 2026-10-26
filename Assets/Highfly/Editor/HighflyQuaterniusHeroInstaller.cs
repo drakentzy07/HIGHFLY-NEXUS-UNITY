@@ -36,6 +36,7 @@ namespace Highfly.Editor
                 Debug.LogWarning("Quaternius hunter not staged: retain KayKit until legal CC0 donor arrives.");
                 return;
             }
+            PrepareHumanoidImports();
             string[] paths = AssetDatabase.FindAssets("t:Model", new[] { Base, Outfits })
                 .Select(AssetDatabase.GUIDToAssetPath)
                 .Where(p => p.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
@@ -119,6 +120,31 @@ namespace Highfly.Editor
             AddAppearanceButton(player, appearance);
             Debug.Log("HIGHFLY Quaternius ready: " + variants.Count +
                 " switchable hero/outfit presets, FURY rig linked");
+        }
+
+        private static void PrepareHumanoidImports()
+        {
+            foreach (string folder in new[] { Base, Outfits, Animations })
+            {
+                if (!AssetDatabase.IsValidFolder(folder)) continue;
+                string[] files = AssetDatabase.FindAssets("t:Model", new[] { folder })
+                    .Select(AssetDatabase.GUIDToAssetPath).Distinct().ToArray();
+                foreach (string path in files)
+                {
+                    if (!path.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)) continue;
+                    ModelImporter mi = AssetImporter.GetAtPath(path) as ModelImporter;
+                    if (mi == null) continue;
+                    if (mi.animationType == ModelImporterAnimationType.Human) continue;
+                    mi.animationType = ModelImporterAnimationType.Human;
+                    mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                    mi.importAnimation = true;
+                    try { mi.SaveAndReimport(); }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning("Failed Humanoid import: " + path + " / " + ex.Message);
+                    }
+                }
+            }
         }
 
         private static AnimatorController CreateController()
