@@ -251,6 +251,8 @@ namespace Highfly.Core
                 _verticalVelocity = 0f;
             if ((collision & CollisionFlags.Below) != 0 && _verticalVelocity <= 0f)
             {
+                if (_jumpCount > 0 && _flipRoutine != null)
+                    StopAndRestoreFlip();
                 _verticalVelocity = -2f;
                 _jumpCount = 0;
                 _lastGroundedTime = Time.time;
@@ -310,6 +312,9 @@ namespace Highfly.Core
                 _queuedJumpUntil = -100f;
                 if (animator != null) animator.SetBool("Grounded", false);
                 TriggerAnimationIfPresent("Jump");
+                Debug.Log("FURY ACTION Jump1: planarSpeed=" +
+                    _planarVelocity.magnitude.ToString("F2") +
+                    " vertical=" + _verticalVelocity.ToString("F2"));
             }
             else if (_jumpCount == 1 && !_groundContact &&
                 Time.time - _takeoffTime >= minDoubleJumpInterval)
@@ -320,6 +325,9 @@ namespace Highfly.Core
                 if (animator != null) animator.SetBool("Grounded", false);
                 TriggerAnimationIfPresent("DoubleJump");
                 StartFlip();
+                Debug.Log("FURY ACTION Jump2: planarSpeed=" +
+                    _planarVelocity.magnitude.ToString("F2") +
+                    " vertical=" + _verticalVelocity.ToString("F2"));
             }
         }
 
@@ -356,11 +364,21 @@ namespace Highfly.Core
                 }
         }
 
+        private void StopAndRestoreFlip()
+        {
+            if (_flipRoutine != null) StopCoroutine(_flipRoutine);
+            _flipRoutine = null;
+            if (flipVisual != null)
+            {
+                flipVisual.localRotation = _originalVisualRotation;
+                flipVisual.localPosition = _originalVisualPosition;
+            }
+        }
+
         private void StartFlip()
         {
             if (flipVisual == null) return;
-            if (_flipRoutine != null) StopCoroutine(_flipRoutine);
-            flipVisual.localRotation = _originalVisualRotation;
+            StopAndRestoreFlip();
             // Use CURRENT input: never replay a stale direction from a run
             // completed several seconds ago. A neutral double jump flips forward.
             Vector2 input = movementJoystick != null && movementJoystick.IsHeld ?
@@ -528,6 +546,10 @@ namespace Highfly.Core
             _dashDuration = Mathf.Max(.05f, duration);
             _dashElapsed = 0f;
             _isDashing = true;
+            Debug.Log("FURY ACTION Dash: distance=" +
+                _dashDistance.ToString("F2") + " duration=" +
+                _dashDuration.ToString("F2") +
+                " air=" + (_jumpCount > 0));
             // Dash is an ACTION, not a mode that freezes gravity or input.
             if (playDashAnimation) TriggerAnimationIfPresent("Dash");
         }
