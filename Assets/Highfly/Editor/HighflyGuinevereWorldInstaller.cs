@@ -83,7 +83,7 @@ namespace Highfly.Editor
             label.fontStyle = FontStyle.Bold;
             label.color = new Color(.79f, .60f, 1f, 1f);
             label.raycastTarget = false;
-            label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             HighflyGuinevereSuperMagicHUD hud = go.AddComponent<HighflyGuinevereSuperMagicHUD>();
             SetReference(hud, "guinevere", guinevere);
             SetReference(hud, "readout", label);

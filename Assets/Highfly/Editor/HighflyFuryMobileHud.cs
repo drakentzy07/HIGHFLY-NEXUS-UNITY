@@ -45,7 +45,7 @@ namespace Highfly.Editor
             txt.alignment = TextAnchor.MiddleCenter;
             txt.fontSize = 24;
             txt.fontStyle = FontStyle.Bold;
-            txt.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txt.raycastTarget = false;
 
             GameObject mode = new GameObject("FURY_Mode",
@@ -60,7 +60,7 @@ namespace Highfly.Editor
             status.text = "FURY 360° 2.0  ·  CÁMARA LIBRE  ·  COMBOS AÉREOS";
             status.color = new Color(.75f, .90f, 1f);
             status.alignment = TextAnchor.MiddleCenter;
-            status.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            status.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             status.fontSize = 20;
             status.raycastTarget = false;
 
@@ -89,7 +89,7 @@ namespace Highfly.Editor
                 Text t = textGo.GetComponent<Text>();
                 t.text = "OBJETIVO\nAUTO";
                 t.alignment = TextAnchor.MiddleCenter;
-                t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 t.fontSize = 18;
                 t.fontStyle = FontStyle.Bold;
                 t.color = Color.white;
@@ -109,7 +109,7 @@ namespace Highfly.Editor
             cancelRect.sizeDelta = new Vector2(305f, 53f);
             Text cancel = cancelText.GetComponent<Text>();
             cancel.text = "✕ CANCELAR SKILL";
-            cancel.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            cancel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             cancel.fontSize = 20;
             cancel.fontStyle = FontStyle.Bold;
             cancel.alignment = TextAnchor.MiddleCenter;
