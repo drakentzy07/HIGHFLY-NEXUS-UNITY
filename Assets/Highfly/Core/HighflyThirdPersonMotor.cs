@@ -13,11 +13,14 @@ namespace Highfly.Core
         [SerializeField] private Animator animator;
 
         [Header("Movement")]
+        [SerializeField] private float walkSpeed = 2.8f;
         [SerializeField] private float moveSpeed = 5.2f;
+        [SerializeField] private bool runModeByDefault = true;
+        private bool _runMode;
         [SerializeField] private float sprintSpeed = 7.2f;
         [SerializeField] private float rotationSharpness = 15f;
         [SerializeField] private float acceleration = 18f;
-        [SerializeField] private float deceleration = 40f;
+        [SerializeField] private float deceleration = 28f;
         [Header("Aerial control: keep run momentum during the jump")]
         [SerializeField] private float airAcceleration = 7.5f;
         [SerializeField] private float airDeceleration = 1.6f;
@@ -76,6 +79,10 @@ namespace Highfly.Core
 
         public Vector3 LastMoveDirection { get; private set; } = Vector3.forward;
         public bool IsMoving { get; private set; }
+        public bool IsRunningMode => _runMode;
+
+        /// <summary>Switch walk/run without changing the analog joystick or camera.</summary>
+        public void ToggleMoveMode() { _runMode = !_runMode; }
         public bool IsDashing => _isDashing;
         public enum MotionPhase { Idle, Moving, Rising, Falling, Dashing, Swimming, Wading }
         public MotionPhase CurrentPhase { get; private set; }
@@ -113,6 +120,7 @@ namespace Highfly.Core
         private void Awake()
         {
             _controller = GetComponent<CharacterController>();
+            _runMode = runModeByDefault;
             if (cameraTransform == null && Camera.main != null)
                 cameraTransform = Camera.main.transform;
             if (flipVisual == null && animator != null && animator.transform != transform)
@@ -178,8 +186,10 @@ namespace Highfly.Core
             float movementSpeed =
                 IsSwimming ? swimSpeed :
                 IsWading ? wadeSpeed :
-                Mathf.Lerp(moveSpeed, sprintSpeed,
-                    Mathf.InverseLerp(.60f, .95f, input.magnitude));
+                _runMode
+                    ? Mathf.Lerp(moveSpeed, sprintSpeed,
+                        Mathf.InverseLerp(.60f, .95f, input.magnitude))
+                    : walkSpeed;
 
             float targetSpeed = movementSpeed * input.magnitude;
             Vector3 desiredVelocity =
@@ -281,7 +291,8 @@ namespace Highfly.Core
                 float locomotion = IsSwimming ? 0f :
                     Mathf.Clamp01(_planarVelocity.magnitude / Mathf.Max(.01f, sprintSpeed));
                 animator.SetFloat("MoveSpeed", locomotion, .10f, Time.deltaTime);
-                animator.SetBool("IsMoving", IsMoving && !IsSwimming);
+                animator.SetBool("IsMoving",
+                    _planarVelocity.sqrMagnitude > .0324f && !IsSwimming);
                 animator.SetBool("Grounded", _groundContact &&
                     _verticalVelocity <= 0f && _jumpCount == 0);
                 SetAnimatorBoolIfPresent("IsSwimming", IsSwimming);
@@ -301,7 +312,8 @@ namespace Highfly.Core
         {
             if (_queuedJumpUntil < Time.time || _isDashing || ExternalMovementLock ||
                 IsSwimming || IsWading) return;
-            bool groundGrace = _controller.isGrounded || ProbeNearGround() ||
+            bool groundGrace = _groundContact || _controller.isGrounded ||
+                               ProbeNearGround() ||
                                (Time.time - _lastGroundedTime) <= coyoteSeconds;
             if (_jumpCount == 0 && groundGrace)
             {
@@ -346,7 +358,7 @@ namespace Highfly.Core
                 if (hit.collider == null || hit.collider.transform.IsChildOf(transform) ||
                     hit.normal.y < .57f) continue;
                 float gap = b.min.y - hit.point.y;
-                if (gap >= -.05f && gap <= .16f)
+                if (gap >= -.05f && gap <= .22f)
                     return true;
             }
             return false;
