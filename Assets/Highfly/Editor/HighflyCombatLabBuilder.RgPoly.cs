@@ -119,6 +119,9 @@ namespace Highfly.Editor
 
             CleanRgPolyWorldHud(canvas);
             HighflyGuinevereWorldInstaller.Install(player, canvas, camera);
+            // W2 RPG systems are extensions of the GREEN FURY Hunter, never
+            // an alternative motor, combat driver or camera.
+            HighflyWorldW2Installer.Install(player, canvas);
 
             // Enemies belong OUTSIDE the walled capital. Use the audited
             // FOREST activity zone (x=-60, z=22), never the city spawn.
@@ -131,6 +134,24 @@ namespace Highfly.Editor
                 player.transform,
                 player.GetComponent<HighflyHealth>(),
                 false, 1f);
+
+            // W2 starter encounter: two killable skeletons with tangible
+            // loot and a quest reward bridge. Existing training skeleton stays.
+            foreach (Vector3 location in new[] {
+                new Vector3(-54f, 13.35f, 26f),
+                new Vector3(-66f, 13.35f, 28f)
+            })
+            {
+                string enemyName = "W2_FOREST_SKELETON_" +
+                    Mathf.RoundToInt(Mathf.Abs(location.x));
+                CreateEnemy(enemyName, SkeletonWarriorPath, location,
+                    125f, 1.7f, player.transform,
+                    player.GetComponent<HighflyHealth>(), false, 1f);
+                GameObject actor = GameObject.Find(enemyName);
+                if (actor == null) throw new Exception(
+                    "W2 enemy did not spawn: " + enemyName);
+                actor.AddComponent<HighflyW2EnemyDrops>();
+            }
 
             // World traversal test: keep the character visible but do not attach
             // the extra HIGHFLY sword. RogueHooded already carries its own visual gear.
