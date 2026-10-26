@@ -312,14 +312,21 @@ namespace Highfly.Editor
                   PickExact(clips, "Sword_Heavy_Combo") };
             bool ual2Ready = newStrikes.All(c => c != null);
             // Four distinct visual phases when the free CC0 pack has loaded.
-            float[] comboSpeeds = { 1.15f, 1.2f, 1.1f, 1.18f };
+            // Match animation length with the independent attack cadence;
+            // these are INITIAL calibration values, not validated hit frames.
+            float[] desiredSeconds = { .38f, .38f, .42f, .62f };
             for (int i = 0; i < 4; i++)
             {
                 AnimationClip clip = ual2Ready ? newStrikes[i] : legacyStrikes[i];
-                if (clip == null) throw new InvalidOperationException("FURY ATK clip missing stage " + i);
+                if (clip == null)
+                    throw new InvalidOperationException("FURY ATK clip missing stage " + i);
+                float speed = Mathf.Clamp(clip.length /
+                    desiredSeconds[i], .85f, 4f);
                 AddCast(sm, neutral, "ATK_" + (i + 1), clip,
-                    "BasicAttack" + (i + 1), comboSpeeds[i], false);
-                Debug.Log("FURY COMBO STAGE " + (i + 1) + " = " + clip.name +
+                    "BasicAttack" + (i + 1), speed, false);
+                Debug.Log("FURY TIMED COMBO " + (i + 1) + " = " +
+                    clip.name + " clipSeconds=" + clip.length +
+                    " speed=" + speed + " targetSeconds=" + desiredSeconds[i] +
                     (ual2Ready ? " UAL2 Standard CC0" : " UAL1 fallback"));
             }
             AddCast(sm, neutral, "ATK_Legacy", attack, "BasicAttack");

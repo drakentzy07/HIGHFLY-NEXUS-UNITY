@@ -63,6 +63,16 @@ namespace Highfly.Combat
         private float _lastAttack = -99f;
         private bool _queuedBasicAttack;
         private float _queuedBasicUntil;
+
+        [Header("FURY / attack windows (seconds, UAL2 Standard)")]
+        [SerializeField] private float[] comboCadence = { .38f, .38f, .42f, .62f };
+        [SerializeField] private float[] comboImpactDelay = { .13f, .14f, .16f, .24f };
+        [SerializeField] private float chainResetSeconds = 1.16f;
+        private bool _pendingBasicImpact;
+        private int _pendingBasicStage;
+        private bool _pendingBasicCharged;
+        private Vector3 _pendingBasicDirection;
+        private float _pendingBasicAt;
         private bool _busy;
         private int _bufferedSkill;
         private Vector3 _bufferedDirection;
@@ -122,10 +132,29 @@ namespace Highfly.Combat
 
         private void Update()
         {
-            // Fast thumb taps during the 4-hit chain are buffered, not discarded.
+            // Hit registration is aligned with the middle of the swing, not
+            // with the first frame of the button tap. An early dash/skill
+            // cancel also cancels the uncommitted hit (no ghost damage).
+            if (_pendingBasicImpact)
+            {
+                bool cancelled = _busy || (motor != null && motor.IsDashing);
+                if (cancelled) _pendingBasicImpact = false;
+                else if (Time.time >= _pendingBasicAt)
+                {
+                    _pendingBasicImpact = false;
+                    ResolveBasicImpact(_pendingBasicStage, _pendingBasicCharged,
+                        _pendingBasicDirection);
+                }
+            }
+
             if (!_queuedBasicAttack) return;
-            if (Time.time > _queuedBasicUntil) { _queuedBasicAttack = false; return; }
-            if (!_busy && Time.time >= _nextAttack)
+            if (Time.time > _queuedBasicUntil)
+            {
+                _queuedBasicAttack = false;
+                return;
+            }
+            if (!_busy && (motor == null || !motor.IsDashing) &&
+                Time.time >= _nextAttack)
             {
                 _queuedBasicAttack = false;
                 ExecuteBasicAttack();
@@ -134,15 +163,16 @@ namespace Highfly.Combat
 
         public void BasicAttack()
         {
-            if (_busy || resources == null || resources.Health == null ||
+            if (resources == null || resources.Health == null ||
                 !resources.Health.IsAlive) return;
-            if (Time.time < _nextAttack)
+            // Two-thumb combat: accept ATK during recovery or the final
+            // moments of a dash/skill; do not drop the input outright.
+            if (_busy || (motor != null && motor.IsDashing) ||
+                Time.time < _nextAttack)
             {
-                if (_nextAttack - Time.time <= .30f)
-                {
-                    _queuedBasicAttack = true;
-                    _queuedBasicUntil = _nextAttack + .11f;
-                }
+                _queuedBasicAttack = true;
+                _queuedBasicUntil = Mathf.Max(Time.time + .28f,
+                    _nextAttack + .12f);
                 return;
             }
             ExecuteBasicAttack();
@@ -152,53 +182,73 @@ namespace Highfly.Combat
         {
             if (_busy || resources == null || resources.Health == null ||
                 !resources.Health.IsAlive) return;
-            if (Time.time - _lastAttack > 1.16f) _combo = 0;
+            if (Time.time - _lastAttack > chainResetSeconds) _combo = 0;
             _combo = (_combo % 4) + 1;
             _lastAttack = Time.time;
-            _nextAttack = Time.time + .36f;
 
-            bool charged = SuperMagic >= 100f;
-            float range = charged ? 6.3f : 2.6f;
+            int index = _combo - 1;
+            float cadence = comboCadence != null && comboCadence.Length > index ?
+                comboCadence[index] : .40f;
+            float impact = comboImpactDelay != null &&
+                comboImpactDelay.Length > index ? comboImpactDelay[index] : .14f;
+            cadence = Mathf.Clamp(cadence, .24f, 1.25f);
+            impact = Mathf.Clamp(impact, .06f, cadence * .75f);
+            _nextAttack = Time.time + cadence;
+
             Vector3 dir = AimDirection(Vector3.zero);
-            HighflyHealth target = FindNearestTarget(transform.position, range, dir, 85f);
             Face(dir);
             if (animator != null)
             {
                 animator.SetInteger("ComboIndex", _combo);
-                // Each hit owns an independent Animator state. Older KayKit rigs
-                // still understand BasicAttack and safely fall back to that trigger.
-                string stageTrigger = "BasicAttack" + _combo;
-                bool supportsStages = false;
+                string trigger = "BasicAttack" + _combo;
+                bool present = false;
                 foreach (AnimatorControllerParameter p in animator.parameters)
                     if (p.type == AnimatorControllerParameterType.Trigger &&
-                        p.name == stageTrigger) { supportsStages = true; break; }
-                animator.SetTrigger(supportsStages ? stageTrigger : "BasicAttack");
+                        p.name == trigger) { present = true; break; }
+                animator.SetTrigger(present ? trigger : "BasicAttack");
             }
+            // Commit damage later at actual strike time. If the player cancels
+            // before the active window, no damage or magic is awarded.
+            _pendingBasicImpact = true;
+            _pendingBasicStage = _combo;
+            _pendingBasicCharged = SuperMagic >= 100f;
+            _pendingBasicDirection = dir;
+            _pendingBasicAt = Time.time + impact;
+        }
+
+        private void ResolveBasicImpact(int stage, bool charged, Vector3 dir)
+        {
+            if (resources == null || resources.Health == null ||
+                !resources.Health.IsAlive) return;
+            float range = charged ? 6.3f : 2.6f;
+            HighflyHealth target = FindNearestTarget(transform.position, range, dir, 85f);
             if (target == null)
             {
-                if (effects != null) effects.Basic(transform.position, _combo);
-                return; // Missed basics do not recharge Super Magic.
+                if (effects != null)
+                    effects.Basic(transform.position + dir * 1.2f, stage);
+                return; // A visual miss does not grant a charge.
             }
-            Vector3 strikeDirection = target.transform.position - transform.position;
-            strikeDirection.y = 0f;
-            Face(strikeDirection);
-            float amount = charged ? 96f : 44f * (_combo == 4 ? 1.35f : 1f);
-            if (Damage(target, amount, false, charged ? "charged-atk" : "basic-atk"))
+            Vector3 facing = target.transform.position - transform.position;
+            facing.y = 0f;
+            Face(facing);
+            float amount = charged ? 96f :
+                44f * (stage == 4 ? 1.35f : 1f);
+            if (Damage(target, amount, false,
+                charged ? "charged-atk" : "basic-atk"))
             {
                 if (charged)
                 {
                     SuperMagic = 0f;
-                    if (resources.Health != null)
-                    {
-                        // R05 was tuned for 1000 HP. Scale the flat heal to this Unity hero's max HP.
-                        float missing = resources.Health.MaxHealth - resources.Health.CurrentHealth;
-                        resources.Health.Heal(resources.Health.MaxHealth * .08f + missing * .08f);
-                    }
+                    float missing = resources.Health.MaxHealth -
+                        resources.Health.CurrentHealth;
+                    resources.Health.Heal(resources.Health.MaxHealth * .08f +
+                        missing * .08f);
                     Mark(target);
                 }
                 else GainMagic(34f);
             }
-            if (effects != null) effects.Basic(target.transform.position, charged ? 5 : _combo);
+            if (effects != null)
+                effects.Basic(target.transform.position, charged ? 5 : stage);
         }
 
         public void Prisma() { CastPrisma(Vector3.zero); }
@@ -396,6 +446,8 @@ namespace Highfly.Combat
 
         private void OnDisable()
         {
+            _pendingBasicImpact = false;
+            _queuedBasicAttack = false;
             if (motor != null) motor.ExternalMovementLock = false;
         }
 
