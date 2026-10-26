@@ -26,7 +26,10 @@ namespace Highfly.Core
         [SerializeField] private float deceleration = 28f;
         [Header("Aerial control: keep run momentum during the jump")]
         [SerializeField] private float airAcceleration = 7.5f;
-        [SerializeField] private float airDeceleration = 1.6f;
+        // 1.6 m/s² retained full-speed travel for >4 seconds after releasing
+        // the stick in midair. Keep brief momentum for two-thumb combos but
+        // return control before the next landing.
+        [SerializeField] private float airDeceleration = 10f;
         [SerializeField] private float minDoubleJumpInterval = 0.11f;
         [SerializeField] private float inputDeadZone = 0.06f;
         [SerializeField] private float gravity = -24f;
