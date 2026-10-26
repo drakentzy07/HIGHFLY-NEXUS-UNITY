@@ -20,6 +20,7 @@ namespace Highfly.World
         [SerializeField] private int initialVariant;
 
         private int _current = -1;
+        public event Action<int> AppearanceChanged;
         public int CurrentIndex => _current;
         public int VariantCount => variants != null ? variants.Length : 0;
         public string CurrentAppearance => _current >= 0 && _current < VariantCount &&
@@ -56,6 +57,7 @@ namespace Highfly.World
             if (motor != null) motor.BindVisual(selected);
             if (combat != null) combat.BindAnimator(selected);
             if (legacyCombat != null) legacyCombat.BindAnimator(selected);
+            AppearanceChanged?.Invoke(index);
             return true;
         }
     }

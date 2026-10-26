@@ -24,6 +24,20 @@ namespace Highfly.World
             if (restoreAllOnInteract)
                 controller.RestoreAll();
 
+            // Serin is the first real W2 quest giver. Legacy NPC dialogue
+            // remains intact for all other town residents and services.
+            if (string.Equals(displayName, "Serin",
+                System.StringComparison.OrdinalIgnoreCase))
+            {
+                HighflyW2Progress progress =
+                    controller.GetComponent<HighflyW2Progress>();
+                if (progress != null)
+                {
+                    controller.ShowDialogue(displayName,
+                        dialogue + "\\n\\n" + progress.TalkToSerin());
+                    return;
+                }
+            }
             controller.ShowDialogue(displayName, dialogue);
         }
     }
