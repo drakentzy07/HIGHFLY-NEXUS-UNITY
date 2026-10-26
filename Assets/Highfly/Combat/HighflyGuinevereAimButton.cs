@@ -18,6 +18,16 @@ namespace Highfly.Combat
         [SerializeField] private float dragThresholdPixels = 32f;
         private Vector2 _start;
         private bool _dragging;
+        private bool _cancelled;
+        private static HighflyGuinevereAimButton _activeAim;
+
+        /// <summary>Cancel the active drag without spending mana or releasing a skill.</summary>
+        public static void CancelActiveAim()
+        {
+            if (_activeAim == null) return;
+            _activeAim._cancelled = true;
+            _activeAim.Cleanup();
+        }
         private Vector3 _direction;
         private LineRenderer _preview;
         private Material _previewMaterial;
@@ -34,18 +44,23 @@ namespace Highfly.Combat
         {
             _start = eventData.position;
             _dragging = false;
+            _cancelled = false;
             _direction = Vector3.zero;
+            _activeAim = this;
         }
 
         public void OnBeginDrag(PointerEventData eventData)
         {
+            if (_cancelled) return;
             _dragging = true;
+            _activeAim = this;
             eventData.eligibleForClick = false;
             RefreshAim(eventData.position);
         }
 
         public void OnDrag(PointerEventData eventData)
         {
+            if (_cancelled) return;
             if (!_dragging && (eventData.position - _start).sqrMagnitude > dragThresholdPixels * dragThresholdPixels)
                 _dragging = true;
             if (_dragging)
@@ -57,7 +72,7 @@ namespace Highfly.Combat
 
         private void RefreshAim(Vector2 screenPoint)
         {
-            if (guinevere == null) return;
+            if (_cancelled || guinevere == null) return;
             Vector2 delta = screenPoint - _start;
             if (delta.sqrMagnitude < 16f) return;
             Camera cam = aimCamera != null ? aimCamera : Camera.main;
@@ -92,8 +107,16 @@ namespace Highfly.Combat
         public void OnPointerUp(PointerEventData eventData)
         {
             bool dragged = _dragging;
+            bool cancelled = _cancelled;
             _dragging = false;
+            _cancelled = false;
             Cleanup();
+            if (_activeAim == this) _activeAim = null;
+            if (cancelled)
+            {
+                eventData.eligibleForClick = false;
+                return;
+            }
             if (!dragged || guinevere == null) return; // Taps use the Button listener.
             eventData.eligibleForClick = false;
             bool cancel = eventData.position.x >= Screen.width * .76f &&
@@ -104,7 +127,13 @@ namespace Highfly.Combat
         }
 
         public void OnEndDrag(PointerEventData eventData) { Cleanup(); }
-        private void OnDisable() { Cleanup(); }
+        private void OnDisable()
+        {
+            if (_activeAim == this) _activeAim = null;
+            _dragging = false;
+            _cancelled = false;
+            Cleanup();
+        }
 
         private void Cleanup()
         {

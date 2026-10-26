@@ -46,6 +46,12 @@ namespace Highfly.Editor
             UnityEventTools.AddPersistentListener(dashButton.onClick, motor.Dash);
             Debug.Log("FURY INPUT VERIFIED: separate JUMP=Motor.Jump and DASH=Motor.Dash");
             HighflyQuaterniusHeroInstaller.Install(player, guinevere);
+            // This beta's character contract is Quaternius CC0, not KayKit.
+            // Fail the PREPARATION if legal humanoid rigs are unavailable,
+            // instead of silently publishing the historical fallback avatar.
+            if (player.GetComponent<Highfly.World.HighflyHunterAppearance>() == null)
+                throw new InvalidOperationException(
+                    "FURY preview requires Quaternius Humanoid CC0; KayKit fallback is not permitted.");
             Debug.Log("HIGHFLY Guinevere installed on RG POLY CITY01 generated world");
         }
 

@@ -57,7 +57,6 @@ namespace Highfly.Combat
         private readonly Dictionary<HighflyHealth, State> _states = new Dictionary<HighflyHealth, State>();
         private readonly Collider[] _hits = new Collider[80];
         private readonly RaycastHit[] _rayHits = new RaycastHit[24];
-        private CharacterController _controller;
         private float _nextU1, _nextU2, _nextU3, _nextAttack, _recastUntil;
         private int _combo;
         private float _lastAttack = -99f;
@@ -76,6 +75,8 @@ namespace Highfly.Combat
         private bool _busy;
         private int _bufferedSkill;
         private Vector3 _bufferedDirection;
+        private float _bufferedSkillUntil;
+        [SerializeField] private float skillInputBufferSeconds = .30f;
 
         public void BindAnimator(Animator value)
         {
@@ -89,20 +90,22 @@ namespace Highfly.Combat
             if (motor == null) motor = GetComponent<HighflyThirdPersonMotor>();
             if (effects == null) effects = GetComponent<HighflyGuinevereVfx>();
             if (animator == null) animator = GetComponentInChildren<Animator>();
-            _controller = GetComponent<CharacterController>();
         }
 
-        private bool TryCast(int slot, float mana, float readyAt)
+        private bool TryCast(int slot, float mana, float readyAt,
+            Vector3 requestedDirection)
         {
-            if (_busy)
-            {
-                // One buffered action; prevents a fast tap during landing from disappearing.
-                _bufferedSkill = slot;
-                _bufferedDirection = AimDirection(Vector3.zero);
-                return false;
-            }
             if (resources == null || resources.Health == null || !resources.Health.IsAlive) return false;
             if (Time.time < readyAt || resources.Mana < mana) return false;
+            if (_busy)
+            {
+                // Only queue an available skill for a SHORT cancel/recovery window.
+                // A tap during a long ultimate must never fire seconds later.
+                _bufferedSkill = slot;
+                _bufferedDirection = AimDirection(requestedDirection);
+                _bufferedSkillUntil = Time.time + skillInputBufferSeconds;
+                return false;
+            }
             return resources.TrySpendMana(mana);
         }
 
@@ -254,7 +257,7 @@ namespace Highfly.Combat
         public void Prisma() { CastPrisma(Vector3.zero); }
         public void CastPrisma(Vector3 requestedDirection)
         {
-            if (!TryCast(1, 14f, _nextU1)) return;
+            if (!TryCast(1, 14f, _nextU1, requestedDirection)) return;
             _nextU1 = Time.time + 4f;
             Vector3 direction = AimDirection(requestedDirection);
             Face(direction);
@@ -323,21 +326,23 @@ namespace Highfly.Combat
             Vector3 dir = AimDirection(requestedDirection);
             if (CanRupturaRecast && !_busy)
             {
+                if (motor == null)
+                {
+                    Debug.LogWarning("Ruptura recast needs FURY motor; no direct capsule translation.");
+                    return;
+                }
+                // Don't consume recast if a dash is denied (water, locks,
+                // disabled capsule or another uninterrupted dash).
+                if (!motor.TryDash(dir, 4.7f, .16f)) return;
                 _recastUntil = 0f;
                 Vector3 oldPos = transform.position;
                 Face(dir);
-                // The original recast moved the capsule ~4.7 m instantly,
-                // outside FURY's single Move and without a meaningful VFX path.
-                // Use the motor's collision-safe short dash instead.
-                if (motor != null)
-                    motor.Dash(dir, 4.7f, .16f);
-                else if (_controller != null)
-                    _controller.Move(dir * 4.7f);
                 StartCoroutine(RupturaRecastVisual(oldPos, .16f));
                 StartCoroutine(EchoExplosion(oldPos));
                 return;
             }
-            if (!TryCast(2, 23f, _nextU2)) return;
+            if (motor == null || !motor.CanDash(true)) return; // FURY is authoritative.
+            if (!TryCast(2, 23f, _nextU2, requestedDirection)) return;
             _nextU2 = Time.time + 17f;
             Face(dir);
             if (animator != null) animator.SetTrigger("Skill2");
@@ -357,9 +362,14 @@ namespace Highfly.Combat
             if (targeting != null && targeting.HasTarget)
                 distance = Mathf.Min(rupturaRange, Vector3.Distance(transform.position, targeting.CurrentTarget.AimPoint.position));
             Vector3 start = transform.position;
-            if (motor != null)
-                motor.Dash(direction, distance, rupturaDuration, false, true);
-            else Debug.LogWarning("Ruptura requires FURY motor for displacement");
+            if (motor == null ||
+                !motor.TryDash(direction, distance, rupturaDuration, false, true))
+            {
+                Debug.LogWarning("Ruptura movement denied by FURY; skipping impact.");
+                _busy = false;
+                FlushBuffer();
+                yield break;
+            }
             if (effects != null) effects.Launch(start);
             // Motor owns every movement frame. This coroutine owns only skill
             // timing, VFX and hit logic, not a second CharacterController.Move.
@@ -400,7 +410,7 @@ namespace Highfly.Combat
 
         public void Tempestad()
         {
-            if (!TryCast(3, 40f, _nextU3)) return;
+            if (!TryCast(3, 40f, _nextU3, Vector3.zero)) return;
             _nextU3 = Time.time + 52f;
             if (animator != null) animator.SetTrigger("Skill3");
             StartCoroutine(TempestSequence());
@@ -415,6 +425,13 @@ namespace Highfly.Combat
             {
                 yield return new WaitForSeconds(tickSeconds);
                 if (effects != null) effects.Tempestad(transform.position, tempestRadius, tick + 1);
+                // Tempestad continues pulsing independently, but only its
+                // opening beat occupies the input/upper-body action slot.
+                if (tick == 0)
+                {
+                    _busy = false;
+                    FlushBuffer();
+                }
                 int count = Physics.OverlapSphereNonAlloc(transform.position, tempestRadius, _hits, enemyMask, QueryTriggerInteraction.Collide);
                 HashSet<HighflyHealth> unique = new HashSet<HighflyHealth>();
                 for (int i = 0; i < count; i++)
@@ -440,14 +457,18 @@ namespace Highfly.Combat
                     }
                 }
             }
-            _busy = false;
-            FlushBuffer();
+            // The ultimate yielded the input slot after its first tick.
+            // DO NOT reset _busy here: S2 or another action may have acquired
+            // that same slot while the remaining pulses continued.
         }
 
         private void OnDisable()
         {
             _pendingBasicImpact = false;
             _queuedBasicAttack = false;
+            _busy = false;
+            _bufferedSkill = 0;
+            _bufferedSkillUntil = 0f;
             if (motor != null) motor.ExternalMovementLock = false;
         }
 
@@ -455,7 +476,10 @@ namespace Highfly.Combat
         {
             int command = _bufferedSkill;
             Vector3 direction = _bufferedDirection;
+            bool fresh = Time.time <= _bufferedSkillUntil;
             _bufferedSkill = 0;
+            _bufferedSkillUntil = 0f;
+            if (!fresh) return;
             if (command == 1) CastPrisma(direction);
             if (command == 2) CastRuptura(direction);
             if (command == 3) Tempestad();

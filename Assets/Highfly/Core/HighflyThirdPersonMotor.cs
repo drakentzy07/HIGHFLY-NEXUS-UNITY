@@ -13,11 +13,14 @@ namespace Highfly.Core
         [SerializeField] private Animator animator;
 
         [Header("Movement")]
+        [SerializeField] private float walkSpeed = 2.8f;
         [SerializeField] private float moveSpeed = 5.2f;
+        [SerializeField] private bool runModeByDefault = true;
+        private bool _runMode;
         [SerializeField] private float sprintSpeed = 7.2f;
         [SerializeField] private float rotationSharpness = 15f;
         [SerializeField] private float acceleration = 18f;
-        [SerializeField] private float deceleration = 40f;
+        [SerializeField] private float deceleration = 28f;
         [Header("Aerial control: keep run momentum during the jump")]
         [SerializeField] private float airAcceleration = 7.5f;
         [SerializeField] private float airDeceleration = 1.6f;
@@ -76,6 +79,10 @@ namespace Highfly.Core
 
         public Vector3 LastMoveDirection { get; private set; } = Vector3.forward;
         public bool IsMoving { get; private set; }
+        public bool IsRunningMode => _runMode;
+
+        /// <summary>Switch walk/run without changing the analog joystick or camera.</summary>
+        public void ToggleMoveMode() { _runMode = !_runMode; }
         public bool IsDashing => _isDashing;
         public enum MotionPhase { Idle, Moving, Rising, Falling, Dashing, Swimming, Wading }
         public MotionPhase CurrentPhase { get; private set; }
@@ -113,6 +120,7 @@ namespace Highfly.Core
         private void Awake()
         {
             _controller = GetComponent<CharacterController>();
+            _runMode = runModeByDefault;
             if (cameraTransform == null && Camera.main != null)
                 cameraTransform = Camera.main.transform;
             if (flipVisual == null && animator != null && animator.transform != transform)
@@ -178,8 +186,10 @@ namespace Highfly.Core
             float movementSpeed =
                 IsSwimming ? swimSpeed :
                 IsWading ? wadeSpeed :
-                Mathf.Lerp(moveSpeed, sprintSpeed,
-                    Mathf.InverseLerp(.60f, .95f, input.magnitude));
+                _runMode
+                    ? Mathf.Lerp(moveSpeed, sprintSpeed,
+                        Mathf.InverseLerp(.60f, .95f, input.magnitude))
+                    : walkSpeed;
 
             float targetSpeed = movementSpeed * input.magnitude;
             Vector3 desiredVelocity =
@@ -238,10 +248,10 @@ namespace Highfly.Core
                 if (_dashElapsed >= _dashDuration)
                 {
                     _isDashing = false;
-                    // Resume at a controllable run speed, not the huge dash
-                    // displacement-per-frame speed.
-                    _planarVelocity = _dashDirection *
-                        Mathf.Max(_planarVelocity.magnitude, moveSpeed * .65f);
+                    // The ordinary velocity solver ran throughout the dash.
+                    // Never inject a NEW impulse on the final frame: that caused
+                    // a second involuntary slide when the joystick was released.
+                    // In-air momentum remains intact through airDeceleration.
                 }
             }
 
@@ -281,7 +291,8 @@ namespace Highfly.Core
                 float locomotion = IsSwimming ? 0f :
                     Mathf.Clamp01(_planarVelocity.magnitude / Mathf.Max(.01f, sprintSpeed));
                 animator.SetFloat("MoveSpeed", locomotion, .10f, Time.deltaTime);
-                animator.SetBool("IsMoving", IsMoving && !IsSwimming);
+                animator.SetBool("IsMoving",
+                    _planarVelocity.sqrMagnitude > .0324f && !IsSwimming);
                 animator.SetBool("Grounded", _groundContact &&
                     _verticalVelocity <= 0f && _jumpCount == 0);
                 SetAnimatorBoolIfPresent("IsSwimming", IsSwimming);
@@ -301,7 +312,8 @@ namespace Highfly.Core
         {
             if (_queuedJumpUntil < Time.time || _isDashing || ExternalMovementLock ||
                 IsSwimming || IsWading) return;
-            bool groundGrace = _controller.isGrounded || ProbeNearGround() ||
+            bool groundGrace = _groundContact || _controller.isGrounded ||
+                               ProbeNearGround() ||
                                (Time.time - _lastGroundedTime) <= coyoteSeconds;
             if (_jumpCount == 0 && groundGrace)
             {
@@ -346,7 +358,7 @@ namespace Highfly.Core
                 if (hit.collider == null || hit.collider.transform.IsChildOf(transform) ||
                     hit.normal.y < .57f) continue;
                 float gap = b.min.y - hit.point.y;
-                if (gap >= -.05f && gap <= .16f)
+                if (gap >= -.05f && gap <= .22f)
                     return true;
             }
             return false;
@@ -379,17 +391,32 @@ namespace Highfly.Core
         {
             if (flipVisual == null) return;
             StopAndRestoreFlip();
-            // Use CURRENT input: never replay a stale direction from a run
-            // completed several seconds ago. A neutral double jump flips forward.
-            Vector2 input = movementJoystick != null && movementJoystick.IsHeld ?
-                movementJoystick.Value : Vector2.up;
-            if (input.sqrMagnitude < .08f) input = Vector2.up;
-            Vector3 axis = Mathf.Abs(input.y) >= Mathf.Abs(input.x) ?
-                (input.y >= 0f ? Vector3.right : Vector3.left) :
-                (input.x >= 0f ? Vector3.back : Vector3.forward);
+            // Resolve direction in CAMERA SPACE exactly as locomotion does.
+            // A neutral stick flips toward the character's CURRENT facing.
+            // Rotating around hard-coded model-local X/Z axes caused mismatches
+            // when camera, character and imported FBX facing disagreed.
+            Vector2 input = movementJoystick != null && movementJoystick.IsHeld
+                ? movementJoystick.Value : Vector2.zero;
+#if UNITY_EDITOR || UNITY_STANDALONE || UNITY_WEBGL
+            if (input.sqrMagnitude < .001f)
+                input = new Vector2(Input.GetAxisRaw("Horizontal"),
+                                    Input.GetAxisRaw("Vertical"));
+#endif
+            Vector3 worldDirection = input.sqrMagnitude > .0064f
+                ? GetCameraRelativeDirection(input) : transform.forward;
+            worldDirection.y = 0f;
+            if (worldDirection.sqrMagnitude < .001f)
+                worldDirection = transform.forward;
+            worldDirection.Normalize();
+            Vector3 worldAxis = Vector3.Cross(Vector3.up, worldDirection).normalized;
             _originalVisualRotation = flipVisual.localRotation;
             _originalVisualPosition = flipVisual.localPosition;
-            _flipRoutine = StartCoroutine(FlipVisual(axis));
+            // AngleAxis is multiplied on the RIGHT of the imported bind
+            // rotation, so convert the world axis all the way into rig-local.
+            Vector3 parentAxis = flipVisual.parent != null
+                ? flipVisual.parent.InverseTransformDirection(worldAxis) : worldAxis;
+            Vector3 rigAxis = Quaternion.Inverse(_originalVisualRotation) * parentAxis;
+            _flipRoutine = StartCoroutine(FlipVisual(rigAxis.normalized));
         }
 
         private IEnumerator FlipVisual(Vector3 axis)
@@ -535,9 +562,28 @@ namespace Highfly.Core
         public void Dash(Vector3 direction, float distance, float duration,
             bool playDashAnimation, bool interruptExisting = false)
         {
-            // Skill mobility can override a basic dash for combo chaining.
-            if ((_isDashing && !interruptExisting) || ExternalMovementLock ||
-                IsSwimming || IsWading || !isActiveAndEnabled) return;
+            TryDash(direction, distance, duration, playDashAnimation, interruptExisting);
+        }
+
+        /// <summary>
+        /// Public motion contract for combat: prevent spending resources on
+        /// a request FURY cannot currently execute.
+        /// </summary>
+        public bool CanDash(bool interruptExisting = false)
+        {
+            return isActiveAndEnabled && _controller != null && _controller.enabled &&
+                   !ExternalMovementLock && !IsSwimming && !IsWading &&
+                   (!_isDashing || interruptExisting);
+        }
+
+        /// <summary>
+        /// Sole authoritative capsule dash. Returns false on denied action.
+        /// Skill code must NEVER call CharacterController.Move itself.
+        /// </summary>
+        public bool TryDash(Vector3 direction, float distance, float duration,
+            bool playDashAnimation = true, bool interruptExisting = false)
+        {
+            if (!CanDash(interruptExisting)) return false;
 
             direction.y = 0f;
             if (direction.sqrMagnitude < .001f) direction = transform.forward;
@@ -550,8 +596,8 @@ namespace Highfly.Core
                 _dashDistance.ToString("F2") + " duration=" +
                 _dashDuration.ToString("F2") +
                 " air=" + (_jumpCount > 0));
-            // Dash is an ACTION, not a mode that freezes gravity or input.
             if (playDashAnimation) TriggerAnimationIfPresent("Dash");
+            return true;
         }
     }
 }

@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using Highfly.Core;
 using Highfly.Mobile;
 using Highfly.Combat;
+using Highfly.UI;
 
 namespace Highfly.Editor
 {
@@ -29,8 +30,10 @@ namespace Highfly.Editor
             rect.sizeDelta = new Vector2(168f, 168f);
             Image img = go.GetComponent<Image>();
             img.color = new Color(.13f, .25f, .45f, .90f);
-            Button button = go.GetComponent<Button>();
-            UnityEventTools.AddPersistentListener(button.onClick, motor.Jump);
+            // React to finger DOWN. Button.onClick fires on release and made
+            // a standing jump feel delayed or unresponsive on mobile.
+            HighflyHoldActionButton jumpPress = go.AddComponent<HighflyHoldActionButton>();
+            UnityEventTools.AddPersistentListener(jumpPress.OnPressed, motor.Jump);
 
             GameObject label = new GameObject("Label",
                 typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
@@ -47,6 +50,35 @@ namespace Highfly.Editor
             txt.fontStyle = FontStyle.Bold;
             txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txt.raycastTarget = false;
+
+            // Explicit walk/run choice with joystick analog movement retained.
+            GameObject moveMode = new GameObject("FURY_MoveMode",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                typeof(Button), typeof(HighflyFuryMoveModeLabel));
+            moveMode.transform.SetParent(canvas.transform, false);
+            RectTransform walkRect = moveMode.GetComponent<RectTransform>();
+            walkRect.anchorMin = walkRect.anchorMax = new Vector2(0f, 0f);
+            walkRect.pivot = new Vector2(.5f, .5f);
+            walkRect.anchoredPosition = new Vector2(645f, 235f);
+            walkRect.sizeDelta = new Vector2(235f, 98f);
+            moveMode.GetComponent<Image>().color = new Color(.07f, .21f, .32f, .92f);
+            UnityEventTools.AddPersistentListener(
+                moveMode.GetComponent<Button>().onClick, motor.ToggleMoveMode);
+            GameObject walkLabel = new GameObject("Label",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            walkLabel.transform.SetParent(moveMode.transform, false);
+            RectTransform walkLabelRect = walkLabel.GetComponent<RectTransform>();
+            walkLabelRect.anchorMin = Vector2.zero;
+            walkLabelRect.anchorMax = Vector2.one;
+            walkLabelRect.offsetMin = walkLabelRect.offsetMax = Vector2.zero;
+            Text walkText = walkLabel.GetComponent<Text>();
+            walkText.alignment = TextAnchor.MiddleCenter;
+            walkText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            walkText.fontSize = 18;
+            walkText.fontStyle = FontStyle.Bold;
+            walkText.color = Color.white;
+            walkText.raycastTarget = false;
+            moveMode.GetComponent<HighflyFuryMoveModeLabel>().Configure(motor, walkText);
 
             GameObject mode = new GameObject("FURY_Mode",
                 typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
@@ -100,20 +132,38 @@ namespace Highfly.Editor
                 ts.ApplyModifiedPropertiesWithoutUndo();
             }
 
-            GameObject cancelText = new GameObject("FURY_CancelHint",
-                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            cancelText.transform.SetParent(canvas.transform, false);
-            RectTransform cancelRect = cancelText.GetComponent<RectTransform>();
+            // Real, separate top-right CANCEL button. It consumes a second
+            // finger on touch-down while the other finger keeps dragging S1/S2.
+            GameObject cancelGo = new GameObject("FURY_CancelAim",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                typeof(Button), typeof(HighflyHoldActionButton),
+                typeof(HighflyFuryAimCancel));
+            cancelGo.transform.SetParent(canvas.transform, false);
+            RectTransform cancelRect = cancelGo.GetComponent<RectTransform>();
             cancelRect.anchorMin = cancelRect.anchorMax = new Vector2(1f, 1f);
-            cancelRect.anchoredPosition = new Vector2(-175f, -61f);
-            cancelRect.sizeDelta = new Vector2(305f, 53f);
+            cancelRect.pivot = new Vector2(.5f, .5f);
+            cancelRect.anchoredPosition = new Vector2(-175f, -84f);
+            cancelRect.sizeDelta = new Vector2(305f, 92f);
+            cancelGo.GetComponent<Image>().color = new Color(.36f, .08f, .15f, .90f);
+            HighflyHoldActionButton cancelPress =
+                cancelGo.GetComponent<HighflyHoldActionButton>();
+            HighflyFuryAimCancel cancelAction =
+                cancelGo.GetComponent<HighflyFuryAimCancel>();
+            UnityEventTools.AddPersistentListener(cancelPress.OnPressed, cancelAction.CancelAim);
+            GameObject cancelText = new GameObject("Label",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            cancelText.transform.SetParent(cancelGo.transform, false);
+            RectTransform cancelLabelRect = cancelText.GetComponent<RectTransform>();
+            cancelLabelRect.anchorMin = Vector2.zero;
+            cancelLabelRect.anchorMax = Vector2.one;
+            cancelLabelRect.offsetMin = cancelLabelRect.offsetMax = Vector2.zero;
             Text cancel = cancelText.GetComponent<Text>();
             cancel.text = "✕ CANCELAR SKILL";
             cancel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             cancel.fontSize = 20;
             cancel.fontStyle = FontStyle.Bold;
             cancel.alignment = TextAnchor.MiddleCenter;
-            cancel.color = new Color(1f, .57f, .66f, 1f);
+            cancel.color = new Color(1f, .82f, .84f, 1f);
             cancel.raycastTarget = false;
 
             // PC/editor can test the same input without a phone.

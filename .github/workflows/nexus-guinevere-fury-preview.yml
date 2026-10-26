@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/nexus-guinevere-rgpoly-unity6-20261026
+      - review/nexus-fury-s23-movement-input-20261026
     paths:
       - "Assets/Highfly/**"
       - "ci/world/**"
@@ -17,7 +18,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: highfly-nexus-guinevere-fury-preview
+  group: highfly-nexus-guinevere-fury-preview-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
