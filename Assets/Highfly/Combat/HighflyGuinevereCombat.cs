@@ -457,8 +457,9 @@ namespace Highfly.Combat
                     }
                 }
             }
-            _busy = false;
-            FlushBuffer();
+            // The ultimate yielded the input slot after its first tick.
+            // DO NOT reset _busy here: S2 or another action may have acquired
+            // that same slot while the remaining pulses continued.
         }
 
         private void OnDisable()
