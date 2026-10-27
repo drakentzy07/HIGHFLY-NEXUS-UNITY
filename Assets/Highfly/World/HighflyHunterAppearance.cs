@@ -20,7 +20,7 @@ namespace Highfly.World
         [SerializeField] private int initialVariant;
 
         [Header("Visual-only rig forward alignment")]
-        [SerializeField] private float visualYawOffset = 90f;
+        [SerializeField] private float visualYawOffset = 0f;
         private int _current = -1;
         public int VisualYawOffset => Mathf.RoundToInt(visualYawOffset);
         public event Action<int> FacingOffsetChanged;
@@ -61,7 +61,28 @@ namespace Highfly.World
         public void NextLook()
         {
             if (VariantCount == 0) return;
-            SetAppearance((_current + 1) % VariantCount);
+            // Skip naked/base and superhero proxy outfits when switching
+            // cosmetics during ordinary play; only supported dressed models.
+            for (int i = 1; i <= VariantCount; i++)
+            {
+                int index = (_current + i) % VariantCount;
+                if (IsDressed(index)) { SetAppearance(index); return; }
+            }
+        }
+
+        public bool IsDressed(int index)
+        {
+            if (variants == null || index < 0 || index >= variants.Length ||
+                variants[index] == null) return false;
+            string key = variants[index].name.ToLowerInvariant();
+            return key.Contains("knight") || key.Contains("warrior") ||
+                   key.Contains("rogue") || key.Contains("wizard");
+        }
+
+        public void RestoreSavedLook(int index)
+        {
+            if (IsDressed(index)) SetAppearance(index);
+            else SetAppearance(Mathf.Clamp(initialVariant, 0, VariantCount - 1));
         }
 
         public bool SetAppearance(int index)
