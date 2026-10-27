@@ -98,7 +98,7 @@ namespace Highfly.World
             {
                 _appearance.SetVisualYawOffset(_data.visualYaw);
                 if (_data.look >= 0 && _data.look < _appearance.VariantCount)
-                    _appearance.SetAppearance(_data.look);
+                    _appearance.RestoreSavedLook(_data.look);
                 _appearance.AppearanceChanged += OnLookChanged;
                 _appearance.FacingOffsetChanged += OnFacingChanged;
             }
