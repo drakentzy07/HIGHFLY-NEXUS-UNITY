@@ -174,6 +174,10 @@ jobs:
           npm --prefix .hf-itch init -y >/dev/null 2>&1
           npm --prefix .hf-itch install --no-save itchio-downloader@latest
 
+          # itch.io can temporarily throttle GitHub runners (HTTP 429).
+          # Respect the rate limit with bounded backoff; never substitute
+          # unofficial/mirrored paid or unverified world assets.
+          for ATTEMPT in 1 2 3 4; do
           node <<'NODE'
           const path = require('path');
           const { downloadGame } = require(path.join(process.cwd(), '.hf-itch/node_modules/itchio-downloader'));
@@ -188,6 +192,17 @@ jobs:
             console.log(JSON.stringify(result, null, 2));
           })().catch(err => { console.error(err); process.exit(1); });
           NODE
+          PACKAGE="$(find world-download -type f \\( -name '*.unitypackage' -o -name 'Stylized_Medieval_Village.zip' \\) | head -n 1)"
+          if test -n "$PACKAGE" && test -f "$PACKAGE"; then
+            echo "Verified file candidate downloaded on attempt $ATTEMPT"
+            break
+          fi
+          if test "$ATTEMPT" -lt 4; then
+            BACKOFF=$((ATTEMPT * 120))
+            echo "Itch.io unavailable/rate-limited; waiting ${BACKOFF}s before retry $((ATTEMPT+1))/4"
+            sleep "$BACKOFF"
+          fi
+          done
 
           PACKAGE="$(find world-download -type f \( -name '*.unitypackage' -o -name 'Stylized_Medieval_Village.zip' \) | head -n 1)"
           test -n "$PACKAGE"
