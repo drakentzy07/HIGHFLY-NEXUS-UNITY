@@ -136,7 +136,14 @@ namespace Highfly.World
                 {
                     SaveData saved = JsonUtility.FromJson<SaveData>(json);
                     if (saved != null && saved.version == 1)
+                    {
+                        // Existing W2 saves did not include a visual yaw field.
+                        // Keep ALL inventory/quest/gold data and add the new
+                        // default alignment only for those older saves.
+                        if (!json.Contains("\\"visualYaw\\""))
+                            saved.visualYaw = 90;
                         _data = saved;
+                    }
                 }
                 catch (Exception e)
                 {
