@@ -156,6 +156,17 @@ namespace Highfly.Editor
             menu.ConfigureSlots(slots,grid,info);
             Transform oldSkin=canvas.transform.Find("FURY_Appearance");
             if(oldSkin!=null)oldSkin.gameObject.SetActive(false);
+            // The quest compass remains visible during normal play so the
+            // first NPC cannot silently disappear in a large RG POLY city.
+            Text tracker=MakeText(canvas.transform,"W2_QuestCompass",
+                new Vector2(0f,485f),new Vector2(1680f,70f),28,
+                "!  NUEVO CONTRATO · SERIN");
+            tracker.fontStyle=FontStyle.Bold;
+            tracker.color=Gold;
+            tracker.alignment=TextAnchor.MiddleCenter;
+            HighflyW2QuestBeacon beacon=canvas.AddComponent<HighflyW2QuestBeacon>();
+            beacon.Configure(player.transform,state,tracker);
+            HighflyW2CombatHudPolish.Apply(canvas);
             Debug.Log("HIGHFLY W2-B premium full-screen 24-slot UI installed");
         }
 
