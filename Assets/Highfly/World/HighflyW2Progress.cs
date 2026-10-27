@@ -28,7 +28,8 @@ namespace Highfly.World
             public int questStage; // 0 available, 1 accepted, 2 turned in
             public int skeletonsKilled;
             public int look = -1;
-            public int visualYaw = 90;
+            public int visualYaw = 0;
+            public int visualRigCalibration = 2;
             public string weapon = "";
             public string armor = "";
             public List<Stack> items = new List<Stack>();
@@ -140,8 +141,15 @@ namespace Highfly.World
                         // Existing W2 saves did not include a visual yaw field.
                         // Keep ALL inventory/quest/gold data and add the new
                         // default alignment only for those older saves.
-                        if (!json.Contains(nameof(SaveData.visualYaw)))
-                            saved.visualYaw = 90;
+                        // W2-B forced +90 yaw onto ALL humanoid rigs and
+                        // also persisted that workaround as user data. W2-C
+                        // migrates that faulty default once, without touching
+                        // inventory, equipment, quest, XP or currency.
+                        if (saved.visualRigCalibration < 2)
+                        {
+                            saved.visualYaw = 0;
+                            saved.visualRigCalibration = 2;
+                        }
                         _data = saved;
                     }
                 }
