@@ -4,7 +4,10 @@ using Highfly.World;
 
 namespace Highfly.UI
 {
-    // One in-world menu, without class/spec selection or a second HUD engine.
+    /// <summary>
+    /// Native full-screen action-RPG menu controller. The old W2 inventory
+    /// and save schema stay intact. No class restrictions or external UI.
+    /// </summary>
     public sealed class HighflyW2Menu : MonoBehaviour
     {
         [SerializeField] private HighflyW2Progress progress;
@@ -16,75 +19,42 @@ namespace Highfly.UI
         private string _tab = "PERSONAJE";
         private HighflyW2ItemSlot[] _slots;
         private GameObject _inventoryGrid;
+        private GameObject _portraitCard;
         private Text _gridReadout;
+        private Text _subtitle;
         private string _selectedItemId = "";
 
         public void Configure(HighflyW2Progress state, HighflyHunterAppearance look,
-            GameObject mainPanel, Text heading, Text detail, Text status)
+            GameObject fullscreen, Text heading, Text detail, Text status)
         {
             if (progress != null) progress.Changed -= Refresh;
             progress = state;
             appearance = look;
-            if (isActiveAndEnabled && progress != null)
-                progress.Changed += Refresh;
-            panel = mainPanel;
+            panel = fullscreen;
             title = heading;
             body = detail;
             footer = status;
+            if (progress != null) progress.Changed += Refresh;
             if (panel != null) panel.SetActive(false);
             Refresh();
         }
 
-        public void ConfigureSlots(HighflyW2ItemSlot[] slots,
-            GameObject inventoryGrid, Text gridReadout)
+        public void ConfigureSlots(HighflyW2ItemSlot[] slots, GameObject grid, Text readout)
         {
             _slots = slots;
-            _inventoryGrid = inventoryGrid;
-            _gridReadout = gridReadout;
+            _inventoryGrid = grid;
+            _gridReadout = readout;
             Refresh();
         }
 
-        public void SelectItem(int index)
+        public void ConfigurePremium(GameObject characterCard, Text subtitle)
         {
-            if (progress == null) return;
-            string id = progress.GetItemIdAtSlot(index);
-            if (string.IsNullOrEmpty(id))
-            {
-                SetFooter("Ranura vacía.");
-                return;
-            }
-            _selectedItemId = id;
-            HighflyW2Progress.Item item = HighflyW2Progress.FindItem(id);
-            if (item.Category == "arma" || item.Category == "armadura")
-            {
-                if (progress.Equip(id))
-                    SetFooter("EQUIPADO · " + item.Name +
-                        (item.Category == "arma" ? " · +STR · arma visible" :
-                            " · +VIT · la skin no cambia"));
-            }
-            else SetFooter(item.Name + " · material x" + progress.Count(id));
+            _portraitCard = characterCard;
+            _subtitle = subtitle;
             Refresh();
         }
 
-        public void RotateFacing()
-        {
-            if (appearance == null) return;
-            appearance.RotateRigFacing();
-            Personaje();
-            SetFooter("Corrección de orientación: " +
-                appearance.VisualYawOffset + "°. Probá correr hacia adelante.");
-        }
-
-        private void OnEnable()
-        {
-            if (progress != null)
-            {
-                progress.Changed -= Refresh;
-                progress.Changed += Refresh;
-            }
-        }
-
-        private void OnDisable()
+        private void OnDestroy()
         {
             if (progress != null) progress.Changed -= Refresh;
         }
@@ -96,121 +66,147 @@ namespace Highfly.UI
             Refresh();
         }
 
-        public void Close()
-        {
-            if (panel != null) panel.SetActive(false);
-        }
-
+        public void Close() { if (panel != null) panel.SetActive(false); }
         public void Personaje() { _tab = "PERSONAJE"; Refresh(); }
         public void Inventario() { _tab = "INVENTARIO"; Refresh(); }
         public void Equipo() { _tab = "EQUIPAMIENTO"; Refresh(); }
         public void Misiones() { _tab = "MISIONES"; Refresh(); }
         public void Entrenamiento() { _tab = "ENTRENAMIENTO"; Refresh(); }
 
+        public void SelectItem(int index)
+        {
+            if (progress == null) return;
+            _selectedItemId = progress.GetItemIdAtSlot(index);
+            SetFooter(string.IsNullOrEmpty(_selectedItemId)
+                ? "Ranura vacía. Elegí otro objeto."
+                : "OBJETO SELECCIONADO: " +
+                  HighflyW2Progress.FindItem(_selectedItemId).Name);
+            Refresh();
+        }
+
+        public void EquipSelected()
+        {
+            if (progress == null || string.IsNullOrEmpty(_selectedItemId)) return;
+            HighflyW2Progress.Item item =
+                HighflyW2Progress.FindItem(_selectedItemId);
+            if (item.Category != "arma" && item.Category != "armadura")
+            {
+                SetFooter("Material recolectado. El crafting llegará en W3.");
+                return;
+            }
+            if (progress.Equip(_selectedItemId))
+                SetFooter("EQUIPADO · " + item.Name +
+                    " · Apariencia Quaternius independiente.");
+            Refresh();
+        }
+
         public void EquipSword()
         {
             if (progress == null) return;
-            if (progress.Equip("sword_rookie"))
-                SetFooter("Espada equipada · visible en la mano del Hunter");
-            else SetFooter("No tenés esa espada en la mochila");
-            Equipo();
+            SetFooter(progress.Equip("sword_rookie") ?
+                "ESPADA EQUIPADA · +STR" : "No tenés esa espada.");
+            Refresh();
         }
 
         public void UnequipSword()
         {
             if (progress == null) return;
             progress.UnequipWeapon();
-            SetFooter("Espada desequipada");
-            Equipo();
+            SetFooter("Arma retirada del Hunter.");
+            Refresh();
         }
 
         public void EquipArmor()
         {
             if (progress == null) return;
-            if (progress.Equip("armor_rookie"))
-                SetFooter("Armadura equipada: +3 VIT (sin cambiar la skin)");
-            else SetFooter("Conseguí la armadura completando la misión de Serin");
-            Equipo();
+            SetFooter(progress.Equip("armor_rookie") ?
+                "ARMADURA EQUIPADA · +3 VIT · skin sin cambios." :
+                "Conseguí la armadura completando la misión de Serin.");
+            Refresh();
         }
 
         public void NextLook()
         {
             if (appearance == null) return;
             appearance.NextLook();
-            SetFooter("Skin Quaternius: " + appearance.CurrentAppearance);
             Personaje();
+            SetFooter("APARIENCIA · " + appearance.CurrentAppearance);
         }
+
+        // Old W2-B public callback remains compatible but is not present in
+        // the W2-C production UI: the 90° workaround must not recur.
+        public void RotateFacing() { SetFooter("Alineación automática W2-C activa."); }
 
         public void SaveNow()
         {
-            if (progress != null)
-            {
-                progress.Save();
-                SetFooter("Progreso guardado en este navegador");
-            }
+            if (progress == null) return;
+            progress.Save();
+            SetFooter("PROGRESO GUARDADO EN ESTE NAVEGADOR.");
         }
 
         public void Refresh()
         {
             if (progress == null || title == null || body == null) return;
-            title.text = "HIGHFLY · " + _tab;
-            bool grid = _tab == "INVENTARIO" || _tab == "EQUIPAMIENTO";
-            if (_inventoryGrid != null) _inventoryGrid.SetActive(grid);
-            body.gameObject.SetActive(!grid);
+            title.text = _tab == "PERSONAJE" ? "HUNTER" :
+                _tab == "INVENTARIO" ? "MOCHILA" :
+                _tab == "EQUIPAMIENTO" ? "ARSENAL" :
+                _tab == "MISIONES" ? "CONTRATOS" : "TRAINING CORE";
+            bool hasSlots = _tab == "INVENTARIO" || _tab == "EQUIPAMIENTO";
+            if (_inventoryGrid != null) _inventoryGrid.SetActive(hasSlots);
+            if (_portraitCard != null) _portraitCard.SetActive(_tab == "PERSONAJE");
+            body.gameObject.SetActive(!hasSlots && _tab != "PERSONAJE");
+            if (_subtitle != null)
+                _subtitle.text = _tab == "PERSONAJE" ? "HUNTER UNIVERSAL  /  PERFIL" :
+                    _tab == "INVENTARIO" ? "24 RANURAS  /  INSPECCIONÁ Y EQUIPÁ" :
+                    _tab == "EQUIPAMIENTO" ? "SIN CLASES  /  EQUIPO Y APARIENCIAS" :
+                    _tab == "MISIONES" ? "GREMIO  /  HISTORIAL DE AVENTURAS" :
+                    "VIDA REAL  /  PRÓXIMA INTEGRACIÓN";
+
             if (_slots != null)
-            {
                 for (int i = 0; i < _slots.Length; i++)
                     if (_slots[i] != null)
                         _slots[i].Present(progress.GetItemIdAtSlot(i),
                             progress.GetStackCountAtSlot(i));
-            }
+
             if (_gridReadout != null)
             {
                 HighflyW2Progress.Item selected =
                     HighflyW2Progress.FindItem(_selectedItemId);
-                _gridReadout.text = "MOCHILA · 24 RANURAS\n" +
-                    "ORO " + progress.Gold +
-                    "\n\nTOCÁ UNA RANURA\npara revisar/equipar\n\n" +
-                    (string.IsNullOrEmpty(selected.Id) ? "" : selected.Name) +
-                    "\n\nARMA: " + (string.IsNullOrEmpty(progress.Weapon) ?
-                        "Ninguna" : HighflyW2Progress.FindItem(progress.Weapon).Name) +
-                    "\nARMADURA: " + (string.IsNullOrEmpty(progress.Armor) ?
-                        "Ninguna" : HighflyW2Progress.FindItem(progress.Armor).Name) +
-                    "\nSTR +" + progress.StrengthBonus +
-                    " · VIT +" + progress.VitalityBonus;
+                _gridReadout.text = !string.IsNullOrEmpty(selected.Id)
+                    ? selected.Name.ToUpperInvariant() +
+                      "\n\nTIPO   " + selected.Category.ToUpperInvariant() +
+                      "\nCANTIDAD   " + progress.Count(selected.Id) +
+                      "\n\nFUERZA   +" + selected.Strength +
+                      "\nVITALIDAD   +" + selected.Vitality +
+                      "\n\n" + (selected.Category == "arma"
+                        ? "Se muestra en la mano del Hunter."
+                        : selected.Category == "armadura"
+                        ? "Solo estadísticas: la skin no cambia."
+                        : "Material recolectado para crafting.") +
+                      "\n\nEQUIPÁ DESDE ESTA FICHA"
+                    : "SELECCIONÁ UN OBJETO\n\nTocá uno de los slots de la mochila." +
+                      "\n\nORO  " + progress.Gold +
+                      "\n\nARMA   " + (string.IsNullOrEmpty(progress.Weapon)
+                          ? "Ninguna" : HighflyW2Progress.FindItem(progress.Weapon).Name) +
+                      "\n\nARMADURA   " + (string.IsNullOrEmpty(progress.Armor)
+                          ? "Ninguna" : HighflyW2Progress.FindItem(progress.Armor).Name);
             }
-            if (_tab == "INVENTARIO")
-                body.text = "MOCHILA\n\n" + progress.InventoryText() +
-                    "\nOro: " + progress.Gold + "\n\nEl loot se recoge con USAR.";
-            else if (_tab == "EQUIPAMIENTO")
-                body.text = "ARMA: " + (string.IsNullOrEmpty(progress.Weapon)
-                    ? "Ninguna" : HighflyW2Progress.FindItem(progress.Weapon).Name) +
-                    "\nBonificación STR: +" + progress.StrengthBonus +
-                    "\n\nARMADURA: " + (string.IsNullOrEmpty(progress.Armor)
-                    ? "Ninguna" : HighflyW2Progress.FindItem(progress.Armor).Name) +
-                    "\nBonificación VIT: +" + progress.VitalityBonus +
-                    "\n\nLas armaduras modifican atributos, NO la apariencia. " +
-                    "Las armas equipadas se muestran en Quaternius.";
-            else if (_tab == "MISIONES")
-                body.text = "GREMIO · CONTRATOS\n\n" + progress.QuestText +
-                    "\n\nRecompensa: 75 oro, 80 XP, Armadura de Recluta.";
+
+            if (_tab == "MISIONES")
+                body.text = "01   /   EL PRIMER CONTRATO\n\n" + progress.QuestText +
+                    "\n\nOBJETIVO   ·   2 ESQUELETOS\nRECOMPENSA   ·   75 ORO" +
+                    "\nEXPERIENCIA   ·   80 XP\nEQUIPO   ·   ARMADURA DE RECLUTA";
             else if (_tab == "ENTRENAMIENTO")
-                body.text = "TRAINING CORE\n\nSTR / AGI / VIT / PER / INT" +
-                    "\n\nEl entrenamiento real se integrará en W2 siguiente etapa. " +
-                    "No inventamos puntos ni ejercicios completados.";
+                body.text = "TRAINING CORE\n\nSTR   /   AGI   /   VIT   /   PER   /   INT" +
+                    "\n\nPróxima integración: entrenamiento real, métricas y medallas." +
+                    "\n\nNo simulamos entrenamientos ni estadísticas inexistentes.";
             else
-                body.text = "HUNTER UNIVERSAL · SIN CLASES\n\nNivel: " +
-                    progress.Level + "/20\nXP: " + progress.Experience +
-                    "\nOro: " + progress.Gold +
-                    "\nBonus STR: +" + progress.StrengthBonus +
-                    " · VIT: +" + progress.VitalityBonus +
-                    "\n\nSkin: " + (appearance != null ? appearance.CurrentAppearance : "Quaternius") +
-                    "\n\nElegí tu apariencia libremente: no cambia el equipo ni tus atributos.";
+                body.text = "";
         }
 
-        private void SetFooter(string text)
+        private void SetFooter(string message)
         {
-            if (footer != null) footer.text = text;
+            if (footer != null) footer.text = message;
         }
     }
 }
