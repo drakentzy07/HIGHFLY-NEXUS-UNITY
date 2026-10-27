@@ -178,6 +178,21 @@ namespace Highfly.World
             return 0;
         }
 
+        public string GetItemIdAtSlot(int index)
+        {
+            if (_data == null || _data.items == null ||
+                index < 0 || index >= _data.items.Count) return "";
+            Stack stack = _data.items[index];
+            return stack.count > 0 ? stack.id : "";
+        }
+
+        public int GetStackCountAtSlot(int index)
+        {
+            if (_data == null || _data.items == null ||
+                index < 0 || index >= _data.items.Count) return 0;
+            return Mathf.Max(0, _data.items[index].count);
+        }
+
         public string InventoryText()
         {
             if (_data == null || _data.items == null) return "Inventario no disponible";
