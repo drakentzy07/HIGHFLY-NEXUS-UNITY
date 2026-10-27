@@ -60,14 +60,17 @@ namespace Highfly.Editor
             if (swordSource == null)
                 throw new InvalidOperationException(
                     "W2 requires licensed KayKit CC0 sword visual to equip.");
+            Material steelMaterial = CreateW2BladeMaterial();
             List<GameObject> variants = new List<GameObject>();
             List<Animator> animators = new List<Animator>();
             foreach (string path in paths)
             {
                 string name = Path.GetFileNameWithoutExtension(path).ToLowerInvariant();
-                if (!name.Contains("regular") && !name.Contains("knight") &&
-                    !name.Contains("wizard") && !name.Contains("rogue") &&
-                    !name.Contains("warrior") && !name.Contains("superhero")) continue;
+                // W2-C: do not offer the unarmored "Regular" and
+                // "Superhero" base meshes as player outfits. They made the
+                // Hunter appear undressed in W2-B.
+                if (!name.Contains("knight") && !name.Contains("wizard") &&
+                    !name.Contains("rogue") && !name.Contains("warrior")) continue;
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 if (prefab == null) continue;
                 GameObject visual = PrefabUtility.InstantiatePrefab(prefab, player.transform) as GameObject;
@@ -102,7 +105,23 @@ namespace Highfly.Editor
                 sword.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
                 foreach (Collider coll in sword.GetComponentsInChildren<Collider>(true))
                     coll.enabled = false;
+                foreach (TrailRenderer oldTrail in sword.GetComponentsInChildren<TrailRenderer>(true))
+                    UnityEngine.Object.DestroyImmediate(oldTrail, true);
+                foreach (LineRenderer oldLine in sword.GetComponentsInChildren<LineRenderer>(true))
+                    UnityEngine.Object.DestroyImmediate(oldLine, true);
                 Renderer[] swordRenderers = sword.GetComponentsInChildren<Renderer>(true);
+                foreach (Renderer swordRenderer in swordRenderers)
+                {
+                    // Some KayKit FBX imports lose embedded material bindings
+                    // on the native WebGL host. Supply a stable lit steel
+                    // material asset instead of exposing a white raw mesh.
+                    if (swordRenderer is SkinnedMeshRenderer)
+                        continue;
+                    Material[] materials = swordRenderer.sharedMaterials;
+                    for (int m = 0; m < materials.Length; m++)
+                        materials[m] = steelMaterial;
+                    swordRenderer.sharedMaterials = materials;
+                }
                 if (swordRenderers.Length > 0)
                 {
                     Bounds weaponBounds = swordRenderers[0].bounds;
@@ -160,7 +179,7 @@ namespace Highfly.Editor
             {
                 v.GetArrayElementAtIndex(i).objectReferenceValue = variants[i];
                 a.GetArrayElementAtIndex(i).objectReferenceValue = animators[i];
-                variants[i].SetActive(i == 0);
+                variants[i].SetActive(i == Mathf.Max(0, starterLook));
             }
             so.FindProperty("motor").objectReferenceValue =
                 player.GetComponent<HighflyThirdPersonMotor>();
@@ -174,6 +193,32 @@ namespace Highfly.Editor
             AddAppearanceButton(player, appearance);
             Debug.Log("HIGHFLY Quaternius ready: " + variants.Count +
                 " switchable hero/outfit presets, FURY rig linked");
+        }
+
+        private static Material CreateW2BladeMaterial()
+        {
+            const string materialsDir = "Assets/Highfly/Generated/Materials";
+            const string path = materialsDir + "/W2C_Equipped_Sword_Steel.mat";
+            if (!Directory.Exists(materialsDir))
+                Directory.CreateDirectory(materialsDir);
+            Material existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null) return existing;
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Simple Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            if (shader == null) throw new InvalidOperationException(
+                "W2-C cannot build licensed steel sword material: no URP shader.");
+            Material mat = new Material(shader);
+            mat.name = "HIGHFLY W2C - Frost Steel";
+            Color steel = new Color(.29f, .43f, .55f, 1f);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", steel);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", steel);
+            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", .72f);
+            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", .65f);
+            if (mat.HasProperty("_SpecColor")) mat.SetColor("_SpecColor",
+                new Color(.64f,.78f,.92f,1f));
+            AssetDatabase.CreateAsset(mat, path);
+            return mat;
         }
 
         private static void PrepareHumanoidImports()
