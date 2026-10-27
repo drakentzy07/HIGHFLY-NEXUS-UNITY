@@ -19,7 +19,34 @@ namespace Highfly.World
         [SerializeField] private HighflyCombatController legacyCombat;
         [SerializeField] private int initialVariant;
 
+        [Header("Visual-only rig forward alignment")]
+        [SerializeField] private float visualYawOffset = 90f;
         private int _current = -1;
+        public int VisualYawOffset => Mathf.RoundToInt(visualYawOffset);
+        public event Action<int> FacingOffsetChanged;
+
+        public void SetVisualYawOffset(int degrees)
+        {
+            visualYawOffset = Mathf.Repeat(degrees, 360f);
+            ApplyRigFacing();
+            FacingOffsetChanged?.Invoke(VisualYawOffset);
+        }
+
+        public void RotateRigFacing()
+        {
+            SetVisualYawOffset((VisualYawOffset + 90) % 360);
+        }
+
+        private void ApplyRigFacing()
+        {
+            if (variants == null) return;
+            for (int i = 0; i < variants.Length; i++)
+            {
+                if (variants[i] == null) continue;
+                variants[i].transform.localRotation =
+                    Quaternion.Euler(0f, visualYawOffset, 0f);
+            }
+        }
         public event Action<int> AppearanceChanged;
         public int CurrentIndex => _current;
         public int VariantCount => variants != null ? variants.Length : 0;
@@ -54,6 +81,7 @@ namespace Highfly.World
                 if (variants[i] != null) variants[i].SetActive(i == index);
             }
             _current = index;
+            ApplyRigFacing();
             if (motor != null) motor.BindVisual(selected);
             if (combat != null) combat.BindAnimator(selected);
             if (legacyCombat != null) legacyCombat.BindAnimator(selected);
