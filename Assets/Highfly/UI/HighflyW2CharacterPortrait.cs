@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using Highfly.World;
+using Highfly.Core;
 
 namespace Highfly.UI
 {
@@ -18,6 +19,7 @@ namespace Highfly.UI
         private Camera _portraitCamera;
         private RenderTexture _texture;
         private GameObject _standIn;
+        private string _lastWeapon = "";
         private const int PortraitLayer = 29;
         private readonly Vector3 _stage = new Vector3(0f, -1000f, 0f);
 
@@ -66,7 +68,12 @@ namespace Highfly.UI
         }
 
         private void OnLook(int _) { BuildPreview(); }
-        private void OnProgress() { BuildPreview(); }
+        private void OnProgress()
+        {
+            // Gold, XP and quest saves must NOT recreate the render clone.
+            string equipped = progress != null ? progress.Weapon : "";
+            if (equipped != _lastWeapon) BuildPreview();
+        }
 
         private void BuildPreview()
         {
@@ -75,6 +82,7 @@ namespace Highfly.UI
             Transform source = appearance.CurrentVisualRoot;
             if (source == null) return;
             if (_standIn != null) Destroy(_standIn);
+            _lastWeapon = progress != null ? progress.Weapon : "";
             _standIn = Instantiate(source.gameObject);
             _standIn.name = "W2C_3D_Portrait_Clothed_Hunter";
             _standIn.transform.position = _stage;
