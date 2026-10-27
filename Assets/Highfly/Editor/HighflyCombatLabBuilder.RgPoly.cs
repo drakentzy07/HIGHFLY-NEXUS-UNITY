@@ -137,7 +137,7 @@ namespace Highfly.Editor
             HighflyGuinevereWorldInstaller.Install(player, canvas, camera);
             // W2 RPG systems are extensions of the GREEN FURY Hunter, never
             // an alternative motor, combat driver or camera.
-            HighflyWorldW2Installer.Install(player, canvas);
+            HighflyW2CPremiumInstaller.Install(player, canvas);
 
             // Enemies belong OUTSIDE the walled capital. Use the audited
             // FOREST activity zone (x=-60, z=22), never the city spawn.
