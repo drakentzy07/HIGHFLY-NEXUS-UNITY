@@ -8,6 +8,7 @@ on:
       - review/nexus-fury-s23-movement-input-20261026
       - fix/fury-webgl-new-input-stop-freeze-20261026
       - feature/highfly-world-w2-rpg-loop-20261026
+      - feature/highfly-world-w2b-premium-hud-controls-serin-20261026
     paths:
       - "Assets/Highfly/**"
       - "ci/world/**"
