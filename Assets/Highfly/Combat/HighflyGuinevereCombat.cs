@@ -76,7 +76,7 @@ namespace Highfly.Combat
         private int _bufferedSkill;
         private Vector3 _bufferedDirection;
         private float _bufferedSkillUntil;
-        [SerializeField] private float skillInputBufferSeconds = .30f;
+        [SerializeField] private float skillInputBufferSeconds = .82f;
 
         public void BindAnimator(Animator value)
         {
