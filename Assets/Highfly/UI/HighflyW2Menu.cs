@@ -14,6 +14,10 @@ namespace Highfly.UI
         [SerializeField] private Text body;
         [SerializeField] private Text footer;
         private string _tab = "PERSONAJE";
+        private HighflyW2ItemSlot[] _slots;
+        private GameObject _inventoryGrid;
+        private Text _gridReadout;
+        private string _selectedItemId = "";
 
         public void Configure(HighflyW2Progress state, HighflyHunterAppearance look,
             GameObject mainPanel, Text heading, Text detail, Text status)
@@ -29,6 +33,46 @@ namespace Highfly.UI
             footer = status;
             if (panel != null) panel.SetActive(false);
             Refresh();
+        }
+
+        public void ConfigureSlots(HighflyW2ItemSlot[] slots,
+            GameObject inventoryGrid, Text gridReadout)
+        {
+            _slots = slots;
+            _inventoryGrid = inventoryGrid;
+            _gridReadout = gridReadout;
+            Refresh();
+        }
+
+        public void SelectItem(int index)
+        {
+            if (progress == null) return;
+            string id = progress.GetItemIdAtSlot(index);
+            if (string.IsNullOrEmpty(id))
+            {
+                SetFooter("Ranura vacía.");
+                return;
+            }
+            _selectedItemId = id;
+            HighflyW2Progress.Item item = HighflyW2Progress.FindItem(id);
+            if (item.Category == "arma" || item.Category == "armadura")
+            {
+                if (progress.Equip(id))
+                    SetFooter("EQUIPADO · " + item.Name +
+                        (item.Category == "arma" ? " · +STR · arma visible" :
+                            " · +VIT · la skin no cambia"));
+            }
+            else SetFooter(item.Name + " · material x" + progress.Count(id));
+            Refresh();
+        }
+
+        public void RotateFacing()
+        {
+            if (appearance == null) return;
+            appearance.RotateRigFacing();
+            Personaje();
+            SetFooter("Corrección de orientación: " +
+                appearance.VisualYawOffset + "°. Probá correr hacia adelante.");
         }
 
         private void OnEnable()
@@ -110,6 +154,31 @@ namespace Highfly.UI
         {
             if (progress == null || title == null || body == null) return;
             title.text = "HIGHFLY · " + _tab;
+            bool grid = _tab == "INVENTARIO" || _tab == "EQUIPAMIENTO";
+            if (_inventoryGrid != null) _inventoryGrid.SetActive(grid);
+            body.gameObject.SetActive(!grid);
+            if (_slots != null)
+            {
+                for (int i = 0; i < _slots.Length; i++)
+                    if (_slots[i] != null)
+                        _slots[i].Present(progress.GetItemIdAtSlot(i),
+                            progress.GetStackCountAtSlot(i));
+            }
+            if (_gridReadout != null)
+            {
+                HighflyW2Progress.Item selected =
+                    HighflyW2Progress.FindItem(_selectedItemId);
+                _gridReadout.text = "MOCHILA · 24 RANURAS\n" +
+                    "ORO " + progress.Gold +
+                    "\n\nTOCÁ UNA RANURA\npara revisar/equipar\n\n" +
+                    (string.IsNullOrEmpty(selected.Id) ? "" : selected.Name) +
+                    "\n\nARMA: " + (string.IsNullOrEmpty(progress.Weapon) ?
+                        "Ninguna" : HighflyW2Progress.FindItem(progress.Weapon).Name) +
+                    "\nARMADURA: " + (string.IsNullOrEmpty(progress.Armor) ?
+                        "Ninguna" : HighflyW2Progress.FindItem(progress.Armor).Name) +
+                    "\nSTR +" + progress.StrengthBonus +
+                    " · VIT +" + progress.VitalityBonus;
+            }
             if (_tab == "INVENTARIO")
                 body.text = "MOCHILA\n\n" + progress.InventoryText() +
                     "\nOro: " + progress.Gold + "\n\nEl loot se recoge con USAR.";

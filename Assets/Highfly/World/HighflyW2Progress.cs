@@ -28,6 +28,7 @@ namespace Highfly.World
             public int questStage; // 0 available, 1 accepted, 2 turned in
             public int skeletonsKilled;
             public int look = -1;
+            public int visualYaw = 90;
             public string weapon = "";
             public string armor = "";
             public List<Stack> items = new List<Stack>();
@@ -94,9 +95,11 @@ namespace Highfly.World
             yield return null;
             if (_appearance != null)
             {
+                _appearance.SetVisualYawOffset(_data.visualYaw);
                 if (_data.look >= 0 && _data.look < _appearance.VariantCount)
                     _appearance.SetAppearance(_data.look);
                 _appearance.AppearanceChanged += OnLookChanged;
+                _appearance.FacingOffsetChanged += OnFacingChanged;
             }
             RefreshWeapon();
             Changed?.Invoke();
@@ -105,7 +108,16 @@ namespace Highfly.World
         private void OnDestroy()
         {
             if (_appearance != null)
+            {
                 _appearance.AppearanceChanged -= OnLookChanged;
+                _appearance.FacingOffsetChanged -= OnFacingChanged;
+            }
+        }
+
+        private void OnFacingChanged(int degrees)
+        {
+            _data.visualYaw = degrees;
+            Save();
         }
 
         private void OnLookChanged(int index)
@@ -124,7 +136,14 @@ namespace Highfly.World
                 {
                     SaveData saved = JsonUtility.FromJson<SaveData>(json);
                     if (saved != null && saved.version == 1)
+                    {
+                        // Existing W2 saves did not include a visual yaw field.
+                        // Keep ALL inventory/quest/gold data and add the new
+                        // default alignment only for those older saves.
+                        if (!json.Contains(nameof(SaveData.visualYaw)))
+                            saved.visualYaw = 90;
                         _data = saved;
+                    }
                 }
                 catch (Exception e)
                 {
@@ -164,6 +183,21 @@ namespace Highfly.World
             foreach (Stack item in _data.items)
                 if (item.id == itemId) return item.count;
             return 0;
+        }
+
+        public string GetItemIdAtSlot(int index)
+        {
+            if (_data == null || _data.items == null ||
+                index < 0 || index >= _data.items.Count) return "";
+            Stack stack = _data.items[index];
+            return stack.count > 0 ? stack.id : "";
+        }
+
+        public int GetStackCountAtSlot(int index)
+        {
+            if (_data == null || _data.items == null ||
+                index < 0 || index >= _data.items.Count) return 0;
+            return Mathf.Max(0, _data.items[index].count);
         }
 
         public string InventoryText()

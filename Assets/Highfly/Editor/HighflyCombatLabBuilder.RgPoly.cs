@@ -27,6 +27,19 @@ namespace Highfly.Editor
         private static readonly Vector3 RgPolySpawn =
             new Vector3(0f, 13.35f, -42f);
 
+        private static Vector3 FindW2AccessibleSerinSpawn(Vector3 preferred)
+        {
+            // Snap nearby to the actual collidable ground instead of relying on
+            // the old Demo Stylized Medieval source scene's hardcoded 13.35 Y.
+            RaycastHit hit;
+            Vector3 origin = preferred + Vector3.up * 14f;
+            if (Physics.Raycast(origin, Vector3.down, out hit, 35f, ~0,
+                QueryTriggerInteraction.Ignore) &&
+                hit.normal.y >= .55f)
+                return hit.point + Vector3.up * .03f;
+            return preferred; // explicit fallback; compass still tracks Serin.
+        }
+
         private static bool CanBuildRgPolyWorld()
         {
             return File.Exists(RgPolySourceScene) &&
@@ -116,6 +129,9 @@ namespace Highfly.Editor
 
             SetObjectReference(cameraRig, "lookArea", lookArea);
             SetObjectReference(cameraRig, "targeting", targeting);
+            // Auto-target must NEVER seize the free camera in W2 mobile.
+            // Soft enemy selection still happens in HighflyTargetingSystem.
+            SetBool(cameraRig, "targetAssist", false);
 
             CleanRgPolyWorldHud(canvas);
             HighflyGuinevereWorldInstaller.Install(player, canvas, camera);
@@ -140,7 +156,7 @@ namespace Highfly.Editor
             // next to the Hunter's initial city entry point.
             CreateCityNpc("Serin_W2",
                 AdventurerRoot + "/Characters/fbx/Knight.fbx",
-                RgPolySpawn + new Vector3(4.8f, 0f, 4.4f),
+                FindW2AccessibleSerinSpawn(RgPolySpawn + new Vector3(3.4f, 0f, 4.7f)),
                 marker.transform, null);
             if (GameObject.Find("Serin_W2") == null)
                 throw new Exception("W2 Serin quest giver missing.");

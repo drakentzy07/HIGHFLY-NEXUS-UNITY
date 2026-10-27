@@ -34,7 +34,7 @@ namespace Highfly.World
                 if (progress != null)
                 {
                     controller.ShowDialogue(displayName,
-                        dialogue + "\\n\\n" + progress.TalkToSerin());
+                        dialogue + "\n\n" + progress.TalkToSerin());
                     return;
                 }
             }
