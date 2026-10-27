@@ -28,6 +28,7 @@ namespace Highfly.World
             public int questStage; // 0 available, 1 accepted, 2 turned in
             public int skeletonsKilled;
             public int look = -1;
+            public int visualYaw = 90;
             public string weapon = "";
             public string armor = "";
             public List<Stack> items = new List<Stack>();
@@ -94,9 +95,11 @@ namespace Highfly.World
             yield return null;
             if (_appearance != null)
             {
+                _appearance.SetVisualYawOffset(_data.visualYaw);
                 if (_data.look >= 0 && _data.look < _appearance.VariantCount)
                     _appearance.SetAppearance(_data.look);
                 _appearance.AppearanceChanged += OnLookChanged;
+                _appearance.FacingOffsetChanged += OnFacingChanged;
             }
             RefreshWeapon();
             Changed?.Invoke();
@@ -105,7 +108,16 @@ namespace Highfly.World
         private void OnDestroy()
         {
             if (_appearance != null)
+            {
                 _appearance.AppearanceChanged -= OnLookChanged;
+                _appearance.FacingOffsetChanged -= OnFacingChanged;
+            }
+        }
+
+        private void OnFacingChanged(int degrees)
+        {
+            _data.visualYaw = degrees;
+            Save();
         }
 
         private void OnLookChanged(int index)
