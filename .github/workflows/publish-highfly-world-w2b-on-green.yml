@@ -21,7 +21,7 @@ concurrency:
 jobs:
   publish_beta:
     name: Preserve CITY01 and all FURY and W2 previews while adding W2-B GREEN
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/highfly-world-w2b-premium-hud-controls-serin-20261026' && github.event.workflow_run.head_sha == '220798518c5f6bfadc0d97a9ce72dcd61e4834e2' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/highfly-world-w2b-premium-hud-controls-serin-20261026' && github.event.workflow_run.head_sha == '14a56f154fe587b28523178dbd964faafe161fd8' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
