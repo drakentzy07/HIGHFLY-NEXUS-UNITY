@@ -49,6 +49,9 @@ namespace Highfly.World
         }
         public event Action<int> AppearanceChanged;
         public int CurrentIndex => _current;
+        public Transform CurrentVisualRoot =>
+            variants != null && _current >= 0 && _current < variants.Length &&
+            variants[_current] != null ? variants[_current].transform : null;
         public int VariantCount => variants != null ? variants.Length : 0;
         public string CurrentAppearance => _current >= 0 && _current < VariantCount &&
             variants[_current] != null ? variants[_current].name : "KayKit";
