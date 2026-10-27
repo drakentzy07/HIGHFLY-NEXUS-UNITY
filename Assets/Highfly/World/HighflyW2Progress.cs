@@ -140,7 +140,7 @@ namespace Highfly.World
                         // Existing W2 saves did not include a visual yaw field.
                         // Keep ALL inventory/quest/gold data and add the new
                         // default alignment only for those older saves.
-                        if (!json.Contains("\\"visualYaw\\""))
+                        if (!json.Contains(nameof(SaveData.visualYaw)))
                             saved.visualYaw = 90;
                         _data = saved;
                     }
