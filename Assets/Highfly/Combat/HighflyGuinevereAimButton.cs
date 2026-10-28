@@ -31,6 +31,29 @@ namespace Highfly.Combat
         private Vector3 _direction;
         private LineRenderer _preview;
         private Material _previewMaterial;
+        private float _lastDragTime;
+
+        private void Update()
+        {
+            // On some Android fullscreen/pointer transitions Unity never
+            // delivers PointerUp; prevent permanent pink "residual sword".
+            if (_preview != null && Time.unscaledTime - _lastDragTime > 4f)
+            {
+                _dragging = false;
+                if (_activeAim == this) _activeAim = null;
+                Cleanup();
+            }
+        }
+
+        private void OnApplicationFocus(bool focused)
+        {
+            if (!focused) Cleanup();
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused) Cleanup();
+        }
 
         public void Configure(HighflyGuinevereCombat controller, Camera camera, int slot, float range)
         {
@@ -73,6 +96,7 @@ namespace Highfly.Combat
         private void RefreshAim(Vector2 screenPoint)
         {
             if (_cancelled || guinevere == null) return;
+            _lastDragTime = Time.unscaledTime;
             Vector2 delta = screenPoint - _start;
             if (delta.sqrMagnitude < 16f) return;
             Camera cam = aimCamera != null ? aimCamera : Camera.main;
@@ -89,10 +113,10 @@ namespace Highfly.Combat
                 GameObject line = new GameObject("Guinevere_Aim_Preview");
                 _preview = line.AddComponent<LineRenderer>();
                 _preview.positionCount = 2;
-                _preview.startWidth = .13f;
-                _preview.endWidth = .025f;
-                _preview.startColor = new Color(.96f, .57f, 1f, .85f);
-                _preview.endColor = new Color(.62f, .40f, 1f, .45f);
+                _preview.startWidth = .07f;
+                _preview.endWidth = .018f;
+                _preview.startColor = new Color(.30f, .90f, 1f, .66f);
+                _preview.endColor = new Color(.30f, .65f, 1f, .20f);
                 Shader shader = Shader.Find("Sprites/Default");
                 if (shader != null)
                 {

@@ -107,14 +107,27 @@ namespace Highfly.Editor
                     Button b=MakeButton(grid.transform,"W2_SLOT_"+index,"",
                         new Vector2(.5f,.5f),at,new Vector2(210f,180f),
                         new Color(.10f,.16f,.25f,.94f));
-                    Text glyph=MakeText(b.transform,"Glyph",new Vector2(0f,9f),
-                        new Vector2(198f,100f),29,"+");
-                    glyph.fontStyle=FontStyle.Bold;
+                    // Legacy W2-B fallback still has to compile even when
+                    // the new W2-C premium installer owns the active scene.
+                    GameObject iconGo=new GameObject("W2C_Compatible_Icon",
+                        typeof(RectTransform),typeof(CanvasRenderer),typeof(Image));
+                    iconGo.transform.SetParent(b.transform,false);
+                    RectTransform iconRect=iconGo.GetComponent<RectTransform>();
+                    iconRect.anchorMin=new Vector2(.16f,.16f);
+                    iconRect.anchorMax=new Vector2(.84f,.84f);
+                    iconRect.offsetMin=iconRect.offsetMax=Vector2.zero;
+                    Image icon=iconGo.GetComponent<Image>();
+                    icon.raycastTarget=false;
+                    icon.preserveAspect=true;
                     Text count=MakeText(b.transform,"Quantity",
                         new Vector2(66f,-65f),new Vector2(90f,45f),23,"");
                     count.color=Gold;
                     HighflyW2ItemSlot slot=b.gameObject.AddComponent<HighflyW2ItemSlot>();
-                    slot.Configure(index,menu,b.GetComponent<Image>(),glyph,count);
+                    slot.Configure(index,menu,b.GetComponent<Image>(),icon,count,
+                        HighflyW2CIconArt.Get("sword"),
+                        HighflyW2CIconArt.Get("armor"),
+                        HighflyW2CIconArt.Get("bone"),
+                        HighflyW2CIconArt.Get("hide"));
                     UnityEventTools.AddPersistentListener(b.onClick,slot.Click);
                     slots[index]=slot;
                 }
