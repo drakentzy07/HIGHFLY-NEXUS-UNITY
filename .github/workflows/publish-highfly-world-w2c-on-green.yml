@@ -21,7 +21,7 @@ concurrency:
 jobs:
   publish_beta:
     name: Preserve CITY01 and all previews while adding W2-C GREEN
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/highfly-w2c-presentation-premium-20261027' && github.event.workflow_run.head_sha == 'c37b494ad43765a30f62e4fa42ae37004d4b5a0f' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/highfly-w2c-presentation-premium-20261027' && github.event.workflow_run.head_sha == '5e80caef824b2287e65df27ded1b350bc2ced6b0' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
