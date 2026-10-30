@@ -31,6 +31,7 @@ namespace Highfly.Core
         public Vector3 LastMoveDirection { get; private set; } = Vector3.forward;
         public bool IsMoving { get; private set; }
         public bool IsDashing => _isDashing;
+        public bool ExternalMovementLock { get; set; }
 
         private void Awake()
         {
@@ -44,10 +45,10 @@ namespace Highfly.Core
             if (_isDashing)
                 return;
 
-            Vector2 input = movementJoystick != null ? movementJoystick.Value : Vector2.zero;
+            Vector2 input = ExternalMovementLock ? Vector2.zero : (movementJoystick != null ? movementJoystick.Value : Vector2.zero);
 
 #if UNITY_EDITOR || UNITY_STANDALONE
-            if (input.sqrMagnitude < 0.001f)
+            if (!ExternalMovementLock && input.sqrMagnitude < 0.001f)
                 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 #endif
 
@@ -64,6 +65,7 @@ namespace Highfly.Core
 
             float targetSpeed = moveSpeed * input.magnitude;
             Vector3 desiredVelocity = desiredDirection.normalized * targetSpeed;
+            if (ExternalMovementLock) _planarVelocity = Vector3.zero;
             _planarVelocity = Vector3.MoveTowards(_planarVelocity, desiredVelocity, acceleration * Time.deltaTime);
 
             if (_controller.isGrounded && _verticalVelocity < 0f)

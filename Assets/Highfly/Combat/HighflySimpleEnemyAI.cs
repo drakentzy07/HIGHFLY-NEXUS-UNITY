@@ -15,6 +15,15 @@ namespace Highfly.Combat
         [SerializeField] private float attackDamage = 8f;
         [SerializeField] private float attackInterval = 1.25f;
         [SerializeField] private float turnSpeed = 10f;
+        [Header("Violet crowd control")]
+        [SerializeField] private bool boss;
+        [SerializeField] private float maxPoise = 100f;
+
+        private float _slowUntil;
+        private float _slowFactor = 1f;
+        private float _airborneUntil;
+        private float _poise;
+        public bool IsBoss => boss;
 
         private CharacterController _controller;
         private float _nextAttackTime;
@@ -26,6 +35,7 @@ namespace Highfly.Combat
                 selfHealth = GetComponent<HighflyHealth>();
             if (animator == null)
                 animator = GetComponentInChildren<Animator>();
+            _poise = Mathf.Max(1f, maxPoise);
         }
 
         private void Start()
@@ -49,6 +59,12 @@ namespace Highfly.Combat
                 return;
             }
 
+            if (Time.time < _airborneUntil)
+            {
+                SetMoveAnimation(0f);
+                return;
+            }
+
             Vector3 toTarget = target.position - transform.position;
             toTarget.y = 0f;
             float distance = toTarget.magnitude;
@@ -66,7 +82,7 @@ namespace Highfly.Combat
             if (distance > attackRange)
             {
                 SetMoveAnimation(1f);
-                _controller.SimpleMove(direction * moveSpeed);
+                _controller.SimpleMove(direction * moveSpeed * (Time.time < _slowUntil ? _slowFactor : 1f));
                 return;
             }
 
@@ -82,6 +98,28 @@ namespace Highfly.Combat
                 if (targetHealth != null && targetHealth.IsAlive)
                     targetHealth.ApplyDamage(attackDamage);
             }
+        }
+
+        public void ApplySlow(float multiplier, float seconds)
+        {
+            if (boss) return; // Bosses resist ordinary slows.
+            _slowFactor = Mathf.Clamp(multiplier, .15f, 1f);
+            _slowUntil = Mathf.Max(_slowUntil, Time.time + Mathf.Max(0f, seconds));
+        }
+
+        public void ApplyAirborne(float seconds)
+        {
+            if (boss)
+            {
+                _poise -= 42f;
+                if (_poise <= 0f)
+                {
+                    _poise = Mathf.Max(1f, maxPoise);
+                    _airborneUntil = Mathf.Max(_airborneUntil, Time.time + .35f);
+                }
+                return;
+            }
+            _airborneUntil = Mathf.Max(_airborneUntil, Time.time + Mathf.Max(0f, seconds));
         }
 
         public void SetTarget(Transform targetTransform, HighflyHealth health)
