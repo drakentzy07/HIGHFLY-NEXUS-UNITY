@@ -23,6 +23,7 @@ namespace Highfly.SkillsLab
         [SerializeField] private LayerMask enemies = 1 << 8;
         [SerializeField] private float inputBufferSeconds = .18f;
         private readonly Collider[] _colliders = new Collider[96];
+        private readonly RaycastHit[] _projectileHits = new RaycastHit[32];
         private readonly HashSet<HighflyHealth> _unique = new HashSet<HighflyHealth>();
         private readonly Dictionary<HighflyHealth, float> _fracture = new Dictionary<HighflyHealth, float>();
         private readonly float[,] _readyAt = new float[3, 3];
@@ -162,17 +163,34 @@ namespace Highfly.SkillsLab
             while (traveled < 16f)
             {
                 float step = Mathf.Min(28f * Time.deltaTime, 16f - traveled);
-                RaycastHit hit;
-                if (Physics.SphereCast(previous, .4f, direction, out hit, step, ~0, QueryTriggerInteraction.Ignore)
-                    && hit.collider != null && !hit.collider.transform.IsChildOf(transform))
+                // NonAlloc preserves the original FURY projectile contract:
+                // ignore player colliders, but take the NEAREST world blocker.
+                int count = Physics.SphereCastNonAlloc(previous, .4f, direction,
+                    _projectileHits, step, ~0, QueryTriggerInteraction.Ignore);
+                float nearest = float.PositiveInfinity;
+                RaycastHit impact = default(RaycastHit);
+                bool blocked = false;
+                for (int i = 0; i < count; i++)
                 {
-                    HighflyHealth target = hit.collider.GetComponentInParent<HighflyHealth>();
+                    RaycastHit candidate = _projectileHits[i];
+                    if (candidate.collider == null ||
+                        candidate.collider.transform.IsChildOf(transform)) continue;
+                    if (candidate.distance < nearest)
+                    {
+                        nearest = candidate.distance;
+                        impact = candidate;
+                        blocked = true;
+                    }
+                }
+                if (blocked)
+                {
+                    HighflyHealth target = impact.collider.GetComponentInParent<HighflyHealth>();
                     if (target != null && IsEnemy(target))
                     {
                         Damage(target, 65f);
                         HighflySimpleEnemyAI ai = target.GetComponent<HighflySimpleEnemyAI>();
                         if (ai != null) ai.ApplySlow(.72f, 1.3f);
-                        if (fx != null) fx.Impact(hit.point, 0, 1.3f);
+                        if (fx != null) fx.Impact(impact.point, 0, 1.3f);
                     }
                     break;
                 }
