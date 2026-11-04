@@ -73,10 +73,9 @@ namespace Highfly.Editor
             HighflyMobaSkillsLab lab = player.GetComponent<HighflyMobaSkillsLab>();
             if (lab == null) lab = player.AddComponent<HighflyMobaSkillsLab>();
 
-            // Disable only legacy Guinevere controls IN THE COPIED SCENE.
+            // Keep legacy Guinevere controller enabled for the existing ATK
+            // 1-2-3-4 callback. Disable ONLY its skill UI buttons in this copy.
             // FURY movement, camera, jump, joystick, dash and ATK stay intact.
-            HighflyGuinevereCombat previous = player.GetComponent<HighflyGuinevereCombat>();
-            if (previous != null) previous.enabled = false;
             Button[] existing = UnityEngine.Object.FindObjectsByType<Button>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (Button b in existing)
