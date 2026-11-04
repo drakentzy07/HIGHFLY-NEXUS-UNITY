@@ -33,7 +33,7 @@ namespace Highfly.Editor
                 Debug.LogError("MOBA P01: open a SAVED FURY + Guinevere scene first.");
                 return;
             }
-            if (EditorSceneManager.GetActiveScene().isDirty)
+            if (original.isDirty)
             {
                 Debug.LogError("MOBA P01: first save/discard edits to your SOURCE scene. Nothing was modified.");
                 return;
