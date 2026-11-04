@@ -101,7 +101,7 @@ namespace Highfly.SkillsLab
                 _recastUntil = 0f;
                 if (fx != null) fx.Recast(transform.position, dir, (int)style);
                 if (style == Style.RiftFighter)
-                    StartCoroutine(DelayedHitCone(.18f, 2.8f, 75f, 65f, 0f, true));
+                    StartCoroutine(DelayedHitCone(.18f, 2.8f, 75f, 65f, 0f, true, dir));
                 else if (style == Style.GravityGuardian)
                     StartCoroutine(DelayedHitSphere(.18f, 2.8f, 55f, 1.05f));
                 return true;
@@ -210,7 +210,7 @@ namespace Highfly.SkillsLab
                 fury.TryDash(direction, 6.3f, .27f, true, true);
                 _occupiedUntil = Time.time + .28f;
                 if (fx != null) fx.Dash(transform.position, direction, 1);
-                StartCoroutine(DelayedHitCone(.28f, 2.9f, 95f, 60f, 0f, true));
+                StartCoroutine(DelayedHitCone(.28f, 2.9f, 95f, 60f, 0f, true, direction));
             }
             if (slot == 3)
             {
@@ -254,7 +254,7 @@ namespace Highfly.SkillsLab
             if (slot == 3)
             {
                 if (_ultimate != null) StopCoroutine(_ultimate);
-                _ultimate = StartCoroutine(GravityCollapse());
+                _ultimate = StartCoroutine(GravityCollapse(direction));
             }
         }
 
@@ -270,9 +270,9 @@ namespace Highfly.SkillsLab
             if (fx != null) fx.Impact(transform.position, 2, 3.0f);
         }
 
-        private IEnumerator GravityCollapse()
+        private IEnumerator GravityCollapse(Vector3 direction)
         {
-            Vector3 center = transform.position + transform.forward * 1.0f;
+            Vector3 center = transform.position + direction * 1.0f;
             _occupiedUntil = Time.time + 1.02f;
             if (fx != null) fx.Vortex(center, 4.9f);
             // Pull is collision-aware and only affects the enemy capsule.
@@ -310,10 +310,10 @@ namespace Highfly.SkillsLab
         }
 
         private IEnumerator DelayedHitCone(float delay, float radius, float degrees,
-            float damage, float airborne, bool fracture)
+            float damage, float airborne, bool fracture, Vector3 direction)
         {
             yield return new WaitForSeconds(delay);
-            HitCone(transform.position, Aim(Vector3.zero), radius, degrees, damage, fracture);
+            HitCone(transform.position, direction, radius, degrees, damage, fracture);
             if (fx != null) fx.Impact(transform.position, 1, radius);
         }
 
